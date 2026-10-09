@@ -22,7 +22,7 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } })
 await ctx.addInitScript((s) => { if (!sessionStorage.getItem('s')) { localStorage.setItem('cbhr.v3.save', s); sessionStorage.setItem('s', '1'); } }, save);
 const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
-await page.goto('http://localhost:4173/?debug=1&nosplash=1');
+await page.goto('http://localhost:4173/?debug=1&nosplash=1&cloud=off');
 await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
 await page.addStyleTag({ content: '#debug{display:none!important}' });
 for (const id of pick) {

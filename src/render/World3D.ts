@@ -14,7 +14,7 @@ export class World3D {
   readonly env: Environment;
   readonly scenery: Scenery;
   readonly gates: Gates;
-  private readonly terrain: Mesh;
+  private readonly terrain: Group;
 
   constructor(
     private readonly scene: Scene,
@@ -40,7 +40,9 @@ export class World3D {
   applyQuality(q: QualityProfile): void {
     this.env.applyQuality(q);
     this.scenery.setQuality(q.propDensity, q.windSway);
-    this.terrain.receiveShadow = q.shadows;
+    this.terrain.traverse((o) => {
+      (o as Mesh).receiveShadow = q.shadows;
+    });
     setTerrainCoarse(this.terrain, q.terrainCoarse);
     // Shadow-receiving materials need a recompile when shadows are switched on or off.
     this.root.traverse((o) => {

@@ -196,7 +196,7 @@ export function extendLevel(level: LevelDef, st: Stretch): LevelDef {
   const nodes = ((bounds.maxX - bounds.minX) / level.terrain.cell) * ((bounds.maxZ - bounds.minZ) / level.terrain.cell);
   const cell = nodes > 80_000 ? Math.min(8, Math.ceil(level.terrain.cell * Math.sqrt(nodes / 80_000) * 2) / 2) : level.terrain.cell;
   const area = (x: { minX: number; maxX: number; minZ: number; maxZ: number }): number => (x.maxX - x.minX) * (x.maxZ - x.minZ);
-  const grow = Math.pow(area(bounds) / area(b), 0.85);
+  const grow = Math.pow(area(bounds) / area(b), 0.6);
 
   return {
     ...level,

@@ -25,7 +25,7 @@ async function session(name, done, steps) {
   await ctx.addInitScript((s) => { if (!sessionStorage.getItem('s')) { localStorage.setItem('cbhr.v3.save', s); sessionStorage.setItem('s', '1'); } }, mk(done));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
-  await page.goto('http://localhost:4173/?debug=1&nosplash=1');
+  await page.goto('http://localhost:4173/?debug=1&nosplash=1&cloud=off');
   await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
   await page.waitForSelector('#btn-start', { state: 'visible' });
   await page.waitForTimeout(1200);

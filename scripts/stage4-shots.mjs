@@ -41,7 +41,7 @@ page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
 page.on('console', (m) => {
   if (m.type() === 'error' || m.type() === 'warning') console.log('CONSOLE', m.type(), m.text().slice(0, 300));
 });
-await page.goto('http://localhost:4173/?debug=1&nosplash=1');
+await page.goto('http://localhost:4173/?debug=1&nosplash=1&cloud=off');
 await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
 await page.waitForSelector('#btn-start', { state: 'visible' });
 await page.waitForTimeout(1500);

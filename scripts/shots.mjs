@@ -68,7 +68,7 @@ page.on('console', (m) => m.type() === 'error' && console.log('CONSOLE', m.text(
 
 const ready = () => page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
 const st = () => page.evaluate(() => window.__cbhr.state());
-await page.goto(`${base}/?debug=1&nosplash=1`);
+await page.goto(`${base}/?debug=1&nosplash=1&cloud=off`);
 await ready();
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${out}/01-menu.png` });
@@ -84,7 +84,7 @@ for (const [levelId, tag] of [
   ['remote-expedition', 'expedition'],
 ]) {
   if (levelId !== 'pass-run') {
-    await page.goto(`${base}/?debug=1&nosplash=1`);
+    await page.goto(`${base}/?debug=1&nosplash=1&cloud=off`);
     await ready();
     await page.click('#btn-start');
   } else {

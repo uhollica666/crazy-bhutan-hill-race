@@ -12,8 +12,11 @@ import {
   PlaneGeometry,
   RepeatWrapping,
   SRGBColorSpace,
+  Sphere,
   Uint32BufferAttribute,
+  Vector3,
 } from 'three';
+import type { Object3D } from 'three';
 import type { Course } from '../world/Course';
 import { fbm2, lerp, smoothstep } from '../core/math';
 import { PAL } from './palette';
@@ -126,7 +129,7 @@ function makeTerrainDetail(): CanvasTexture {
   return t;
 }
 
-export function buildTerrainMesh(course: Course): Mesh {
+export function buildTerrainMesh(course: Course): Group {
   const t = course.terrain;
   const n = t.nx * t.nz;
   const pos = new Float32Array(n * 3);
@@ -147,59 +150,85 @@ export function buildTerrainMesh(course: Course): Mesh {
       col[k * 3 + 2] = _out.b;
     }
   }
-  const idx = new Uint32Array((t.nx - 1) * (t.nz - 1) * 6);
-  let w = 0;
-  for (let j = 0; j < t.nz - 1; j++) {
-    for (let i = 0; i < t.nx - 1; i++) {
-      const a = i + j * t.nx;
-      const b = a + 1;
-      const c = a + t.nx;
-      const d = c + 1;
-      // Same triangulation as Terrain.heightAt: (a,c,b) and (b,c,d).
-      idx[w++] = a;
-      idx[w++] = c;
-      idx[w++] = b;
-      idx[w++] = b;
-      idx[w++] = c;
-      idx[w++] = d;
-    }
-  }
-  const geo = new BufferGeometry();
-  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
-  geo.setAttribute('normal', new Float32BufferAttribute(nor, 3));
-  geo.setAttribute('color', new Float32BufferAttribute(col, 3));
   // World-space UVs for the fine detail texture (one repeat every 9 m).
   const uv = new Float32Array(n * 2);
   for (let k = 0; k < n; k++) {
     uv[k * 2] = pos[k * 3] / 9;
     uv[k * 2 + 1] = pos[k * 3 + 2] / 9;
   }
-  geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
-  // Coarse index set (every 2nd node) for the Low preset: ~4x fewer terrain triangles, same vertices.
-  const cidx: number[] = [];
-  for (let j = 0; j + 2 < t.nz; j += 2) {
-    for (let i = 0; i + 2 < t.nx; i += 2) {
-      const a = i + j * t.nx;
-      const b = a + 2;
-      const c = a + 2 * t.nx;
-      const d = c + 2;
-      cidx.push(a, c, b, b, c, d);
+  // One shared set of vertices, drawn as square tiles. Each tile is its own mesh with its own bounding sphere, so
+  // the renderer culls the tiles outside the view instead of drawing the whole (now much larger) ground every frame.
+  const position = new Float32BufferAttribute(pos, 3);
+  const normal = new Float32BufferAttribute(nor, 3);
+  const color = new Float32BufferAttribute(col, 3);
+  const uvAttr = new Float32BufferAttribute(uv, 2);
+  const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true, map: makeTerrainDetail() });
+  const group = new Group();
+  group.name = 'terrain';
+  const TILE = 64; // cells per side (even, so the Low preset's every-second-node triangulation lines up)
+  for (let tj = 0; tj < t.nz - 1; tj += TILE) {
+    for (let ti = 0; ti < t.nx - 1; ti += TILE) {
+      const iMax = Math.min(ti + TILE, t.nx - 1);
+      const jMax = Math.min(tj + TILE, t.nz - 1);
+      const fine: number[] = [];
+      const coarse: number[] = [];
+      for (let j = tj; j < jMax; j++) {
+        for (let i = ti; i < iMax; i++) {
+          const a = i + j * t.nx;
+          const b = a + 1;
+          const c = a + t.nx;
+          const d = c + 1;
+          // Same triangulation as Terrain.heightAt: (a,c,b) and (b,c,d).
+          fine.push(a, c, b, b, c, d);
+        }
+      }
+      for (let j = tj; j + 2 <= jMax; j += 2) {
+        for (let i = ti; i + 2 <= iMax; i += 2) {
+          const a = i + j * t.nx;
+          const b = a + 2;
+          const c = a + 2 * t.nx;
+          const d = c + 2;
+          coarse.push(a, c, b, b, c, d);
+        }
+      }
+      const geo = new BufferGeometry();
+      geo.setAttribute('position', position);
+      geo.setAttribute('normal', normal);
+      geo.setAttribute('color', color);
+      geo.setAttribute('uv', uvAttr);
+      geo.setIndex(new Uint32BufferAttribute(new Uint32Array(fine), 1));
+      geo.userData.fine = geo.index;
+      geo.userData.coarse = new Uint32BufferAttribute(new Uint32Array(coarse), 1);
+      // Bounding sphere of just this tile (the default would cover every vertex of the whole terrain).
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let j = tj; j <= jMax; j++) {
+        for (let i = ti; i <= iMax; i++) {
+          const h = t.heights[i + j * t.nx];
+          if (h < lo) lo = h;
+          if (h > hi) hi = h;
+        }
+      }
+      const cx = t.minX + ((ti + iMax) / 2) * t.cell;
+      const cz = t.minZ + ((tj + jMax) / 2) * t.cell;
+      const half = ((iMax - ti) / 2) * t.cell;
+      const halfZ = ((jMax - tj) / 2) * t.cell;
+      geo.boundingSphere = new Sphere(new Vector3(cx, (lo + hi) / 2, cz), Math.hypot(half, halfZ, (hi - lo) / 2) + 1);
+      const mesh = new Mesh(geo, material);
+      mesh.receiveShadow = true;
+      mesh.name = 'terrain-tile';
+      group.add(mesh);
     }
   }
-  geo.setIndex(new Uint32BufferAttribute(idx, 1));
-  geo.userData.fine = geo.index;
-  geo.userData.coarse = new Uint32BufferAttribute(new Uint32Array(cidx), 1);
-  geo.computeBoundingSphere();
-  const mesh = new Mesh(geo, new MeshLambertMaterial({ vertexColors: true, flatShading: true, map: makeTerrainDetail() }));
-  mesh.receiveShadow = true;
-  mesh.name = 'terrain';
-  return mesh;
+  return group;
 }
 
-/** Switches between the full-resolution and coarse (Low quality) terrain triangulation. */
-export function setTerrainCoarse(mesh: Mesh, coarse: boolean): void {
-  const g = mesh.geometry;
-  g.setIndex((coarse ? g.userData.coarse : g.userData.fine) as BufferAttribute);
+/** Switches every terrain tile between the full-resolution and coarse (Low quality) triangulation. */
+export function setTerrainCoarse(terrain: Object3D, coarse: boolean): void {
+  terrain.traverse((o) => {
+    const g = (o as Mesh).geometry as BufferGeometry | undefined;
+    if (g?.userData.fine) g.setIndex((coarse ? g.userData.coarse : g.userData.fine) as BufferAttribute);
+  });
 }
 
 export function buildWater(course: Course): Mesh {

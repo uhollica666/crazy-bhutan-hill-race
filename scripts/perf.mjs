@@ -92,7 +92,7 @@ for (const level of levels) {
       { s: full(quality), q: quality, stage1 },
     );
     const page = await ctx.newPage();
-    await page.goto(`${base}/?debug=1&nosplash=1&noadapt`);
+    await page.goto(`${base}/?debug=1&nosplash=1&cloud=off&noadapt`);
     await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 120000 });
     await page.click('#btn-start');
     if (!stage1) {

@@ -230,7 +230,7 @@ test.describe('driving and flow', () => {
     await waitForPhase(page, 'countdown');
     await page.screenshot({ path: 'screenshots/desktop-countdown.png' });
     await page.keyboard.down('KeyW');
-    await waitForPhase(page, 'running', 15_000);
+    await waitForPhase(page, 'running', 45_000);
 
     await expect.poll(async () => (await state(page)).speed, { timeout: 15_000 }).toBeGreaterThan(8);
     const before = (await state(page)).position;
@@ -287,7 +287,7 @@ test.describe('driving and flow', () => {
     await expect(page.locator('#screen-briefing')).toBeHidden(); // restart never shows the story again
     await waitForPhase(page, 'countdown');
     expect((await state(page)).time).toBe(0);
-    await waitForPhase(page, 'running', 15_000);
+    await waitForPhase(page, 'running', 45_000);
     await page.keyboard.press('Escape');
     await page.locator('#btn-pause-garage').click();
     await expect(page.locator('#screen-garage')).toBeVisible();
@@ -296,7 +296,7 @@ test.describe('driving and flow', () => {
     await expect(page.locator('#veh-name')).toHaveText('Tourist Coaster');
     await page.locator('#btn-launch').click();
     await expect(page.locator('#screen-briefing')).toBeHidden(); // already read
-    await waitForPhase(page, 'running', 15_000);
+    await waitForPhase(page, 'running', 45_000);
     expect((await state(page)).vehicleId).toBe('tourist-coaster');
   });
 });

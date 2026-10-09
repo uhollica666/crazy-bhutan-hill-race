@@ -232,22 +232,35 @@ export class Scenery {
       geo.dispose();
       return;
     }
-    const mesh = new InstancedMesh(geo, material, mats.length);
+    // Instances are grouped into square cells and each cell becomes its own InstancedMesh (sharing one geometry):
+    // the renderer can then skip the cells that are out of view instead of drawing every tree of the whole mission.
+    const CELL = 420;
+    const cells = new Map<string, Matrix4[]>();
+    for (const m of mats) {
+      const key = `${Math.floor(m.elements[12] / CELL)},${Math.floor(m.elements[14] / CELL)}`;
+      let list = cells.get(key);
+      if (!list) cells.set(key, (list = []));
+      list.push(m);
+    }
     const c = new Color();
-    mats.forEach((m, i) => {
-      mesh.setMatrixAt(i, m);
-      if (tint > 0) {
-        const v = 1 - tint + rng() * tint * 2;
-        c.setRGB(v, v, v);
-        mesh.setColorAt(i, c);
-      }
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-    mesh.frustumCulled = true;
-    this.group.add(mesh);
-    this.disposables.push(geo, mesh);
-    this.instances.push({ mesh, total: mats.length, densityScaled });
+    this.disposables.push(geo);
+    for (const list of cells.values()) {
+      const mesh = new InstancedMesh(geo, material, list.length);
+      list.forEach((m, i) => {
+        mesh.setMatrixAt(i, m);
+        if (tint > 0) {
+          const v = 1 - tint + rng() * tint * 2;
+          c.setRGB(v, v, v);
+          mesh.setColorAt(i, c);
+        }
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      mesh.frustumCulled = true;
+      this.group.add(mesh);
+      this.disposables.push(mesh);
+      this.instances.push({ mesh, total: list.length, densityScaled });
+    }
   }
 
   /** Street lamps: a lit pole plus a glowing head that is bright regardless of the sun (visible at dusk and night). */

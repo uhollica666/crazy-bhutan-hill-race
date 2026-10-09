@@ -49,12 +49,16 @@ export default defineConfig({
       ],
   projects: [
     { name: 'desktop', use: { viewport: { width: 1280, height: 720 } }, testIgnore: [/mobile.spec.ts/, /cloud.spec.ts/] },
-    {
-      // Online features against the local Firebase emulators (never the live project).
-      name: 'cloud',
-      use: { viewport: { width: 1280, height: 720 }, baseURL: 'http://localhost:4174' },
-      testMatch: /cloud.spec.ts/,
-    },
+    // Online features against the local Firebase emulators (never the live project); only part of a `--project=cloud` run.
+    ...(cloudRun
+      ? [
+          {
+            name: 'cloud',
+            use: { viewport: { width: 1280, height: 720 }, baseURL: 'http://localhost:4174' },
+            testMatch: /cloud.spec.ts/,
+          },
+        ]
+      : []),
     {
       name: 'mobile',
       // Pixel 7 emulation (touch, DPR, mobile UA) in landscape.

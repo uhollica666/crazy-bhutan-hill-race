@@ -24,7 +24,7 @@ async function session(name, { w, h, touch, settings, level = 'thimphu-pickup', 
   await ctx.addInitScript((s) => { if (!sessionStorage.getItem('s')) { localStorage.setItem('cbhr.v3.save', s); sessionStorage.setItem('s', '1'); } }, save(settings));
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.log('PAGEERROR', name, e.message));
-  await page.goto('http://localhost:4173/?debug=1&nosplash=1');
+  await page.goto('http://localhost:4173/?debug=1&nosplash=1&cloud=off');
   await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
   await page.waitForSelector('#btn-start', { state: 'visible' });
   await page.addStyleTag({ content: '#debug{display:none!important}' });

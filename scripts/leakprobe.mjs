@@ -25,7 +25,7 @@ if (process.env.TRACE_TEX) await page.addInitScript(() => {
   const d = P.deleteTexture;
   P.deleteTexture = function (t) { window.__tex.delete(t); return d.call(this, t); };
 });
-await page.goto(`http://localhost:${process.env.PORT || 4173}/?debug=1&nosplash=1&quality=low`);
+await page.goto(`http://localhost:${process.env.PORT || 4173}/?debug=1&nosplash=1&cloud=off&quality=low`);
 await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
 await page.waitForSelector('#btn-start', { state: 'visible' });
 const stat = async () => page.evaluate(() => { const s = window.__cbhr.state(); return `${s.stats.geometries}/${s.stats.textures} scene=${s.scene} veh=${s.vehicleId}`; });
