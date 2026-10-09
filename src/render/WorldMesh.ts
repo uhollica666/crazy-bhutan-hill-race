@@ -61,7 +61,69 @@ function terrainColor(course: Course, i: number, j: number, out: Color): Color {
   const verge = 1 - smoothstep(t.flatHalf - 0.5, t.flatHalf + 6, d);
   _a.setHex(PAL.dirt);
   out.lerp(_a, verge * 0.9);
+
+  // Forest floor: where the trees stand thick the ground is darker and cooler, which also hides the seams
+  // between the instanced trees and the terrain.
+  const treeLine = look.treeLine ?? 122;
+  const forest = fbm2(x / 55, z / 55, course.level.scenery.seed, 3) * 0.5 + 0.5;
+  const canopy = smoothstep(0.4, 0.64, forest) * smoothstep(0.74, 0.86, ny) * (h < treeLine ? 1 : 0) * smoothstep(8, 22, d);
+  _a.setHex(0x44552f);
+  out.lerp(_a, canopy * 0.45);
+  // Dry-grass and bare-earth patches break up the lawn look.
+  const dry = smoothstep(0.55, 0.8, fbm2(x / 14, z / 14, 311, 3) * 0.5 + 0.5) * (1 - canopy) * (h < rockFrom ? 1 : 0);
+  _a.setHex(0x9a8f58);
+  out.lerp(_a, dry * 0.4);
+  // Slightly muted overall, with fine grain so large faces never read as one flat colour.
+  const lum = out.r * 0.3 + out.g * 0.59 + out.b * 0.11;
+  out.r += (lum - out.r) * 0.12;
+  out.g += (lum - out.g) * 0.12;
+  out.b += (lum - out.b) * 0.12;
+  out.multiplyScalar(0.9 + 0.2 * (fbm2(x / 5, z / 5, 733, 2) * 0.5 + 0.5));
   return out;
+}
+
+/** A small tiling grain texture: darkening speckles, blades and pebbles that give the ground a surface close up. */
+function makeTerrainDetail(): CanvasTexture {
+  const size = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d') as CanvasRenderingContext2D;
+  g.fillStyle = '#f4f4f4';
+  g.fillRect(0, 0, size, size);
+  let seed = 12345;
+  const rnd = (): number => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const wrap = (x: number, y: number, draw: (x: number, y: number) => void): void => {
+    for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) draw(x + ox, y + oy);
+  };
+  for (let i = 0; i < 2600; i++) {
+    const x = rnd() * size;
+    const y = rnd() * size;
+    const v = 150 + Math.floor(rnd() * 90);
+    g.fillStyle = `rgba(${v},${v},${v},0.55)`;
+    const w = 1 + rnd() * 2.5;
+    const h = 1 + rnd() * (i % 3 === 0 ? 7 : 2.5);
+    wrap(x, y, (px, py) => g.fillRect(px, py, w, h));
+  }
+  for (let i = 0; i < 120; i++) {
+    const x = rnd() * size;
+    const y = rnd() * size;
+    const r = 2 + rnd() * 5;
+    g.fillStyle = 'rgba(205,205,205,0.35)';
+    wrap(x, y, (px, py) => {
+      g.beginPath();
+      g.arc(px, py, r, 0, 7);
+      g.fill();
+    });
+  }
+  const t = new CanvasTexture(c);
+  t.wrapS = t.wrapT = RepeatWrapping;
+  t.colorSpace = SRGBColorSpace;
+  t.anisotropy = 4;
+  t.minFilter = LinearMipmapLinearFilter;
+  return t;
 }
 
 export function buildTerrainMesh(course: Course): Mesh {
@@ -106,6 +168,13 @@ export function buildTerrainMesh(course: Course): Mesh {
   geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
   geo.setAttribute('normal', new Float32BufferAttribute(nor, 3));
   geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+  // World-space UVs for the fine detail texture (one repeat every 9 m).
+  const uv = new Float32Array(n * 2);
+  for (let k = 0; k < n; k++) {
+    uv[k * 2] = pos[k * 3] / 9;
+    uv[k * 2 + 1] = pos[k * 3 + 2] / 9;
+  }
+  geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
   // Coarse index set (every 2nd node) for the Low preset: ~4x fewer terrain triangles, same vertices.
   const cidx: number[] = [];
   for (let j = 0; j + 2 < t.nz; j += 2) {
@@ -121,7 +190,7 @@ export function buildTerrainMesh(course: Course): Mesh {
   geo.userData.fine = geo.index;
   geo.userData.coarse = new Uint32BufferAttribute(new Uint32Array(cidx), 1);
   geo.computeBoundingSphere();
-  const mesh = new Mesh(geo, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+  const mesh = new Mesh(geo, new MeshLambertMaterial({ vertexColors: true, flatShading: true, map: makeTerrainDetail() }));
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
   return mesh;

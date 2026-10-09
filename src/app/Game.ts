@@ -32,6 +32,7 @@ import { Snow, VehicleEffects } from '../render/effects';
 import { GameRenderer } from '../render/GameRenderer';
 import { MissionView, Rain } from '../render/MissionView';
 import { assets, loadVehicleAsset, peekVehicleAsset } from '../render/assets';
+import { disposeEnvKit, loadEnvKit } from '../render/envKit';
 import { QUALITY } from '../render/quality';
 import { VehicleModel } from '../render/VehicleModel';
 import { World3D } from '../render/World3D';
@@ -358,6 +359,7 @@ export class Game {
     this.level = def;
     this.conditionIndex = 0;
     this.course = new Course(def);
+    await Promise.race([loadEnvKit(), new Promise((r) => window.setTimeout(r, 5000))]);
     await nextFrame();
     this.world = new World3D(this.renderer.scene, this.course, this.renderer.profile);
     this.minimap.setCourse(this.course);
@@ -1672,6 +1674,7 @@ export class Game {
     this.feedback.dispose();
     this.about.dispose();
     this.briefing.dispose();
+    disposeEnvKit();
     assets.dispose();
     this.renderer.dispose();
   }

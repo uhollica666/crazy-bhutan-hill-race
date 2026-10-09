@@ -9,18 +9,19 @@ mkdirSync(out, { recursive: true });
 
 const LEVELS_ALL = ['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition'];
 const extra = process.env.EXTRA_LEVELS ? process.env.EXTRA_LEVELS.split(',') : [];
-const ALL = [...LEVELS_ALL, ...extra];
+const ALL = process.env.LEVELS ? process.env.LEVELS.split(',') : [...LEVELS_ALL, ...extra];
 const VEHICLES = ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser'];
 
+const SAVE_LEVELS = [...new Set([...LEVELS_ALL, ...extra, ...ALL])];
 const save = JSON.stringify({
   version: 3,
   settings: { masterVolume: 0.8, musicVolume: 0, sfxVolume: 0.9, muted: true, quality, touchControls: 'auto', touchSensitivity: 1, reducedMotion: false },
-  progress: { levels: Object.fromEntries(ALL.map((id) => [id, { completions: 1, medal: 'bronze', vehicles: {} }])) },
+  progress: { levels: Object.fromEntries(SAVE_LEVELS.map((id) => [id, { completions: 1, medal: 'bronze', vehicles: {} }])) },
   selection: { levelId: null, vehicleId: null },
   history: [],
   wallet: { credits: 5000 },
   garage: { owned: VEHICLES, upgrades: {} },
-  story: { seen: ALL },
+  story: { seen: SAVE_LEVELS },
   stats: { missionsPlayed: 0, creditsEarned: 0 },
 });
 

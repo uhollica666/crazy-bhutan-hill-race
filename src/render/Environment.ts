@@ -14,8 +14,8 @@ import {
 import type { Course } from '../world/Course';
 import type { TimeOfDay, WeatherKind } from '../data/types';
 import { TIME, WEATHER } from '../data/weather';
-import { lerp, mulberry32 } from '../core/math';
-import { GeoBuilder } from './geo';
+import { lerp } from '../core/math';
+import { buildMountainRing } from './mountains';
 import { PAL } from './palette';
 import type { QualityProfile } from './quality';
 
@@ -139,51 +139,31 @@ export class Environment {
     scene.add(this.ridges);
   }
 
-  /** Layered, hazy ridge line with snow peaks, far outside the drivable area. */
+  /** Faceted mountain ranges (forested foothills, bare rock, snow caps) in three hazy layers around the level. */
   private buildRidges(course: Course, hazeColor: number): Mesh {
     const b = course.level.terrain.bounds;
     const cx = (b.minX + b.maxX) / 2;
     const cz = (b.minZ + b.maxZ) / 2;
-    const rng = mulberry32(course.level.scenery.seed + 77);
-    const g = new GeoBuilder();
-    const rock = new Color();
-    const haze = new Color(hazeColor);
-    const layers = [
-      { r: 760, n: 20, h: [210, 330], k: 0.35 },
-      { r: 980, n: 26, h: [300, 470], k: 0.55 },
-      { r: 1250, n: 30, h: [380, 620], k: 0.75 },
-    ];
-    for (const L of layers) {
-      for (let i = 0; i < L.n; i++) {
-        const a = ((i + rng() * 0.6) / L.n) * Math.PI * 2;
-        const h = lerp(L.h[0], L.h[1], rng());
-        const radius = h * (0.75 + rng() * 0.35);
-        const dist = L.r * (0.92 + rng() * 0.16);
-        const x = cx + Math.cos(a) * dist;
-        const z = cz + Math.sin(a) * dist;
-        const base = rock.setHex(0x6b716c).lerp(haze, L.k).getHex();
-        const snow = new Color(PAL.snow).lerp(haze, L.k * 0.8).getHex();
-        const y0 = -60;
-        g.cone(radius, h, base, 6, { x, y: y0 + h / 2, z, ry: rng() * 3 });
-        g.cone(radius * 0.4, h * 0.42, snow, 6, { x, y: y0 + h * 0.79, z });
-      }
-    }
-    const geo = g.build();
-    // Unlit ridges with faceting baked into the vertex colours (sun side lighter), so they read as hazy
-    // blue-grey masses instead of dark silhouettes.
-    const nrm = geo.getAttribute('normal');
-    const col = geo.getAttribute('color');
-    for (let i = 0; i < col.count; i++) {
-      const lit =
-        0.72 +
-        0.28 * Math.max(0, nrm.getX(i) * this.sunDir.x + nrm.getZ(i) * this.sunDir.z + nrm.getY(i) * 0.3);
-      col.setXYZ(
-        i,
-        Math.min(1, col.getX(i) * lit * 1.18),
-        Math.min(1, col.getY(i) * lit * 1.18),
-        Math.min(1, col.getZ(i) * lit * 1.18),
-      );
-    }
+    const seed = course.level.scenery.seed;
+    const look = course.level.look;
+    const snowFree = (look.snowFrom ?? 165) > 1000;
+    const geo = buildMountainRing(
+      cx,
+      cz,
+      [
+        { radius: 820, columns: 110, base: 210, amp: 360, haze: 0.28, seed: seed + 1 },
+        { radius: 1120, columns: 130, base: 300, amp: 560, haze: 0.5, seed: seed + 2 },
+        { radius: 1500, columns: 150, base: 420, amp: 760, haze: 0.7, seed: seed + 3 },
+      ],
+      {
+        forest: 0x3d4f37,
+        rock: 0x77736a,
+        snow: 0xeceae3,
+        haze: hazeColor,
+        sun: this.sunDir.clone(),
+        snowLine: snowFree ? 0.97 : 0.58,
+      },
+    );
     const mat = new MeshBasicMaterial({ vertexColors: true, fog: false });
     const mesh = new Mesh(geo, mat);
     mesh.frustumCulled = false;

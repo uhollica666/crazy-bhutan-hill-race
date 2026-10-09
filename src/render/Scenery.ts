@@ -18,6 +18,7 @@ import { createRoadHit } from '../world/Road';
 import type { LandmarkDef } from '../data/types';
 import { fbm2, lerp, mulberry32, smoothstep } from '../core/math';
 import { GeoBuilder } from './geo';
+import { peekEnvKit } from './envKit';
 import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
 import {
@@ -347,8 +348,23 @@ export class Scenery {
             : shrubs
       ).push(m);
     }
-    this.registerInstanced(pineGeometry(), pines, material, true, 0.14, rng);
-    this.registerInstanced(cypressGeometry(), cypresses, material, true, 0.12, rng);
+    const kit = peekEnvKit();
+    // Kit variants: matrices are split between the models so a forest is not one tree repeated.
+    const split = (list: Matrix4[], n: number): Matrix4[][] => {
+      const out: Matrix4[][] = Array.from({ length: n }, () => []);
+      list.forEach((m, i) => out[(i * 7 + Math.floor(rng() * n)) % n].push(m));
+      return out;
+    };
+    const varied = (names: string[], list: Matrix4[], fallback: () => BufferGeometry, tint: number, densityScaled = true): void => {
+      const avail = names.filter((n) => kit?.has(n));
+      if (!kit || !avail.length) {
+        this.registerInstanced(fallback(), list, material, densityScaled, tint, rng);
+        return;
+      }
+      split(list, avail.length).forEach((part, i) => this.registerInstanced(kit.geo(avail[i]) as BufferGeometry, part, material, densityScaled, tint, rng));
+    };
+    varied(['pine_a', 'pine_b'], pines, pineGeometry, 0.14);
+    varied(['cypress', 'spruce'], cypresses, cypressGeometry, 0.12);
     this.registerInstanced(
       broadleafGeometry(level.look.leaf ?? 0x7fae4a),
       broadleaf,
@@ -382,7 +398,7 @@ export class Scenery {
         ),
       );
     }
-    this.registerInstanced(rockGeometry(), rocks, material, true, 0.1, rng);
+    varied(['rock_a', 'rock_b', 'rock_c'], rocks, rockGeometry, 0.1);
 
     // ---- landmarks
     const houses: Matrix4[] = [];
@@ -540,8 +556,8 @@ export class Scenery {
       }
     }
 
-    this.registerInstanced(houseGeometry(), houses, material, false);
-    this.registerInstanced(chortenGeometry(), chortens, material, false);
+    varied(['house_0', 'house_1', 'house_2'], houses, houseGeometry, 0, false);
+    varied(['chorten'], chortens, chortenGeometry, 0, false);
     this.registerInstanced(yakGeometry(), yaks, material, false);
     this.registerInstanced(dzongGeometry(), dzongs, material, false);
     this.registerInstanced(terminalGeometry(), terminals, material, false);
