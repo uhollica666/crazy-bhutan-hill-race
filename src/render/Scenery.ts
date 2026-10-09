@@ -1,0 +1,454 @@
+import {
+  BufferGeometry,
+  Color,
+  DoubleSide,
+  Float32BufferAttribute,
+  Group,
+  InstancedMesh,
+  Matrix4,
+  Mesh,
+  MeshLambertMaterial,
+  Quaternion,
+  Vector3,
+} from 'three';
+import type { WebGLProgramParametersWithUniforms } from 'three';
+import type { Course } from '../world/Course';
+import type { LandmarkDef } from '../data/types';
+import { fbm2, lerp, mulberry32, smoothstep } from '../core/math';
+import { GeoBuilder } from './geo';
+import { FLAG_COLORS, PAL } from './palette';
+
+// ---------------------------------------------------------------- geometry kits
+
+function pineGeometry(): BufferGeometry {
+  return new GeoBuilder()
+    .cylinder(0.16, 0.22, 1.2, PAL.bark, 5, { y: 0.6 })
+    .cone(1.75, 2.6, PAL.pineDark, 7, { y: 2.2 })
+    .cone(1.35, 2.4, PAL.pineMid, 7, { y: 3.6, ry: 0.4 })
+    .cone(0.95, 2.2, PAL.pineDark, 7, { y: 4.9 })
+    .build();
+}
+
+function cypressGeometry(): BufferGeometry {
+  return new GeoBuilder()
+    .cylinder(0.15, 0.2, 1.4, PAL.bark, 5, { y: 0.7 })
+    .cone(1.05, 7.2, PAL.cypress, 6, { y: 4.6 })
+    .cone(0.72, 3.4, PAL.pineMid, 6, { y: 8.0, ry: 0.5 })
+    .build();
+}
+
+function rockGeometry(): BufferGeometry {
+  return new GeoBuilder().rock(PAL.rock, { sy: 0.72 }).build();
+}
+
+function houseGeometry(): BufferGeometry {
+  const W = 9;
+  const D = 6.4;
+  const g = new GeoBuilder();
+  g.box(W + 0.5, 3.2, D + 0.5, PAL.rock, { y: -1.4 }); // stone plinth, buries slopes
+  g.box(W, 5.7, D, PAL.whitewash, { y: 2.95 }); // limewashed walls
+  g.box(W + 0.18, 0.45, D + 0.18, PAL.woodDark, { y: 3.0 }); // floor band
+  g.box(W + 0.18, 0.4, D + 0.18, PAL.woodDark, { y: 5.7 }); // eaves band
+  g.box(W + 0.3, 0.12, D + 0.3, PAL.roofRed, { y: 5.95 }); // painted fascia
+
+  const win = (x: number, y: number, z: number, ry: number): void => {
+    g.box(1.5, 1.55, 0.14, PAL.wood, { x, y, z, ry });
+    g.box(1.15, 1.2, 0.2, PAL.windowDark, { x, y, z, ry });
+    g.box(1.7, 0.22, 0.16, PAL.maroon, { x, y: y + 0.88, z, ry });
+  };
+  for (const sx of [-2.8, 0, 2.8]) {
+    win(sx, 4.4, D / 2 + 0.04, 0);
+    win(sx, 4.4, -D / 2 - 0.04, 0);
+  }
+  win(-W / 2 - 0.04, 4.4, 0, Math.PI / 2);
+  win(W / 2 + 0.04, 4.4, 0, Math.PI / 2);
+  for (const sx of [-1.4, 1.8]) g.box(0.6, 0.8, 0.12, PAL.windowDark, { x: sx, y: 1.7, z: D / 2 + 0.03 });
+  g.box(1.3, 2.1, 0.14, PAL.woodDark, { x: -3.1, y: 1.15, z: D / 2 + 0.05 });
+
+  // Gabled roof with deep eaves, slate coloured.
+  const H = 2.3;
+  const alpha = Math.atan2(H, D / 2);
+  const slope = Math.hypot(H, D / 2);
+  const eave = 1.5;
+  const len = slope + eave;
+  const midZ = (D / 2 + Math.cos(alpha) * eave) / 2;
+  const midY = 5.95 + H / 2 - (Math.sin(alpha) * eave) / 2;
+  g.box(W + 2.6, 0.26, len, PAL.roofSlate, { y: midY, z: midZ, rx: alpha });
+  g.box(W + 2.6, 0.26, len, PAL.roofSlate, { y: midY, z: -midZ, rx: -alpha });
+  g.box(W + 2.7, 0.3, 0.5, PAL.roofSlate, { y: 5.95 + H + 0.05 });
+  // Gable ends (triangles of whitewash under the roof).
+  for (const sx of [-1, 1]) {
+    g.add(gableTriangle(D, H), PAL.whitewash, { x: sx * (W / 2 - 0.02), y: 5.95 });
+  }
+  // Roof-top prayer flag pole.
+  g.cylinder(0.06, 0.08, 4.2, PAL.woodDark, 5, { x: W / 2 + 0.7, y: 5.95 + H + 0.8 });
+  g.quad(0.7, 2.2, PAL.flagWhite, { x: W / 2 + 0.7, y: 5.95 + H + 1.8, z: 0.4 });
+  return g.build();
+}
+
+function gableTriangle(depth: number, height: number): BufferGeometry {
+  const g = new BufferGeometry();
+  const d = depth / 2;
+  g.setAttribute(
+    'position',
+    new Float32BufferAttribute([0, 0, -d, 0, 0, d, 0, height, 0, 0, 0, -d, 0, height, 0, 0, 0, d], 3),
+  );
+  return g;
+}
+
+function chortenGeometry(): BufferGeometry {
+  return new GeoBuilder()
+    .box(3.4, 0.6, 3.4, PAL.whitewash, { y: 0.3 })
+    .box(2.8, 0.55, 2.8, PAL.whitewash, { y: 0.88 })
+    .frustum(2.3, 2.0, 0.9, PAL.whitewash, { y: 1.6 })
+    .sphere(1.15, PAL.whitewash, { y: 2.45, sy: 0.95 }, 10)
+    .cylinder(1.0, 1.05, 0.28, PAL.maroon, 10, { y: 3.2 })
+    .box(1.05, 0.85, 1.05, PAL.gold, { y: 3.8 })
+    .cone(0.62, 1.7, PAL.gold, 8, { y: 5.1 })
+    .sphere(0.2, PAL.gold, { y: 6.05 }, 6)
+    .box(3.4, 0.12, 3.4, PAL.wall, { y: -0.04 })
+    .build();
+}
+
+function yakGeometry(): BufferGeometry {
+  return new GeoBuilder()
+    .box(1.0, 0.95, 2.0, PAL.yak, { y: 1.15 })
+    .box(1.12, 0.55, 1.8, 0x2a1e19, { y: 0.7 }) // long skirt of hair
+    .box(0.9, 0.5, 0.9, PAL.yak, { y: 1.75, z: -0.3 }) // shoulder hump
+    .box(0.5, 0.5, 0.6, PAL.yak, { y: 1.3, z: -1.2 })
+    .box(0.28, 0.24, 0.3, 0x6a5a50, { y: 1.15, z: -1.55 })
+    .cone(0.07, 0.5, PAL.yakHorn, 5, { x: 0.3, y: 1.7, z: -1.15, rz: -0.9 })
+    .cone(0.07, 0.5, PAL.yakHorn, 5, { x: -0.3, y: 1.7, z: -1.15, rz: 0.9 })
+    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: 0.3, y: 0.35, z: -0.7 })
+    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: -0.3, y: 0.35, z: -0.7 })
+    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: 0.3, y: 0.35, z: 0.7 })
+    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: -0.3, y: 0.35, z: 0.7 })
+    .build();
+}
+
+/** Waving cloth: a plain vertex-coloured mesh plus a per-vertex `sway` weight driven in the vertex shader. */
+class ClothBuilder {
+  readonly pos: number[] = [];
+  readonly col: number[] = [];
+  readonly sway: number[] = [];
+  private readonly c = new Color();
+
+  /** Quad from four corners (a=top-left, b=top-right, c=bottom-right, d=bottom-left) with sway weights. */
+  quad(corners: Vector3[], color: number, sway: [number, number, number, number]): void {
+    this.c.setHex(color);
+    const order = [0, 1, 2, 0, 2, 3];
+    for (const i of order) {
+      const p = corners[i];
+      this.pos.push(p.x, p.y, p.z);
+      this.col.push(this.c.r, this.c.g, this.c.b);
+      this.sway.push(sway[i]);
+    }
+  }
+
+  build(): BufferGeometry | null {
+    if (!this.pos.length) return null;
+    const g = new BufferGeometry();
+    g.setAttribute('position', new Float32BufferAttribute(this.pos, 3));
+    g.setAttribute('color', new Float32BufferAttribute(this.col, 3));
+    g.setAttribute('sway', new Float32BufferAttribute(this.sway, 1));
+    g.computeVertexNormals();
+    g.computeBoundingSphere();
+    return g;
+  }
+}
+
+// ---------------------------------------------------------------- scenery
+
+interface Instances {
+  mesh: InstancedMesh;
+  total: number;
+  densityScaled: boolean;
+}
+
+/**
+ * All decoration: forests, rocks, farmhouses, chortens, prayer flags, yaks.
+ * Everything is a handful of InstancedMeshes (one draw call per kind), deterministic from the level seed.
+ */
+export class Scenery {
+  readonly group = new Group();
+  private readonly instances: Instances[] = [];
+  private readonly disposables: { dispose(): void }[] = [];
+  private readonly uniforms = { uTime: { value: 0 }, uAmp: { value: 1 } };
+
+  constructor(
+    private readonly course: Course,
+    density: number,
+    wind: boolean,
+  ) {
+    this.group.name = 'scenery';
+    this.build();
+    this.setQuality(density, wind);
+  }
+
+  setQuality(density: number, wind: boolean): void {
+    for (const inst of this.instances) {
+      if (inst.densityScaled) inst.mesh.count = Math.floor(inst.total * density);
+    }
+    this.uniforms.uAmp.value = wind ? 1 : 0;
+  }
+
+  update(time: number): void {
+    this.uniforms.uTime.value = time;
+  }
+
+  dispose(): void {
+    this.disposables.forEach((d) => d.dispose());
+    this.group.clear();
+  }
+
+  private propMaterial(): MeshLambertMaterial {
+    const m = new MeshLambertMaterial({ vertexColors: true });
+    this.disposables.push(m);
+    return m;
+  }
+
+  private registerInstanced(
+    geo: BufferGeometry,
+    mats: Matrix4[],
+    material: MeshLambertMaterial,
+    densityScaled: boolean,
+    tint = 0,
+    rng: () => number = Math.random,
+  ): void {
+    if (!mats.length) {
+      geo.dispose();
+      return;
+    }
+    const mesh = new InstancedMesh(geo, material, mats.length);
+    const c = new Color();
+    mats.forEach((m, i) => {
+      mesh.setMatrixAt(i, m);
+      if (tint > 0) {
+        const v = 1 - tint + rng() * tint * 2;
+        c.setRGB(v, v, v);
+        mesh.setColorAt(i, c);
+      }
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+    mesh.frustumCulled = true;
+    this.group.add(mesh);
+    this.disposables.push(geo, mesh);
+    this.instances.push({ mesh, total: mats.length, densityScaled });
+  }
+
+  private build(): void {
+    const { course } = this;
+    const level = course.level;
+    const rng = mulberry32(level.scenery.seed);
+    const terrain = course.terrain;
+    const road = course.road;
+    const material = this.propMaterial();
+    const q = new Quaternion();
+    const s = new Vector3();
+    const p = new Vector3();
+    const up = new Vector3(0, 1, 0);
+    const compose = (x: number, y: number, z: number, ry: number, sx: number, sy = sx, sz = sx): Matrix4 =>
+      new Matrix4().compose(p.set(x, y, z), q.setFromAxisAngle(up, ry), s.set(sx, sy, sz));
+
+    const b = terrain.bounds;
+    const margin = 14;
+    const nodeIdx = (x: number, z: number): number =>
+      Math.round((x - terrain.minX) / terrain.cell) +
+      Math.round((z - terrain.minZ) / terrain.cell) * terrain.nx;
+
+    // ---- forests
+    const pines: Matrix4[] = [];
+    const cypresses: Matrix4[] = [];
+    const want = level.scenery.trees;
+    for (let tries = 0; tries < want * 14 && pines.length + cypresses.length < want; tries++) {
+      const x = lerp(b.minX + margin, b.maxX - margin, rng());
+      const z = lerp(b.minZ + margin, b.maxZ - margin, rng());
+      const k = nodeIdx(x, z);
+      const d = terrain.roadDist[k];
+      if (d < road.wallOffset + 4.5) continue;
+      const h = terrain.heightAt(x, z);
+      if (h < terrain.waterLevel + 2.5 || h > 122) continue;
+      if (terrain.normals[k * 3 + 1] < 0.74) continue;
+      const forest = fbm2(x / 55, z / 55, level.scenery.seed, 3) * 0.5 + 0.5;
+      let accept = smoothstep(0.38, 0.62, forest) * 0.95 + 0.04;
+      if (d < 16) accept *= 0.55;
+      if (rng() > accept) continue;
+      const sc = 0.8 + rng() * 0.95;
+      const m = compose(x, h - 0.15, z, rng() * 6.28, sc, sc * (0.9 + rng() * 0.3), sc);
+      (rng() < 0.28 ? cypresses : pines).push(m);
+    }
+    this.registerInstanced(pineGeometry(), pines, material, true, 0.14, rng);
+    this.registerInstanced(cypressGeometry(), cypresses, material, true, 0.12, rng);
+
+    // ---- rocks
+    const rocks: Matrix4[] = [];
+    for (let tries = 0; tries < level.scenery.rocks * 25 && rocks.length < level.scenery.rocks; tries++) {
+      const x = lerp(b.minX + margin, b.maxX - margin, rng());
+      const z = lerp(b.minZ + margin, b.maxZ - margin, rng());
+      const k = nodeIdx(x, z);
+      const d = terrain.roadDist[k];
+      if (d < road.wallOffset + 1.5) continue;
+      const steep = terrain.normals[k * 3 + 1] < 0.84;
+      if (!(steep ? rng() < 0.5 : d < 45 ? rng() < 0.18 : rng() < 0.03)) continue;
+      const sc = 0.7 + rng() * rng() * 3.2;
+      rocks.push(
+        compose(
+          x,
+          terrain.heightAt(x, z) + sc * 0.1,
+          z,
+          rng() * 6.28,
+          sc * (0.8 + rng() * 0.6),
+          sc,
+          sc * (0.8 + rng() * 0.6),
+        ),
+      );
+    }
+    this.registerInstanced(rockGeometry(), rocks, material, true, 0.1, rng);
+
+    // ---- landmarks
+    const houses: Matrix4[] = [];
+    const chortens: Matrix4[] = [];
+    const yaks: Matrix4[] = [];
+    const cloth = new ClothBuilder();
+    const poles = new GeoBuilder();
+    let poleCount = 0;
+    const pose = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
+    const v = (x: number, y: number, z: number): Vector3 => new Vector3(x, y, z);
+
+    for (const l of level.scenery.landmarks) {
+      road.at(l.at * road.length, pose);
+      const rx = -pose.tz;
+      const rz = pose.tx;
+      const lat = l.side * l.offset;
+      const x = pose.x + rx * lat;
+      const z = pose.z + rz * lat;
+      const y = terrain.heightAt(x, z);
+      // Heading that makes the model's +Z face look back toward the road.
+      const faceRoad = Math.atan2(-l.side * rx, -l.side * rz);
+      const sc = l.scale ?? 1;
+
+      switch (l.kind) {
+        case 'house':
+          houses.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'chorten':
+          chortens.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'chortenGroup': {
+          // A terraced field of small chortens, in the spirit of a memorial ridge of 108.
+          for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 5 - row; col++) {
+              const along = (col - (4 - row) / 2) * 5.6;
+              const out = row * 5.2;
+              const cx = x + pose.tx * along + rx * l.side * out;
+              const cz = z + pose.tz * along + rz * l.side * out;
+              chortens.push(compose(cx, terrain.heightAt(cx, cz), cz, faceRoad, 0.75 * sc));
+            }
+          }
+          break;
+        }
+        case 'yak':
+          yaks.push(compose(x, y, z, rng() * 6.28, 1.05 + rng() * 0.2));
+          break;
+        case 'flagSpan': {
+          // Strings of prayer flags across the road on two poles.
+          const edge = road.wallOffset + 1.8;
+          const px = [pose.x + rx * -edge, pose.x + rx * edge];
+          const pz = [pose.z + rz * -edge, pose.z + rz * edge];
+          const py = [terrain.heightAt(px[0], pz[0]), terrain.heightAt(px[1], pz[1])];
+          const top = Math.max(py[0], py[1], pose.y) + 8.6;
+          for (let i = 0; i < 2; i++) {
+            poles.cylinder(0.11, 0.17, top - py[i] + 1, PAL.woodDark, 5, {
+              x: px[i],
+              y: (top + py[i] - 1) / 2 + 0.5,
+              z: pz[i],
+            });
+            poleCount++;
+          }
+          const n = 22;
+          const sag = 1.1;
+          const at = (t: number): Vector3 =>
+            v(lerp(px[0], px[1], t), top - sag * 4 * t * (1 - t), lerp(pz[0], pz[1], t));
+          for (let i = 0; i < n; i++) {
+            const a = at((i + 0.08) / n);
+            const c = at((i + 0.92) / n);
+            const hang = 0.95;
+            cloth.quad(
+              [a, c, c.clone().setY(c.y - hang), a.clone().setY(a.y - hang)],
+              FLAG_COLORS[i % 5],
+              [0, 0, 1, 1],
+            );
+          }
+          break;
+        }
+        case 'lungta': {
+          // A stand of tall white flag poles on a ridge.
+          for (let i = 0; i < 7; i++) {
+            const along = (i - 3) * 1.7 + (rng() - 0.5);
+            const cx = x + pose.tx * along;
+            const cz = z + pose.tz * along;
+            const gy = terrain.heightAt(cx, cz);
+            const hgt = 7.5 + rng() * 3.5;
+            poles.cylinder(0.07, 0.1, hgt + 0.6, PAL.woodDark, 5, { x: cx, y: gy + hgt / 2 - 0.2, z: cz });
+            poleCount++;
+            const w = 0.75;
+            const flagTop = gy + hgt;
+            const fh = hgt * 0.62;
+            // Flag extends sideways from the pole and is double-sided via the shared material.
+            const a = v(cx, flagTop, cz);
+            const bb = v(cx + rx * w, flagTop, cz + rz * w);
+            const cc = v(cx + rx * w, flagTop - fh, cz + rz * w);
+            const dd = v(cx, flagTop - fh, cz);
+            cloth.quad([a, bb, cc, dd], i % 3 === 0 ? PAL.flagYellow : PAL.flagWhite, [0, 1, 1, 0]);
+            cloth.quad(
+              [a, bb, v(bb.x, flagTop - 0.55, bb.z), v(a.x, flagTop - 0.55, a.z)],
+              PAL.flagRed,
+              [0, 1, 1, 0],
+            );
+          }
+          break;
+        }
+      }
+    }
+
+    this.registerInstanced(houseGeometry(), houses, material, false);
+    this.registerInstanced(chortenGeometry(), chortens, material, false);
+    this.registerInstanced(yakGeometry(), yaks, material, false);
+
+    if (poleCount > 0) {
+      const geo = poles.build();
+      const mesh = new Mesh(geo, material);
+      this.group.add(mesh);
+      this.disposables.push(geo);
+    }
+    const clothGeo = cloth.build();
+    if (clothGeo) {
+      const m = new MeshLambertMaterial({ vertexColors: true, side: DoubleSide });
+      m.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+        shader.uniforms.uTime = this.uniforms.uTime;
+        shader.uniforms.uAmp = this.uniforms.uAmp;
+        shader.vertexShader = shader.vertexShader
+          .replace(
+            '#include <common>',
+            '#include <common>\nattribute float sway;\nuniform float uTime;\nuniform float uAmp;',
+          )
+          .replace(
+            '#include <begin_vertex>',
+            `#include <begin_vertex>
+            float ph = uTime * 3.4 + position.x * 0.45 + position.z * 0.45;
+            transformed.x += sin(ph) * 0.26 * sway * uAmp;
+            transformed.z += cos(ph * 0.9 + 1.3) * 0.26 * sway * uAmp;
+            transformed.y += sin(ph * 1.7) * 0.07 * sway * uAmp;`,
+          );
+      };
+      this.disposables.push(m, clothGeo);
+      const mesh = new Mesh(clothGeo, m);
+      mesh.frustumCulled = false;
+      mesh.name = 'flags';
+      this.group.add(mesh);
+    }
+  }
+}
+
+export type { LandmarkDef };

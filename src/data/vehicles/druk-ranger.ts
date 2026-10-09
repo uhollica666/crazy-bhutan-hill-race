@@ -1,0 +1,33 @@
+import type { VehicleDef } from '../types';
+
+/** A compact tourist 4x4 in the spirit of the white SUVs that carry visitors over the passes. */
+export const drukRanger: VehicleDef = {
+  id: 'druk-ranger',
+  name: 'Druk Ranger',
+  blurb: 'Compact 4x4 tour car. Forgiving, grippy and happy on a hairpin.',
+  mass: 1300,
+  size: { width: 1.9, height: 1.5, length: 4.3 },
+  inertiaScale: { x: 0.9, y: 0.8, z: 0.8 },
+  gravity: 16,
+  axles: [
+    { z: -1.4, halfTrack: 0.82, y: -0.25, steered: true, driven: true },
+    { z: 1.3, halfTrack: 0.82, y: -0.25, steered: false, driven: true },
+  ],
+  wheelRadius: 0.38,
+  wheelWidth: 0.28,
+  suspension: { rest: 0.55, travel: 0.3, stiffness: 43000, damping: 5800, antiRoll: 16000 },
+  engine: {
+    force: 9500,
+    reverseForce: 5000,
+    topSpeed: 38,
+    reverseSpeed: 10,
+    brakeForce: 24000,
+    rollingResistance: 28,
+    aeroDrag: 0.55,
+    gearTopSpeeds: [9, 17, 26, 38],
+  },
+  steering: { maxAngle: 0.55, highSpeedRatio: 0.2, fullSpeed: 36, rate: 4.2 },
+  grip: { longitudinal: 1.15, lateral: 1.25, slipSpeed: 1.3 },
+  stability: { downforce: 1.4, angularDamping: 1.2, uprighting: 2600 },
+  livery: { body: 0xf3efe6, accent: 0xe39a1c, trim: 0x8c2a20 },
+};

@@ -1,0 +1,65 @@
+import { Group, Mesh, MeshLambertMaterial } from 'three';
+import type { Material, Scene, Vector3 } from 'three';
+import type { Course } from '../world/Course';
+import { Environment } from './Environment';
+import { Gates } from './Gates';
+import { Scenery } from './Scenery';
+import type { QualityProfile } from './quality';
+import { buildRoadMeshes, buildTerrainMesh, buildWater } from './WorldMesh';
+
+/** Everything visible that belongs to a level, created from a Course and removable as a unit. */
+export class World3D {
+  readonly root = new Group();
+  readonly env: Environment;
+  readonly scenery: Scenery;
+  readonly gates: Gates;
+  private readonly terrain: Mesh;
+
+  constructor(
+    private readonly scene: Scene,
+    course: Course,
+    quality: QualityProfile,
+  ) {
+    this.root.name = 'world';
+    this.terrain = buildTerrainMesh(course);
+    this.root.add(this.terrain, buildWater(course), buildRoadMeshes(course));
+    this.scenery = new Scenery(course, quality.propDensity, quality.windSway);
+    this.root.add(this.scenery.group);
+    this.gates = new Gates(course);
+    this.root.add(this.gates.group);
+    this.env = new Environment(scene, course);
+    scene.add(this.root);
+    this.applyQuality(quality);
+  }
+
+  applyQuality(q: QualityProfile): void {
+    this.env.applyQuality(q);
+    this.scenery.setQuality(q.propDensity, q.windSway);
+    this.terrain.receiveShadow = q.shadows;
+    // Shadow-receiving materials need a recompile when shadows are switched on or off.
+    this.root.traverse((o) => {
+      const m = (o as Mesh).material as Material | Material[] | undefined;
+      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true));
+    });
+  }
+
+  update(time: number, camera: Vector3, focus: Vector3, progress: number): void {
+    this.scenery.update(time);
+    this.gates.update(time);
+    this.env.setProgress(progress);
+    this.env.follow(camera, focus);
+  }
+
+  dispose(): void {
+    this.scene.remove(this.root);
+    this.root.traverse((o) => {
+      const mesh = o as Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+      const m = mesh.material as MeshLambertMaterial | MeshLambertMaterial[] | undefined;
+      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => x.dispose());
+    });
+    this.scenery.dispose();
+    this.gates.dispose();
+    this.env.dispose();
+  }
+}

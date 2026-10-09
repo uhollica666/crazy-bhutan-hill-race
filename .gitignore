@@ -1,0 +1,10 @@
+node_modules
+dist
+*.local
+.DS_Store
+test-results
+playwright-report
+screenshots
+.claude
+scratch.log
+e2e-run.log
