@@ -23,7 +23,7 @@ test.describe('offline PWA (production build)', () => {
       viewport: document.querySelector('meta[name=viewport]')?.getAttribute('content'),
       manifest: document.querySelector('link[rel=manifest]') !== null,
     }));
-    expect(head.theme).toBe('#33261b');
+    expect(head.theme).toBe('#141722');
     expect(head.viewport).toContain('viewport-fit=cover');
     expect(head.manifest).toBe(true);
   });

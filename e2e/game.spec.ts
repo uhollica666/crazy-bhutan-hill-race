@@ -57,7 +57,7 @@ test.describe('studio branding and credits', () => {
     await expect(about).toContainText('subdivision of Novarah Technologies');
     await expect(page.locator('#about-version')).toHaveText(/\d+\.\d+\.\d+/);
     await expect(about).toContainText('Three.js');
-    await expect(about).toContainText('no third-party art');
+    await expect(about).toContainText('no third-party music or sound files');
     await expect(about.locator('.about-logo')).toBeVisible();
     await page.screenshot({ path: 'screenshots/desktop-about.png' });
     await page.keyboard.press('Escape');
