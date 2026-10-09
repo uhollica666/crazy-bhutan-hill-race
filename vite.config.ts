@@ -54,5 +54,5 @@ export default defineConfig({
   // Localhost only by default; use `bun run dev:lan` to test on a phone over your own Wi-Fi.
   server: { port: 5273, strictPort: true },
   preview: { port: 4173 },
-  test: { include: ['tests/**/*.test.ts'], environment: 'node' },
+  test: { include: ['tests/**/*.test.ts'], exclude: ['tests/emulator/**', 'node_modules/**'], environment: 'node' },
 });

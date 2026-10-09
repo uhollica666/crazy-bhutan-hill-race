@@ -9,3 +9,13 @@ screenshots
 scratch.log
 e2e-run.log
 assets-src/out
+.env
+.env.*
+!.env.example
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase
+emulator-data
+scratch-roads.json
+!.env.emulated

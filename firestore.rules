@@ -1,0 +1,266 @@
+rules_version = '2';
+
+// Crazy Bhutan Hill Race: Firestore security rules (Stage 5).
+//
+// Principles
+//   * Deny by default. Every path that is not listed below is closed to every client.
+//   * A player can read and write only their own private documents (players/{uid}/...).
+//   * The public leaderboard is readable by anyone but each entry is writable only by its owner, only to improve it,
+//     and only inside plausible bounds. THIS IS NOT ANTI-CHEAT: the game simulation runs in the player's browser, so a
+//     determined player can still post a fabricated time inside those bounds. See docs/FIREBASE.md ("Leaderboard trust").
+//   * Feedback and telemetry are create-only: clients can send them but never read, change or delete them.
+//   * Administrator access is NOT granted here. Novarah reads feedback through the Firebase Console (which bypasses
+//     rules). Nothing in these rules treats an e-mail address, a display name or a custom claim as special.
+//
+// Keep the id lists in `levelIds()` and `vehicleIds()` in step with src/data (tests/rules-ids.test.ts checks this).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------ helpers
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function levelIds() {
+      return ['pass-run', 'thimphu-pickup', 'airport-dash', 'punakha-valley', 'dochula-storm',
+              'chelela-climb', 'trongsa-gorge', 'bumthang-night', 'remote-expedition', 'gmc-plains'];
+    }
+    function vehicleIds() {
+      return ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser'];
+    }
+    // Fastest believable time per mission in milliseconds (about half of what a flat-out autopilot needs).
+    // A floor that rejects obvious nonsense, not a proof of anything.
+    function minTimeMs(levelId) {
+      return {
+        'pass-run': 55000, 'thimphu-pickup': 60000, 'airport-dash': 57000, 'punakha-valley': 54000,
+        'dochula-storm': 84000, 'chelela-climb': 78000, 'trongsa-gorge': 63000, 'bumthang-night': 65000,
+        'remote-expedition': 55000, 'gmc-plains': 55000
+      }[levelId];
+    }
+    function isStr(v, minLen, maxLen) {
+      return v is string && v.size() >= minLen && v.size() <= maxLen;
+    }
+    function isInt(v, lo, hi) {
+      return v is int && v >= lo && v <= hi;
+    }
+    function isNum(v, lo, hi) {
+      return (v is int || v is float) && v >= lo && v <= hi;
+    }
+    function isMedal(v) {
+      return v in ['none', 'bronze', 'silver', 'gold'];
+    }
+    function validDisplayName(v) {
+      return isStr(v, 3, 20) && v.matches('^[A-Za-z0-9][A-Za-z0-9 ._-]*[A-Za-z0-9]$');
+    }
+
+    // ------------------------------------------------------------------ private player data
+
+    // players/{uid}: the profile. Private. No e-mail address, password or token is ever stored here.
+    match /players/{uid} {
+      function validProfile(d) {
+        return d.keys().hasOnly(['schema', 'displayName', 'accountType', 'createdAt', 'updatedAt'])
+          && d.schema == 1
+          && validDisplayName(d.displayName)
+          && d.accountType in ['guest', 'registered']
+          && d.updatedAt == request.time
+          && d.createdAt is timestamp;
+      }
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && validProfile(request.resource.data) && request.resource.data.createdAt == request.time;
+      allow update: if isOwner(uid) && validProfile(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(uid);
+
+      // players/{uid}/saves/current: the cloud copy of the progress. Optimistic concurrency: every write must be
+      // exactly one revision ahead of what is stored, so a stale device can never silently overwrite newer progress.
+      match /saves/{saveId} {
+        function validRecord(r) {
+          return r is map && r.keys().hasOnly(['bestTime', 'bestScore', 'bestComfort', 'medal', 'completions'])
+            && (r.bestTime == null || isNum(r.bestTime, 1, 36000))
+            && isNum(r.bestScore, 0, 100)
+            && (r.bestComfort == null || isNum(r.bestComfort, 0, 100))
+            && isMedal(r.medal)
+            && isInt(r.completions, 0, 1000000);
+        }
+        function validVehicles(m) {
+          return m is map && m.keys().hasOnly(vehicleIds())
+            && (!('dzo-hatch' in m) || validRecord(m['dzo-hatch']))
+            && (!('tourist-coaster' in m) || validRecord(m['tourist-coaster']))
+            && (!('druk-ranger' in m) || validRecord(m['druk-ranger']))
+            && (!('dragon-cruiser' in m) || validRecord(m['dragon-cruiser']));
+        }
+        function validLevelRecord(r) {
+          return r is map && r.keys().hasOnly(['completions', 'medal', 'vehicles'])
+            && isInt(r.completions, 0, 1000000) && isMedal(r.medal) && validVehicles(r.vehicles);
+        }
+        function validLevels(m) {
+          return m is map && m.keys().hasOnly(levelIds())
+            && (!('pass-run' in m) || validLevelRecord(m['pass-run']))
+            && (!('thimphu-pickup' in m) || validLevelRecord(m['thimphu-pickup']))
+            && (!('airport-dash' in m) || validLevelRecord(m['airport-dash']))
+            && (!('punakha-valley' in m) || validLevelRecord(m['punakha-valley']))
+            && (!('dochula-storm' in m) || validLevelRecord(m['dochula-storm']))
+            && (!('chelela-climb' in m) || validLevelRecord(m['chelela-climb']))
+            && (!('trongsa-gorge' in m) || validLevelRecord(m['trongsa-gorge']))
+            && (!('bumthang-night' in m) || validLevelRecord(m['bumthang-night']))
+            && (!('remote-expedition' in m) || validLevelRecord(m['remote-expedition']))
+            && (!('gmc-plains' in m) || validLevelRecord(m['gmc-plains']));
+        }
+        function validGarage(g) {
+          return g is map && g.keys().hasOnly(['owned', 'upgrades'])
+            && g.owned is list && g.owned.size() >= 1 && g.owned.size() <= 4
+            && g.owned.hasOnly(vehicleIds())
+            && g.upgrades is map && g.upgrades.keys().hasOnly(vehicleIds());
+        }
+        function validSave(d, uid) {
+          return d.keys().hasOnly(['schema', 'uid', 'revision', 'updatedAt', 'clientUpdatedAt', 'deviceId',
+                                   'appVersion', 'progress', 'garage', 'wallet', 'stats', 'story', 'prefs'])
+            && d.schema == 1
+            && d.uid == uid
+            && isInt(d.revision, 1, 100000000)
+            && d.updatedAt == request.time
+            && isInt(d.clientUpdatedAt, 0, 4102444800000)
+            && isStr(d.deviceId, 8, 64)
+            && isStr(d.appVersion, 1, 24)
+            && d.progress is map && d.progress.keys().hasOnly(['levels']) && validLevels(d.progress.levels)
+            && validGarage(d.garage)
+            && d.wallet is map && d.wallet.keys().hasOnly(['credits']) && isInt(d.wallet.credits, 0, 9999999)
+            && d.stats is map && d.stats.keys().hasOnly(['missionsPlayed', 'creditsEarned', 'campaignCompleted'])
+            && isInt(d.stats.missionsPlayed, 0, 1000000000) && isInt(d.stats.creditsEarned, 0, 1000000000000)
+            && d.stats.campaignCompleted is bool
+            && d.story is map && d.story.keys().hasOnly(['seen']) && d.story.seen is list && d.story.seen.size() <= 32
+            && d.prefs is map && d.prefs.keys().hasOnly(['hudMode', 'reducedMotion'])
+            && d.prefs.hudMode in ['standard', 'minimal', 'telemetry'] && d.prefs.reducedMotion is bool;
+        }
+        allow read: if isOwner(uid) && saveId == 'current';
+        allow create: if isOwner(uid) && saveId == 'current' && validSave(request.resource.data, uid)
+          && request.resource.data.revision == 1;
+        allow update: if isOwner(uid) && saveId == 'current' && validSave(request.resource.data, uid)
+          && request.resource.data.revision == resource.data.revision + 1;
+        allow delete: if isOwner(uid) && saveId == 'current';
+      }
+    }
+
+    // ------------------------------------------------------------------ public leaderboard (beta, unverified)
+
+    // leaderboards/{levelId}/entries/{uid}: the best time of one player on one mission. Anyone can read a bounded page;
+    // only the owner can write, only a faster time than the one stored, and only a plausible one.
+    match /leaderboards/{levelId}/entries/{uid} {
+      function validEntry(d) {
+        return d.keys().hasOnly(['schema', 'uid', 'levelId', 'timeMs', 'vehicleId', 'conditions', 'displayName',
+                                 'medal', 'comfort', 'appVersion', 'clientAt', 'submittedAt'])
+          && d.schema == 1
+          && d.uid == uid
+          && d.levelId == levelId
+          && levelId in levelIds()
+          && isInt(d.timeMs, minTimeMs(levelId), 3600000)
+          && d.vehicleId in vehicleIds()
+          && isStr(d.conditions, 3, 24)
+          && validDisplayName(d.displayName)
+          && isMedal(d.medal)
+          && (!('comfort' in d) || d.comfort == null || isNum(d.comfort, 0, 100))
+          && isStr(d.appVersion, 1, 24)
+          && isInt(d.clientAt, 0, 4102444800000)
+          && d.submittedAt == request.time;
+      }
+      allow get: if true;
+      // Bounded lists only: a client cannot ask for every entry in one go.
+      allow list: if request.query.limit <= 100;
+      allow create: if isOwner(uid) && validEntry(request.resource.data);
+      allow update: if isOwner(uid) && validEntry(request.resource.data)
+        && request.resource.data.timeMs < resource.data.timeMs;
+      allow delete: if isOwner(uid);
+    }
+
+    // ------------------------------------------------------------------ feedback (write-only for players)
+
+    // feedback/{feedbackId}: create-only. Players can never read, edit or delete feedback, theirs or anyone else's.
+    // Novarah reads it in the Firebase Console. Anonymous sign-in alone does not stop spam: see docs/FIREBASE.md.
+    match /feedback/{feedbackId} {
+      function optText(v, max) {
+        return v is string && v.size() <= max;
+      }
+      function optBool(v) {
+        return v == null || v is bool;
+      }
+      function validInterest(m) {
+        return m is map && m.keys().hasOnly(['playLargerVersion', 'considerPurchasingFullGame', 'priceRange', 'voluntarySupport'])
+          && optBool(m.playLargerVersion) && optBool(m.considerPurchasingFullGame) && optBool(m.voluntarySupport)
+          && (m.priceRange == null || m.priceRange in ['none', 'under5', '5to10', '10to20', '20to40', 'over40']);
+      }
+      function validFeedback(d) {
+        return d.keys().hasOnly(['schema', 'uid', 'submissionId', 'createdAt', 'clientAt', 'appVersion', 'origin',
+                                 'rating', 'gameplay', 'controls', 'graphics', 'performance', 'difficulty',
+                                 'favourite', 'improve', 'add', 'bugs', 'contact', 'device', 'interest'])
+          && d.schema == 1
+          && d.uid == request.auth.uid
+          && d.submissionId == feedbackId
+          && d.createdAt == request.time
+          && isInt(d.clientAt, 0, 4102444800000)
+          && isStr(d.appVersion, 1, 24)
+          && d.origin in ['menu', 'settings', 'results', 'about', 'campaign']
+          && isInt(d.rating, 1, 5)
+          && optText(d.gameplay, 1200) && optText(d.controls, 1200) && optText(d.graphics, 1200)
+          && optText(d.performance, 1200) && optText(d.favourite, 1200) && optText(d.improve, 1200)
+          && optText(d.add, 1200) && optText(d.bugs, 1200)
+          && (d.difficulty == null || d.difficulty in ['tooEasy', 'aboutRight', 'tooDifficult'])
+          && (d.contact == null || isStr(d.contact, 0, 120))
+          && (d.device == null || (d.device is map && d.device.size() <= 12))
+          && validInterest(d.interest);
+      }
+      allow create: if signedIn() && feedbackId.matches('^[A-Za-z0-9_-]{8,64}$') && validFeedback(request.resource.data);
+      allow read, update, delete: if false;
+    }
+
+    // ------------------------------------------------------------------ optional gameplay statistics (write-only)
+
+    // telemetrySessions/{sessionId}: one aggregated summary per play session, written only after the player opted in
+    // to statistics. Create-only; never readable by clients. No e-mail, no coordinates: route positions are 0..1
+    // fractions of a mission's road. At most 12 incidents per document (rules cannot loop, so every one is checked
+    // explicitly); a longer session is sent as several documents.
+    match /telemetrySessions/{sessionId} {
+      function validIncident(e) {
+        return e is map && e.keys().hasOnly(['type', 'levelId', 'at', 'vehicleId', 'severity'])
+          && e.type in ['collision', 'recovered', 'fuel_exhausted', 'stuck', 'hazard', 'abandoned', 'failed']
+          && e.levelId in levelIds()
+          && isNum(e.at, 0, 1)
+          && e.vehicleId in vehicleIds()
+          && e.severity in ['low', 'medium', 'high'];
+      }
+      function validSession(d) {
+        return d.keys().hasOnly(['schema', 'uid', 'sessionId', 'startedAt', 'endedAt', 'appVersion', 'platform',
+                                 'qualityTier', 'perfTier', 'counters', 'vehicles', 'levels', 'upgrades', 'incidents'])
+          && d.schema == 1
+          && d.uid == request.auth.uid
+          && d.sessionId == sessionId
+          && d.startedAt is int && d.endedAt is int
+          && isStr(d.appVersion, 1, 24)
+          && d.platform in ['desktop', 'phone', 'tablet', 'unknown']
+          && d.qualityTier in ['low', 'medium', 'high']
+          && d.perfTier in ['low', 'mid', 'high', 'unknown']
+          && d.counters is map && d.counters.size() <= 24
+          && d.vehicles is map && d.vehicles.size() <= 8
+          && d.levels is map && d.levels.size() <= 24
+          && d.upgrades is map && d.upgrades.size() <= 32
+          && d.incidents is list && d.incidents.size() <= 12
+          && (d.incidents.size() <= 0 || validIncident(d.incidents[0]))
+          && (d.incidents.size() <= 1 || validIncident(d.incidents[1]))
+          && (d.incidents.size() <= 2 || validIncident(d.incidents[2]))
+          && (d.incidents.size() <= 3 || validIncident(d.incidents[3]))
+          && (d.incidents.size() <= 4 || validIncident(d.incidents[4]))
+          && (d.incidents.size() <= 5 || validIncident(d.incidents[5]))
+          && (d.incidents.size() <= 6 || validIncident(d.incidents[6]))
+          && (d.incidents.size() <= 7 || validIncident(d.incidents[7]))
+          && (d.incidents.size() <= 8 || validIncident(d.incidents[8]))
+          && (d.incidents.size() <= 9 || validIncident(d.incidents[9]))
+          && (d.incidents.size() <= 10 || validIncident(d.incidents[10]))
+          && (d.incidents.size() <= 11 || validIncident(d.incidents[11]));
+      }
+      allow create: if signedIn() && sessionId.matches('^[A-Za-z0-9_-]{8,64}$') && validSession(request.resource.data);
+      allow read, update, delete: if false;
+    }
+  }
+}
