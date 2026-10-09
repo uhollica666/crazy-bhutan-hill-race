@@ -25,6 +25,10 @@ export interface RaceResult {
   recoveries: number;
   splits: number[];
   vehicleId: string;
+  /** Fuel left (0..1) and condition (0..100) at the end, when tracked. */
+  fuelLeft: number | null;
+  health: number | null;
+  creditsOnboard: number;
 }
 
 export interface RaceStations {
@@ -39,6 +43,8 @@ export interface RaceOptions {
   vehicleId: string;
   /** Time thresholds already scaled for the vehicle. Defaults to the level's reference times. */
   times?: LevelTimes;
+  /** cross = driving through the gate finishes; stop = the tourists unload once the car is stopped in the zone. */
+  finishMode?: 'cross' | 'stop';
 }
 
 type RaceEvents = {
@@ -87,6 +93,10 @@ export class RaceSession {
   private lastTick = COUNTDOWN_SECONDS + 1;
   private comfortIntegral = 0;
   private comfortLow = 100;
+  /** 0..1 progress of unloading at the destination (finishMode stop). */
+  unloadProgress = 0;
+  /** Set by the owner so the result can report end-of-run condition. */
+  endStatus: { fuel: number; health: number } | null = null;
 
   constructor(
     private readonly level: LevelDef,
@@ -129,7 +139,7 @@ export class RaceSession {
     this.comfortLow = Math.min(this.comfortLow, this.comfort.value);
   }
 
-  update(dt: number, s: number, lateral: number): void {
+  update(dt: number, s: number, lateral: number, speed = 0): void {
     if (this.phase === 'countdown') {
       this.countdown -= dt;
       const whole = Math.ceil(this.countdown);
@@ -160,11 +170,21 @@ export class RaceSession {
       this.nextCheckpoint++;
     }
 
-    if (this.nextCheckpoint >= checkpointS.length && s >= finishS && Math.abs(lateral) <= gateHalfWidth) {
-      this.phase = 'finished';
-      this.result = this.buildResult('completed');
-      this.events.emit('finish', this.result);
-      return;
+    if (this.nextCheckpoint >= checkpointS.length && Math.abs(lateral) <= gateHalfWidth) {
+      let arrived = false;
+      if ((this.opts.finishMode ?? 'cross') === 'cross') {
+        arrived = s >= finishS;
+      } else if (s >= finishS - 10) {
+        // Drop-off: pull up in the zone and stay put while the tourists climb out.
+        this.unloadProgress = speed <= 1.6 ? Math.min(1, this.unloadProgress + dt / 1.6) : Math.max(0, this.unloadProgress - dt);
+        arrived = this.unloadProgress >= 1;
+      }
+      if (arrived) {
+        this.phase = 'finished';
+        this.result = this.buildResult('completed');
+        this.events.emit('finish', this.result);
+        return;
+      }
     }
 
     if (this.time >= this.times.limit) {
@@ -204,6 +224,9 @@ export class RaceSession {
       recoveries: this.recoveries,
       splits: [...this.splits],
       vehicleId: this.opts.vehicleId,
+      fuelLeft: this.endStatus ? this.endStatus.fuel : null,
+      health: this.endStatus ? this.endStatus.health : null,
+      creditsOnboard: 0,
     };
   }
 }

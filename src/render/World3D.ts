@@ -1,11 +1,12 @@
 import { Group, Mesh, MeshLambertMaterial } from 'three';
 import type { Material, Scene, Vector3 } from 'three';
 import type { Course } from '../world/Course';
+import type { TimeOfDay, WeatherKind } from '../data/types';
 import { Environment } from './Environment';
 import { Gates } from './Gates';
 import { Scenery } from './Scenery';
 import type { QualityProfile } from './quality';
-import { buildRoadMeshes, buildTerrainMesh, buildWater, setTerrainCoarse } from './WorldMesh';
+import { buildFordWater, buildRoadMeshes, buildTerrainMesh, buildWater, setTerrainCoarse } from './WorldMesh';
 
 /** Everything visible that belongs to a level, created from a Course and removable as a unit. */
 export class World3D {
@@ -25,6 +26,8 @@ export class World3D {
     this.root.add(this.terrain, buildRoadMeshes(course));
     // Only levels with a river valley get a water plane.
     if (course.terrain.waterLevel > course.terrain.minHeight) this.root.add(buildWater(course));
+    const ford = buildFordWater(course);
+    if (ford) this.root.add(ford);
     this.scenery = new Scenery(course, quality.propDensity, quality.windSway);
     this.root.add(this.scenery.group);
     this.gates = new Gates(course);
@@ -44,6 +47,11 @@ export class World3D {
       const m = (o as Mesh).material as Material | Material[] | undefined;
       if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true));
     });
+  }
+
+  setConditions(weather: WeatherKind, time: TimeOfDay): void {
+    this.env.setConditions(weather, time);
+    this.scenery.setLamps(this.env.lightsOn && time !== 'day');
   }
 
   update(time: number, camera: Vector3, focus: Vector3, progress: number): void {

@@ -7,16 +7,19 @@ import {
   InstancedMesh,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   Quaternion,
   Vector3,
 } from 'three';
 import type { WebGLProgramParametersWithUniforms } from 'three';
 import type { Course } from '../world/Course';
+import { createRoadHit } from '../world/Road';
 import type { LandmarkDef } from '../data/types';
 import { fbm2, lerp, mulberry32, smoothstep } from '../core/math';
 import { GeoBuilder } from './geo';
 import { FLAG_COLORS, PAL } from './palette';
+import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
 import {
   broadleafGeometry,
   dzongGeometry,
@@ -246,6 +249,38 @@ export class Scenery {
     this.instances.push({ mesh, total: mats.length, densityScaled });
   }
 
+  /** Street lamps: a lit pole plus a glowing head that is bright regardless of the sun (visible at dusk and night). */
+  private lampMat: MeshBasicMaterial | null = null;
+
+  /** Street lamps glow at dusk and night and look unlit in daylight. */
+  setLamps(on: boolean): void {
+    this.lampMat?.color.setScalar(on ? 1.15 : 0.4);
+  }
+
+  private addLamps(mats: Matrix4[]): void {
+    if (!mats.length) return;
+    const pole = new GeoBuilder()
+      .cylinder(0.08, 0.12, 5.6, PAL.woodDark, 6, { y: 2.8 })
+      .box(1.1, 0.08, 0.1, PAL.woodDark, { y: 5.55, x: 0.45 })
+      .build();
+    const head = new GeoBuilder().box(0.5, 0.18, 0.34, 0xffe9a8, { y: 5.45, x: 0.95 }).build();
+    const poles = new InstancedMesh(pole, this.propMaterial(), mats.length);
+    this.lampMat = new MeshBasicMaterial({ vertexColors: true, fog: false });
+    this.lampMat.color.setScalar(0.4);
+    const heads = new InstancedMesh(head, this.lampMat, mats.length);
+    mats.forEach((m, i) => {
+      poles.setMatrixAt(i, m);
+      heads.setMatrixAt(i, m);
+    });
+    for (const mesh of [poles, heads]) {
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.computeBoundingSphere();
+      this.group.add(mesh);
+      this.disposables.push(mesh);
+    }
+    this.disposables.push(pole, head, this.lampMat);
+  }
+
   private build(): void {
     const { course } = this;
     const level = course.level;
@@ -358,6 +393,11 @@ export class Scenery {
     const towers: Matrix4[] = [];
     const planes: Matrix4[] = [];
     const wheelHouses: Matrix4[] = [];
+    const shops: Matrix4[] = [];
+    const towersClock: Matrix4[] = [];
+    const lamps: Matrix4[] = [];
+    const stations: Matrix4[] = [];
+    const nearHit = createRoadHit();
     const cloth = new ClothBuilder();
     const poles = new GeoBuilder();
     let poleCount = 0;
@@ -366,14 +406,27 @@ export class Scenery {
 
     for (const l of level.scenery.landmarks) {
       road.at(l.at * road.length, pose);
-      const rx = -pose.tz;
-      const rz = pose.tx;
+      let rx = -pose.tz;
+      let rz = pose.tx;
       const lat = l.side * l.offset;
-      const x = pose.x + rx * lat;
-      const z = pose.z + rz * lat;
-      const y = terrain.heightAt(x, z);
+      let x = pose.x + rx * lat;
+      let z = pose.z + rz * lat;
       // Heading that makes the model's +Z face look back toward the road.
-      const faceRoad = Math.atan2(-l.side * rx, -l.side * rz);
+      let faceRoad = Math.atan2(-l.side * rx, -l.side * rz);
+      if (l.pos) {
+        // Absolute placement (city blocks): face the nearest point of the road.
+        x = l.pos.x;
+        z = l.pos.z;
+        if (road.project(x, z, nearHit)) {
+          road.at(nearHit.s, pose);
+          const cx = pose.x;
+          const cz = pose.z;
+          faceRoad = Math.atan2(cx - x, cz - z);
+          rx = -pose.tz;
+          rz = pose.tx;
+        }
+      }
+      const y = terrain.heightAt(x, z);
       const sc = l.scale ?? 1;
 
       switch (l.kind) {
@@ -410,6 +463,18 @@ export class Scenery {
           break;
         case 'prayerWheelHouse':
           wheelHouses.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'shopRow':
+          shops.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'clockTower':
+          towersClock.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'streetLamp':
+          lamps.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'station':
+          stations.push(compose(x, y, z, faceRoad, sc));
           break;
         case 'yak':
           yaks.push(compose(x, y, z, rng() * 6.28, 1.05 + rng() * 0.2));
@@ -483,6 +548,10 @@ export class Scenery {
     this.registerInstanced(towerGeometry(), towers, material, false);
     this.registerInstanced(planeGeometry(), planes, material, false);
     this.registerInstanced(prayerWheelHouseGeometry(), wheelHouses, material, false);
+    this.registerInstanced(shopRowGeometry(), shops, material, false);
+    this.registerInstanced(clockTowerGeometry(), towersClock, material, false);
+    this.registerInstanced(stationGeometry(), stations, material, false);
+    this.addLamps(lamps);
 
     if (poleCount > 0) {
       const geo = poles.build();

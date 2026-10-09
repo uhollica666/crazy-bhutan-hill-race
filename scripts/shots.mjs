@@ -1,14 +1,17 @@
 // Visual inspection helper: node scripts/shots.mjs [baseUrl] [outDir]
-// Needs a server (bun run preview, or bun run dev). Saves screenshots of every screen and level.
+// Needs a server (bun run preview, or bun run dev). Saves menu, selection, garage and driving screenshots for all five levels.
 import { mkdirSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
 const base = process.argv[2] ?? 'http://localhost:4173';
-const out = process.argv[3] ?? 'screenshots/stage2';
+const out = process.argv[3] ?? 'screenshots/stage3';
 mkdirSync(out, { recursive: true });
 
 const save = {
-  version: 2,
+  version: 3,
+  wallet: { credits: 10000 },
+  garage: { owned: ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser'], upgrades: {} },
+  story: { seen: ['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition'] },
   settings: {
     masterVolume: 0.8,
     musicVolume: 0,
@@ -33,6 +36,7 @@ const save = {
           },
         },
       },
+      'chelela-climb': { completions: 1, medal: 'bronze', vehicles: {} },
       'airport-dash': {
         completions: 1,
         medal: 'bronze',
@@ -57,14 +61,14 @@ const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
-await ctx.addInitScript((s) => localStorage.setItem('cbhr.v2.save', JSON.stringify(s)), save);
+await ctx.addInitScript((s) => localStorage.setItem('cbhr.v3.save', JSON.stringify(s)), save);
 const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
 page.on('console', (m) => m.type() === 'error' && console.log('CONSOLE', m.text()));
 
 const ready = () => page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
 const st = () => page.evaluate(() => window.__cbhr.state());
-await page.goto(`${base}/?debug=1`);
+await page.goto(`${base}/?debug=1&nosplash=1`);
 await ready();
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${out}/01-menu.png` });
@@ -74,11 +78,13 @@ await page.screenshot({ path: `${out}/02-levels.png` });
 
 for (const [levelId, tag] of [
   ['pass-run', 'pass'],
+  ['thimphu-pickup', 'thimphu'],
   ['airport-dash', 'airport'],
   ['chelela-climb', 'chelela'],
+  ['remote-expedition', 'expedition'],
 ]) {
   if (levelId !== 'pass-run') {
-    await page.goto(`${base}/?debug=1`);
+    await page.goto(`${base}/?debug=1&nosplash=1`);
     await ready();
     await page.click('#btn-start');
   } else {

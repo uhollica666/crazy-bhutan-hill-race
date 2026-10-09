@@ -11,6 +11,10 @@ export interface QualityProfile {
   particleDensity: number;
   skidMarks: boolean;
   snowCount: number;
+  /** Rain streaks drawn at full intensity. */
+  rainDrops: number;
+  /** Share of a level's traffic that is simulated and drawn (lower tiers have fewer cars). */
+  trafficScale: number;
   shadows: boolean;
   shadowMapSize: number;
   /** Fraction of the level's tree / rock budget that is drawn. */
@@ -30,6 +34,8 @@ export const QUALITY: Record<QualityLevel, QualityProfile> = {
     particleDensity: 0.4,
     skidMarks: false,
     snowCount: 220,
+    rainDrops: 260,
+    trafficScale: 0.5,
     shadows: false,
     shadowMapSize: 0,
     propDensity: 0.4,
@@ -45,6 +51,8 @@ export const QUALITY: Record<QualityLevel, QualityProfile> = {
     particleDensity: 0.75,
     skidMarks: true,
     snowCount: 500,
+    rainDrops: 600,
+    trafficScale: 0.8,
     shadows: true,
     shadowMapSize: 1024,
     propDensity: 0.75,
@@ -60,6 +68,8 @@ export const QUALITY: Record<QualityLevel, QualityProfile> = {
     particleDensity: 1,
     skidMarks: true,
     snowCount: 900,
+    rainDrops: 900,
+    trafficScale: 1,
     shadows: true,
     shadowMapSize: 2048,
     propDensity: 1,

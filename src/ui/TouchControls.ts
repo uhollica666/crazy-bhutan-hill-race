@@ -21,6 +21,7 @@ export class TouchControls {
   private readonly pad: HTMLElement;
   private steerPointer: number | null = null;
   private sensitivity = 1;
+  private readonly resetPedals: (() => void)[] = [];
 
   constructor(private readonly out: VehicleInput) {
     const el = (this.el = document.createElement('div'));
@@ -75,6 +76,9 @@ export class TouchControls {
 
   private bindPedal(btn: HTMLElement, key: 'throttle' | 'brake'): void {
     let id: number | null = null;
+    this.resetPedals.push(() => {
+      id = null;
+    });
     btn.addEventListener('pointerdown', (e) => {
       if (id !== null) return;
       id = e.pointerId;
@@ -102,6 +106,7 @@ export class TouchControls {
 
   /** Releases every control (call when the race stops). */
   reset(): void {
+    for (const reset of this.resetPedals) reset();
     this.out.steer = 0;
     this.out.throttle = 0;
     this.out.brake = 0;

@@ -365,10 +365,23 @@ export class VehicleEffects {
         let dust = 0;
         let smoke = 0;
         let skid = false;
+        let dr = 0.78;
+        let dg = 0.66;
+        let db = 0.46;
         if (w.inContact && speed > 2.5) {
           course.road.project(w.contact.x, w.contact.z, this.hit);
           const verge = Math.abs(this.hit.lateral) > course.road.halfWidth - 0.1;
           if (verge) dust = 16 * clamp(speed / 18, 0, 1);
+          // The surface decides what the tyres throw up: tan dust on dirt and gravel, dark spray in mud, fine
+          // spray on wet asphalt, bright splashes in water. Dry asphalt throws nothing.
+          const sf = w.surface;
+          if (sf.dust !== null && sf.id !== 'asphalt') {
+            const rate = sf.id === 'water' ? 38 : sf.id === 'mud' ? 26 : sf.wet ? 12 : 18;
+            dust = Math.max(dust, rate * clamp(speed / 16, 0, 1));
+            dr = ((sf.dust >> 16) & 255) / 255;
+            dg = ((sf.dust >> 8) & 255) / 255;
+            db = (sf.dust & 255) / 255;
+          }
           if (w.slip > 2.5) {
             smoke = 34 * clamp((w.slip - 2) / 4, 0, 1);
             skid = !verge;
@@ -380,7 +393,7 @@ export class VehicleEffects {
           if (w.driven && body.drive > 0.8 && speed < 7) dust = Math.max(dust, 10);
         }
         this.skids.add(i, skid, w.contact.x, w.contact.y + 0.09, w.contact.z, this.head.x, this.head.z);
-        this.spawn(i, dt, dust, w.contact.x, w.contact.y, w.contact.z, body, 0.78, 0.66, 0.46, 0.42, 1.1);
+        this.spawn(i, dt, dust, w.contact.x, w.contact.y, w.contact.z, body, dr, dg, db, 0.42, 1.1);
         this.spawn(i, dt, smoke, w.contact.x, w.contact.y, w.contact.z, body, 0.92, 0.92, 0.92, 0.3, 0.8);
       }
     }
@@ -446,6 +459,7 @@ export class VehicleEffects {
   }
 
   reset(): void {
+    this.acc.length = 0;
     this.particles.clear();
     this.skids.clear();
   }

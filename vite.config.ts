@@ -44,8 +44,11 @@ function serviceWorker(): Plugin {
   };
 }
 
+const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: string };
+
 export default defineConfig({
   base: './',
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   plugins: [serviceWorker()],
   build: { target: 'es2022', sourcemap: false, chunkSizeWarningLimit: 900 },
   // Localhost only by default; use `bun run dev:lan` to test on a phone over your own Wi-Fi.

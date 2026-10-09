@@ -2,9 +2,13 @@ import type { LevelDef, VehicleDef } from '../types';
 import { airportDash } from './airport-dash';
 import { chelelaClimb } from './chelela-climb';
 import { passRun } from './pass-run';
+import { remoteExpedition } from './remote-expedition';
+import { thimphuPickup } from './thimphu-pickup';
 
 /** Campaign order. Unlock rules live on each LevelDef; this list only fixes display order. */
-const registry = new Map<string, LevelDef>([passRun, airportDash, chelelaClimb].map((l) => [l.id, l]));
+const registry = new Map<string, LevelDef>(
+  [passRun, thimphuPickup, airportDash, chelelaClimb, remoteExpedition].map((l) => [l.id, l]),
+);
 
 export const getLevel = (id: string): LevelDef => {
   const def = registry.get(id);

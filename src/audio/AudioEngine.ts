@@ -20,6 +20,12 @@ export interface DriveSound {
   offRoad: boolean;
   /** Frame time (s), for rpm smoothing. */
   dt: number;
+  /** 0..1 how loose the surface under the wheels is (gravel, mud, rock crunch more). Optional. */
+  loose?: number;
+  /** True on a wet road: tyres hiss instead of rumble. Optional. */
+  wet?: boolean;
+  /** 0..1 depth of water the vehicle is wading through. Optional. */
+  water?: number;
 }
 
 export interface AmbientDef {
@@ -62,6 +68,10 @@ export class AudioEngine {
   private tyre: { gain: GainNode; bp: BiquadFilterNode } | null = null;
   private skid: { gain: GainNode } | null = null;
   private wind: { gain: GainNode; lp: BiquadFilterNode } | null = null;
+  private rainLayer: { gain: GainNode } | null = null;
+  private splashLayer: { gain: GainNode } | null = null;
+  private rainLevel = 0;
+  private windExtra = 0;
   private drones: OscillatorNode[] = [];
   private driving = false;
   private oneShots = 0;
@@ -197,6 +207,35 @@ export class AudioEngine {
     wn.connect(wlp).connect(wg).connect(this.sfx);
     wn.start();
     this.wind = { gain: wg, lp: wlp };
+
+    // Rain: a continuous high-passed noise layer, only its gain moves.
+    const rn = this.noiseSource(ctx);
+    const rhp = ctx.createBiquadFilter();
+    rhp.type = 'highpass';
+    rhp.frequency.value = 1400;
+    const rg = ctx.createGain();
+    rg.gain.value = 0;
+    rn.connect(rhp).connect(rg).connect(this.sfx);
+    rn.start();
+    this.rainLayer = { gain: rg };
+
+    // Water splashing around the wheels while wading.
+    const wn2 = this.noiseSource(ctx);
+    const wbp = ctx.createBiquadFilter();
+    wbp.type = 'bandpass';
+    wbp.frequency.value = 900;
+    wbp.Q.value = 0.8;
+    const wg2 = ctx.createGain();
+    wg2.gain.value = 0;
+    wn2.connect(wbp).connect(wg2).connect(this.sfx);
+    wn2.start();
+    this.splashLayer = { gain: wg2 };
+  }
+
+  /** Weather bed: rain intensity 0..1 and extra wind 0..1 (gusts on exposed roads). */
+  setWeather(rain: number, wind: number): void {
+    this.rainLevel = clamp(rain, 0, 1);
+    this.windExtra = clamp(wind, 0, 1);
   }
 
   /** Switches the engine character (called when the player picks a vehicle). */
@@ -250,13 +289,17 @@ export class AudioEngine {
     const speed = Math.abs(s.speed);
     const wind = this.wind;
     wind.gain.gain.setTargetAtTime(
-      0.02 + this.ambient.wind * 0.06 + clamp(speed / s.topSpeed, 0, 1) * 0.1,
+      0.02 + (this.ambient.wind + this.windExtra) * 0.06 + clamp(speed / s.topSpeed, 0, 1) * 0.1,
       t,
       0.15,
     );
     wind.lp.frequency.setTargetAtTime(350 + speed * 30, t, 0.15);
+    this.rainLayer?.gain.gain.setTargetAtTime(this.rainLevel * 0.085, t, 0.3);
     this.ambientEvents(t);
-    if (!this.driving) return;
+    if (!this.driving) {
+      this.splashLayer?.gain.gain.setTargetAtTime(0, t, 0.1);
+      return;
+    }
 
     // Simple gearbox: rpm climbs within a gear and drops on shift. The target is smoothed in JS so pitch
     // glides instead of stepping, with a brief rev-hang on lift-off.
@@ -281,8 +324,11 @@ export class AudioEngine {
 
     const roll = s.grounded ? clamp(speed / 30, 0, 1) : 0;
     // The gravel verge is crunchier and louder than asphalt.
-    this.tyre.gain.gain.setTargetAtTime(roll * (s.offRoad ? 0.2 : 0.1), t, 0.08);
-    this.tyre.bp.frequency.setTargetAtTime((s.offRoad ? 260 : 380) + speed * 22, t, 0.1);
+    const loose = Math.max(s.offRoad ? 0.5 : 0, s.loose ?? 0);
+    this.tyre.gain.gain.setTargetAtTime(roll * (0.1 + loose * 0.12), t, 0.08);
+    // Wet asphalt hisses (higher band); loose ground crunches (lower, wider).
+    this.tyre.bp.frequency.setTargetAtTime((loose > 0.3 ? 260 : s.wet ? 900 : 380) + speed * 22, t, 0.1);
+    this.splashLayer?.gain.gain.setTargetAtTime((s.water ?? 0) * clamp(speed / 8, 0, 1) * 0.16, t, 0.1);
     const skid = s.grounded
       ? clamp((s.slip - 2.5) / 5, 0, 1) * 0.1 + (s.braking && speed > 12 ? 0.04 : 0)
       : 0;
@@ -456,6 +502,79 @@ export class AudioEngine {
     const t = ctx.currentTime;
     this.tone(659.25, t, 0.4, 0.09, 'sine');
     this.tone(523.25, t + 0.16, 0.5, 0.09, 'sine');
+  }
+
+  /** Guests climb aboard: three bright notes. */
+  pickup(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [659.25, 830.61, 987.77].forEach((f, i) => this.tone(f, t + i * 0.09, 0.5, 0.16, 'triangle'));
+  }
+
+  /** Low-fuel / low-condition warning: two short beeps. */
+  warning(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(880, t, 0.12, 0.13, 'square');
+    this.tone(880, t + 0.2, 0.12, 0.13, 'square');
+  }
+
+  /** A pour / wrench tick while a pit-stop service runs. Call every ~0.25 s. */
+  serviceTick(kind: 'refuel' | 'repair'): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    if (kind === 'refuel') this.tone(180 + Math.random() * 40, t, 0.16, 0.12, 'sine', this.sfx, 120);
+    else this.tone(1400 + Math.random() * 300, t, 0.05, 0.08, 'square', this.sfx, 900);
+  }
+
+  serviceDone(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(784, t, 0.3, 0.14, 'triangle');
+    this.tone(1046.5, t + 0.12, 0.5, 0.14, 'triangle');
+  }
+
+  /** Distant thunder: a long, low rumble. */
+  thunder(): void {
+    const ctx = this.ready();
+    if (ctx) this.noiseBurst(ctx.currentTime + 0.25, 2.4, 0.5, 'lowpass', 420, 60);
+  }
+
+  /** Rocks coming down. */
+  rockfall(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.noiseBurst(t, 1.1, 0.4, 'lowpass', 900, 100);
+    this.tone(70, t + 0.05, 0.5, 0.3, 'sine', this.sfx, 40);
+  }
+
+  /** The yeti's friendly "hoo". */
+  yeti(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(150, t, 0.5, 0.2, 'triangle', this.sfx, 110);
+    this.tone(120, t + 0.45, 0.6, 0.18, 'triangle', this.sfx, 90);
+  }
+
+  /** Engine cut out (flooded or out of fuel). */
+  stall(): void {
+    const ctx = this.ready();
+    if (ctx) this.tone(140, ctx.currentTime, 0.7, 0.3, 'sawtooth', this.sfx, 35);
+  }
+
+  /** A passing car's horn. */
+  horn(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(392, t, 0.28, 0.1, 'square');
+    this.tone(494, t, 0.28, 0.08, 'square');
   }
 
   airBrake(): void {

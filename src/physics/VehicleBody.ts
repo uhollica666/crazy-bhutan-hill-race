@@ -1,16 +1,23 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import type { VehicleDef } from '../data/types';
+import type { Drivetrain, VehicleDef } from '../data/types';
+import { SURFACES, effectiveGrip } from '../data/surfaces';
+import type { SurfaceDef } from '../data/surfaces';
 import { clamp, lerp } from '../core/math';
 import { createGroundSample } from '../world/Terrain';
 import type { BarrierHit } from '../world/Road';
-import type { PhysicsWorld, VehicleInput } from './types';
+import type { ObstacleHit, PhysicsWorld, VehicleInput } from './types';
 
 export interface WheelState {
   readonly mountLocal: Vector3;
   /** World position of the tyre contact patch (valid while inContact). */
   readonly contact: Vector3;
   readonly steered: boolean;
-  readonly driven: boolean;
+  /** Index into def.axles. */
+  readonly axle: number;
+  /** Whether the current drivetrain mode sends power to this wheel. */
+  driven: boolean;
+  /** Surface under the contact patch (valid while inContact). */
+  surface: SurfaceDef;
   /** Radians, + = right. Visual and force direction. */
   steerAngle: number;
   /** Accumulated roll angle (radians) for visuals. */
@@ -36,6 +43,21 @@ const GRAVITY_DIR_Y = -1;
  *
  * Local frame: +X right, +Y up, -Z forward, origin at the centre of mass.
  */
+/** Per-step modifiers set from outside (condition, weather, wading); the body itself stays generic. */
+export interface BodyModifiers {
+  /** 0..1 engine power available (damage, no fuel, stalled, deep water). */
+  power: number;
+  /** 0..1 multiplier on top speed. */
+  topSpeed: number;
+  /** Extra tyre grip multiplier (weather). */
+  grip: number;
+  /** Steering wobble amplitude in radians (damaged steering). */
+  steerNoise: number;
+  /** Wind acceleration in world X/Z (m/s^2); only tall vehicles feel it. */
+  windX: number;
+  windZ: number;
+}
+
 export class VehicleBody {
   readonly position = new Vector3();
   readonly quaternion = new Quaternion();
@@ -63,7 +85,11 @@ export class VehicleBody {
   private impact = 0;
   private readonly invMass: number;
   private readonly inertia = new Vector3();
-  private readonly drivenCount: number;
+  private drivenCount = 1;
+  private noiseT = 0;
+  private readonly windFactor: number;
+  readonly mod: BodyModifiers = { power: 1, topSpeed: 1, grip: 1, steerNoise: 0, windX: 0, windZ: 0 };
+  driveMode: Drivetrain;
   private readonly restHeight: number;
   private readonly wheelbase: number;
 
@@ -88,6 +114,18 @@ export class VehicleBody {
   private readonly tmp2 = new Vector3();
   private readonly ground = createGroundSample();
   private readonly barrierHit: BarrierHit = { depth: 0, nx: 0, nz: 0 };
+  private readonly obstacleHit: ObstacleHit = {
+    depth: 0,
+    nx: 0,
+    nz: 0,
+    vx: 0,
+    vz: 0,
+    restitution: 0.3,
+    push: 0.6,
+    id: -1,
+  };
+  /** True if the last step touched a dynamic obstacle (cleared by the caller). */
+  obstacleContact = false;
   private readonly compBuf: number[] = [];
 
   constructor(readonly def: VehicleDef) {
@@ -101,9 +139,11 @@ export class VehicleBody {
     );
     this.invMass = 1 / m;
     this.wheels = [];
-    for (const axle of def.axles) {
+    def.axles.forEach((axle, axleIndex) => {
       for (const side of [-1, 1]) {
         this.wheels.push({
+          axle: axleIndex,
+          surface: SURFACES.asphalt,
           mountLocal: new Vector3(side * axle.halfTrack, axle.y, axle.z),
           contact: new Vector3(),
           steered: axle.steered,
@@ -117,13 +157,30 @@ export class VehicleBody {
           slip: 0,
         });
       }
-    }
-    this.drivenCount = Math.max(1, this.wheels.filter((x) => x.driven).length);
+    });
+    this.driveMode = def.drivetrain.default;
+    this.applyDriveMode();
+    this.windFactor = clamp((def.size.height - 1.5) / 0.9, 0, 1.2);
     const zs = def.axles.map((a) => a.z);
     this.wheelbase = Math.max(0.5, Math.max(...zs) - Math.min(...zs));
     const lowest = Math.min(...def.axles.map((a) => a.y));
     const sag = (def.mass * def.gravity) / this.wheels.length / def.suspension.stiffness;
     this.restHeight = -lowest + def.suspension.rest - sag + def.wheelRadius;
+  }
+
+  /** Switches between 4x2 and 4x4 (ignored if the vehicle does not offer that mode). Returns the active mode. */
+  setDriveMode(mode: Drivetrain): Drivetrain {
+    if (this.def.drivetrain.modes.includes(mode)) this.driveMode = mode;
+    this.applyDriveMode();
+    return this.driveMode;
+  }
+
+  private applyDriveMode(): void {
+    const d = this.def;
+    for (const w of this.wheels) {
+      w.driven = this.driveMode === '4x4' ? d.axles[w.axle].driven : w.axle === d.drivetrain.twoWheelAxle;
+    }
+    this.drivenCount = Math.max(1, this.wheels.filter((x) => x.driven).length);
   }
 
   /** Places the vehicle on the ground at (x,z), facing the XZ unit heading (tx,tz), at rest. */
@@ -231,7 +288,10 @@ export class VehicleBody {
     // Arcade rollover guard: never steer harder than the vehicle can corner without tipping.
     const tanLimit = (d.stability.maxLateralAccel * this.wheelbase) / Math.max(fwdSpeed * fwdSpeed, 1);
     const steerLimit = Math.atan(tanLimit);
-    const steerAngle = clamp(this.steerValue * maxAngle, -steerLimit, steerLimit);
+    this.noiseT += dt;
+    const wobble =
+      this.mod.steerNoise > 0 ? this.mod.steerNoise * Math.sin(this.noiseT * 7.3) * Math.sin(this.noiseT * 2.1 + 1) : 0;
+    const steerAngle = clamp(this.steerValue * maxAngle + wobble, -steerLimit, steerLimit);
 
     // --- Pedals.
     let drive = 0;
@@ -250,11 +310,19 @@ export class VehicleBody {
     let driveTotal = 0;
     if (drive > 0) {
       driveTotal =
-        drive * d.engine.force * clamp(1 - Math.pow(Math.max(fwdSpeed, 0) / d.engine.topSpeed, 4), 0, 1);
+        drive *
+        d.engine.force *
+        this.mod.power *
+        clamp(
+          1 - Math.pow(Math.max(fwdSpeed, 0) / (d.engine.topSpeed * this.mod.topSpeed), d.engine.powerExponent),
+          0,
+          1,
+        );
     } else if (drive < 0) {
       driveTotal =
         drive *
         d.engine.reverseForce *
+        this.mod.power *
         clamp(1 - Math.pow(Math.max(-fwdSpeed, 0) / d.engine.reverseSpeed, 2), 0, 1);
     }
 
@@ -281,6 +349,8 @@ export class VehicleBody {
       const len = upY > 0.2 ? (this.mountW.y - g.height) / upY : Infinity;
 
       w.steerAngle = w.steered ? steerAngle : 0;
+      const surf = world.surface ? world.surface(this.mountW.x, this.mountW.z) : SURFACES.asphalt;
+      w.surface = surf;
       w.inContact = len < maxLen;
       if (!w.inContact) {
         w.compression = 0;
@@ -330,8 +400,9 @@ export class VehicleBody {
       const vf = this.vp.dot(this.f);
       const vr = this.vp.dot(this.right);
       const load = spring;
-      const muLong = d.grip.longitudinal * load;
-      const muLat = d.grip.lateral * load;
+      const gm = effectiveGrip(surf, d.offroad) * this.mod.grip;
+      const muLong = d.grip.longitudinal * load * gm;
+      const muLat = d.grip.lateral * load * gm;
 
       let fx = 0;
       if (w.driven) fx += driveTotal / this.drivenCount;
@@ -340,6 +411,7 @@ export class VehicleBody {
         fx += clamp((-vf * wheelMass) / dt, -bmax, bmax);
       }
       fx -= (vf * d.engine.rollingResistance) / nWheels;
+      if (surf.rolling > 0) fx -= vf * surf.rolling * wheelMass * (1 - 0.5 * d.offroad);
       if (drive === 0 && brake === 0 && w.driven) fx -= (vf * d.engine.engineBraking) / this.drivenCount;
       if (drive === 0 && brake === 0 && Math.abs(vf) < 1.2) {
         // Auto-hold: stops the car creeping on slopes when the player lets go.
@@ -409,6 +481,10 @@ export class VehicleBody {
     // --- Aero drag, downforce, and a gentle self-righting torque while on the ground.
     const vlen = this.velocity.length();
     this.force.addScaledVector(this.velocity, -d.engine.aeroDrag * vlen);
+    if (this.windFactor > 0) {
+      this.force.x += this.mod.windX * mass * this.windFactor;
+      this.force.z += this.mod.windZ * mass * this.windFactor;
+    }
     this.force.addScaledVector(this.ay, -d.stability.downforce * vlen * vlen * (grounded > 0 ? 1 : 0));
     if (grounded >= 2) {
       this.avgN.normalize();
@@ -444,7 +520,7 @@ export class VehicleBody {
 
     // Hard speed ceiling (the power curve already limits normal acceleration).
     const hs = Math.hypot(this.velocity.x, this.velocity.z);
-    const cap = d.engine.topSpeed * 1.25;
+    const cap = d.engine.topSpeed * this.mod.topSpeed * 1.25;
     if (hs > cap) {
       const k = cap / hs;
       this.velocity.x *= k;
@@ -487,6 +563,21 @@ export class VehicleBody {
         this.resolve(this.pt, this.nrm, b.depth, 0.2, 0.25, 0.95);
       }
     }
+
+    // Dynamic obstacles (boulders, traffic, creatures): corners plus the nose and tail.
+    if (world.obstacle) {
+      const o = this.obstacleHit;
+      for (let i = 0; i < 6; i++) {
+        if (i < 4) this.pt.set(i & 1 ? hx : -hx, 0, i & 2 ? hz : -hz);
+        else this.pt.set(0, 0, i === 4 ? -hz : hz);
+        this.pt.applyQuaternion(this.quaternion).add(this.position);
+        if (world.obstacle(this.pt.x, this.pt.z, o) && o.depth > 0) {
+          this.nrm.set(o.nx, 0, o.nz);
+          this.resolve(this.pt, this.nrm, o.depth, o.restitution, 0.3, o.push, o.vx, o.vz);
+          this.obstacleContact = true;
+        }
+      }
+    }
   }
 
   private resolve(
@@ -496,9 +587,13 @@ export class VehicleBody {
     restitution: number,
     friction: number,
     push: number,
+    ovx = 0,
+    ovz = 0,
   ): void {
     this.r.subVectors(point, this.position);
     this.vp.crossVectors(this.angularVelocity, this.r).add(this.velocity);
+    this.vp.x -= ovx;
+    this.vp.z -= ovz;
     const vn = this.vp.dot(n);
     if (vn < 0) {
       this.tmp2.crossVectors(this.r, n);

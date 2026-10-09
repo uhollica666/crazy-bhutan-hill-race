@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { readFile, writeFile } from 'node:fs/promises';
 import { makeSave, openGame, seedSave, startMission, state } from './helpers';
 
 /**
@@ -32,7 +33,13 @@ test.describe('offline PWA (production build)', () => {
     context,
   }) => {
     test.setTimeout(240_000);
-    await seedSave(page, makeSave(['pass-run', 'airport-dash'])); // every mission unlocked
+    await seedSave(
+      page,
+      makeSave({
+        finished: ['pass-run', 'airport-dash', 'chelela-climb'],
+        owned: ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser'],
+      }),
+    );
     await page.goto('/?debug=1');
     await page.waitForFunction(() => !!(window as unknown as { __cbhr?: unknown }).__cbhr, undefined, {
       timeout: 90_000,
@@ -64,6 +71,9 @@ test.describe('offline PWA (production build)', () => {
     expect(cached.urls.some((u) => /\/assets\/index-.*\.css$/.test(u))).toBe(true);
     expect(cached.urls.some((u) => u.endsWith('/manifest.webmanifest'))).toBe(true);
     expect(cached.urls.some((u) => u.endsWith('/icon-512.png'))).toBe(true);
+    for (const asset of ['/brand/novarah-logo.webp', '/brand/novarah-symbol.webp']) {
+      expect(cached.urls, asset).toContain(asset);
+    }
 
     // 5-6. Network off, reload.
     await context.setOffline(true);
@@ -73,9 +83,20 @@ test.describe('offline PWA (production build)', () => {
     await page.waitForFunction(() => !!(window as unknown as { __cbhr?: unknown }).__cbhr, undefined, {
       timeout: 60_000,
     });
+    if (await page.locator('#splash').isVisible()) await page.keyboard.press('Enter');
     await expect(page.locator('#btn-start')).toBeVisible();
     expect(await page.evaluate(() => navigator.onLine)).toBe(false);
     await page.screenshot({ path: 'screenshots/pwa-offline-menu.png' });
+    await page.locator('#btn-credit').click();
+    await expect(page.locator('#screen-about')).toBeVisible();
+    expect(
+      await page
+        .locator('.about-logo')
+        .evaluate((el) => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0),
+    ).toBe(true);
+    await page.locator('#about-feedback').click();
+    await expect(page.locator('#screen-feedback')).toContainText('No feedback server');
+    await page.locator('#fb-cancel').click();
 
     // 7. A level (not just the menu) launches and is playable offline: use the airport mission.
     await startMission(page, 'airport-dash', 'tourist-coaster');
@@ -105,8 +126,36 @@ test.describe('offline PWA (production build)', () => {
       .toBe('activated');
     await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
     await context.setOffline(true);
-    await page.goto('/'); // a brand-new navigation, not just a reload
+    await page.goto('/?nosplash=1'); // a brand-new navigation, not just a reload
     await expect(page.locator('#btn-start')).toBeVisible({ timeout: 60_000 });
     await context.close();
+  });
+
+  test('a production worker update replaces the old cache and remains playable offline', async ({
+    page,
+    context,
+  }) => {
+    const path = 'dist/sw.js';
+    const original = await readFile(path, 'utf8');
+    const updated = original.replace(/const VERSION = '[0-9a-f]{12}'/, "const VERSION = '000000000003'");
+    await openGame(page);
+    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    const before = await page.evaluate(() => caches.keys());
+    try {
+      await writeFile(path, updated);
+      await page.evaluate(async () => {
+        await (await navigator.serviceWorker.getRegistration())!.update();
+      });
+      await expect.poll(() => page.evaluate(() => caches.keys())).toEqual(['cbhr-000000000003']);
+      expect(before).not.toEqual(['cbhr-000000000003']);
+      await context.setOffline(true);
+      await page.reload();
+      await expect(page.locator('#btn-start')).toBeVisible();
+      await startMission(page, 'pass-run');
+      expect((await state(page)).phase).toBe('running');
+    } finally {
+      await context.setOffline(false);
+      await writeFile(path, original);
+    }
   });
 });

@@ -18,9 +18,9 @@ const started = (): RaceSession => {
 };
 
 describe('definitions', () => {
-  it('has three levels and two vehicles in campaign order', () => {
-    expect(listLevels().map((l) => l.id)).toEqual(['pass-run', 'airport-dash', 'chelela-climb']);
-    expect(listVehicles().map((v) => v.id)).toEqual(['druk-ranger', 'tourist-coaster']);
+  it('has five levels and four vehicles in campaign order', () => {
+    expect(listLevels().map((l) => l.id)).toEqual(['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition']);
+    expect(listVehicles().map((v) => v.id)).toEqual(['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser']);
   });
 
   it('every level references existing vehicles and has sane medals, comfort thresholds and checkpoints', () => {
@@ -38,12 +38,17 @@ describe('definitions', () => {
     }
   });
 
-  it('unlock chain is pass-run -> airport-dash -> chelela-climb, and the coach opens with the airport', () => {
+  it('unlock chain opens the campaign in order and the vehicles one tier at a time', () => {
     expect(getLevel('pass-run').unlock).toBeNull();
+    expect(getLevel('thimphu-pickup').unlock).toEqual({ levelId: 'pass-run', requirement: 'finish' });
     expect(getLevel('airport-dash').unlock).toEqual({ levelId: 'pass-run', requirement: 'finish' });
     expect(getLevel('chelela-climb').unlock).toEqual({ levelId: 'airport-dash', requirement: 'finish' });
-    expect(getVehicle('druk-ranger').unlock).toBeNull();
+    expect(getLevel('remote-expedition').unlock).toEqual({ levelId: 'chelela-climb', requirement: 'finish' });
+    expect(getVehicle('dzo-hatch').unlock).toBeNull();
+    expect(getVehicle('dzo-hatch').price).toBe(0);
     expect(getVehicle('tourist-coaster').unlock).toEqual({ levelId: 'pass-run', requirement: 'finish' });
+    expect(getVehicle('druk-ranger').unlock).toEqual({ levelId: 'airport-dash', requirement: 'finish' });
+    expect(getVehicle('dragon-cruiser').unlock).toEqual({ levelId: 'chelela-climb', requirement: 'finish' });
   });
 
   it('vehicle definitions are physically consistent', () => {
@@ -124,14 +129,14 @@ describe('level loading', () => {
     });
   }
 
-  it('the three routes are genuinely different shapes', () => {
+  it('the routes are genuinely different shapes', () => {
     const courses = listLevels().map((l) => new Course(l));
     const radii = courses.map((c) => c.road.minRadius());
     const grades = courses.map((c) => c.road.maxGrade());
     expect(Math.max(...grades)).toBeGreaterThan(Math.min(...grades) * 1.5);
     expect(Math.max(...radii)).toBeGreaterThan(Math.min(...radii) * 1.1);
     expect(new Set(courses.map((c) => Math.round(c.road.length / 100))).size).toBeGreaterThanOrEqual(2);
-    expect(new Set(listLevels().map((l) => l.road.width)).size).toBe(3); // distinct road widths
+    expect(new Set(listLevels().map((l) => l.road.width)).size).toBeGreaterThanOrEqual(4); // distinct road widths
   });
 });
 

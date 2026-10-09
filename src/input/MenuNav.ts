@@ -55,7 +55,8 @@ export class MenuNav {
     if (!dir) return;
     const a = document.activeElement as HTMLElement | null;
     // Sliders and dropdowns keep their own arrow behaviour.
-    if (a instanceof HTMLSelectElement) return;
+    if (a instanceof HTMLSelectElement || a instanceof HTMLTextAreaElement) return;
+    if (a instanceof HTMLInputElement && (a.type === 'text' || a.type === 'email')) return;
     if (a instanceof HTMLInputElement && a.type === 'range' && (dir === 'left' || dir === 'right')) return;
     if (this.move(dir)) e.preventDefault();
   };

@@ -19,30 +19,68 @@ export interface GameState {
   comfort: number | null;
   pixelRatio: number;
   stats: { calls: number; triangles: number; geometries: number; textures: number };
+  fuel: number;
+  health: number;
+  onboard: number;
+  party: number;
+  gate: string | null;
+  objective: { kind: string; label: string; distance: number } | null;
+  driveMode: string;
+  credits: number;
+  servicesUsed: number;
+  weather: string;
+  time_of_day: string;
+  loaner: boolean;
+  lights: boolean;
 }
 
-export const state = (page: Page): Promise<GameState> =>
-  page.evaluate(() => (window as unknown as { __cbhr: { state(): unknown } }).__cbhr.state() as never);
-
-export const NAMES: Record<string, string> = {
-  'druk-ranger': 'Druk Ranger',
-  'tourist-coaster': 'Tourist Coaster',
+type Api = {
+  state(): unknown;
+  autodrive(on: boolean): void;
+  warp(s: number): void;
+  course(): unknown;
+  setFuel(f: number): void;
+  grantCredits(n: number): void;
+  analytics(): { name: string }[];
 };
 
-/** A v2 save document. `finished` lists levels that count as completed. */
-export function makeSave(finished: string[] = [], extra: Record<string, unknown> = {}): string {
+export const state = (page: Page): Promise<GameState> => page.evaluate(() => (window as unknown as { __cbhr: Api }).__cbhr.state() as never);
+
+export const NAMES: Record<string, string> = {
+  'dzo-hatch': 'Dzo Hatch',
+  'tourist-coaster': 'Tourist Coaster',
+  'druk-ranger': 'Druk Ranger',
+  'dragon-cruiser': 'Dragon Cruiser',
+};
+
+export const SAVE_KEY = 'cbhr.v3.save';
+
+export interface SaveOptions {
+  /** Missions that count as completed. */
+  finished?: string[];
+  owned?: string[];
+  credits?: number;
+  /** Story briefings already read. Defaults to every mission so tests go straight to the road. */
+  storySeen?: string[] | 'all';
+  upgrades?: Record<string, Record<string, number>>;
+}
+
+const ALL_LEVELS = ['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition'];
+
+/** A v3 save document. */
+export function makeSave(o: SaveOptions = {}): string {
   const levels: Record<string, unknown> = {};
-  for (const id of finished) {
+  for (const id of o.finished ?? []) {
     levels[id] = {
       completions: 1,
       medal: 'bronze',
       vehicles: {
-        'druk-ranger': { bestTime: 130, bestScore: 40, bestComfort: null, medal: 'bronze', completions: 1 },
+        'dzo-hatch': { bestTime: 130, bestScore: 40, bestComfort: null, medal: 'bronze', completions: 1 },
       },
     };
   }
   return JSON.stringify({
-    version: 2,
+    version: 3,
     settings: {
       masterVolume: 0.8,
       musicVolume: 0,
@@ -51,25 +89,32 @@ export function makeSave(finished: string[] = [], extra: Record<string, unknown>
       quality: 'medium',
       touchControls: 'auto',
       touchSensitivity: 1,
+      reducedMotion: false,
     },
     progress: { levels },
     selection: { levelId: null, vehicleId: null },
     history: [],
-    ...extra,
+    wallet: { credits: o.credits ?? 0 },
+    garage: { owned: o.owned ?? ['dzo-hatch'], upgrades: o.upgrades ?? {} },
+    story: { seen: o.storySeen === undefined || o.storySeen === 'all' ? ALL_LEVELS : o.storySeen },
+    stats: { missionsPlayed: 0, creditsEarned: 0 },
   });
 }
 
 /** Seeds localStorage before the game boots (only on the first navigation, so reloads keep real saves). */
 export async function seedSave(page: Page, json: string): Promise<void> {
-  await page.addInitScript((s) => {
-    if (!sessionStorage.getItem('__seeded')) {
-      localStorage.setItem('cbhr.v2.save', s);
-      sessionStorage.setItem('__seeded', '1');
-    }
-  }, json);
+  await page.addInitScript(
+    ([key, s]) => {
+      if (!sessionStorage.getItem('__seeded')) {
+        localStorage.setItem(key, s);
+        sessionStorage.setItem('__seeded', '1');
+      }
+    },
+    [SAVE_KEY, json],
+  );
 }
 
-/** Opens the game with the debug API and collects console errors. */
+/** Opens the game with the debug API and collects console errors. The studio splash is skipped unless asked for. */
 export async function openGame(page: Page, query = ''): Promise<string[]> {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -77,11 +122,11 @@ export async function openGame(page: Page, query = ''): Promise<string[]> {
     if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text()))
       errors.push(`console: ${m.text()}`);
   });
-  await page.goto(`/?debug=1${query}`);
+  await page.goto(`/?debug=1${query.includes('splash') ? '' : '&nosplash=1'}${query}`);
   await page.waitForFunction(() => !!(window as unknown as { __cbhr?: unknown }).__cbhr, undefined, {
     timeout: 90_000,
   });
-  await expect(page.locator('#btn-start')).toBeVisible();
+  await expect(page.locator('#btn-start')).toBeVisible({ timeout: 30_000 });
   return errors;
 }
 
@@ -96,7 +141,7 @@ export async function openGarage(page: Page, levelId: string, vehicleId?: string
   await page.locator(`button[data-level="${levelId}"]`).click();
   await expect(page.locator('#screen-garage')).toBeVisible({ timeout: 30_000 });
   if (vehicleId) {
-    for (let i = 0; i < 4 && (await page.locator('#veh-name').textContent()) !== NAMES[vehicleId]; i++) {
+    for (let i = 0; i < 5 && (await page.locator('#veh-name').textContent()) !== NAMES[vehicleId]; i++) {
       await page.locator('#btn-veh-next').click();
     }
     await expect(page.locator('#veh-name')).toHaveText(NAMES[vehicleId]);
@@ -104,24 +149,36 @@ export async function openGarage(page: Page, levelId: string, vehicleId?: string
   }
 }
 
-/** Full UI path into a running mission. */
+/** Full UI path into a running mission (dismisses the story briefing if it appears). */
 export async function startMission(page: Page, levelId: string, vehicleId?: string): Promise<void> {
   await openGarage(page, levelId, vehicleId);
   await page.locator('#btn-launch').click();
+  const brief = page.locator('#brief-go');
+  if (await brief.isVisible().catch(() => false)) await brief.click();
   await expect(page.locator('#hud')).toBeVisible();
   await waitForPhase(page, 'running', 30_000);
 }
 
-export const drive = (page: Page, on = true): Promise<void> =>
-  page.evaluate(
-    (v) => (window as unknown as { __cbhr: { autodrive(on: boolean): void } }).__cbhr.autodrive(v),
-    on,
-  );
+export const drive = (page: Page, on = true): Promise<void> => page.evaluate((v) => (window as unknown as { __cbhr: Api }).__cbhr.autodrive(v), on);
 
-export const warp = (page: Page, s: number): Promise<void> =>
-  page.evaluate((v) => (window as unknown as { __cbhr: { warp(s: number): void } }).__cbhr.warp(v), s);
+export const warp = (page: Page, s: number): Promise<void> => page.evaluate((v) => (window as unknown as { __cbhr: Api }).__cbhr.warp(v), s);
 
-export const courseInfo = (
-  page: Page,
-): Promise<{ length: number; startS: number; finishS: number; checkpointS: number[] }> =>
-  page.evaluate(() => (window as unknown as { __cbhr: { course(): never } }).__cbhr.course());
+export const setFuel = (page: Page, f: number): Promise<void> => page.evaluate((v) => (window as unknown as { __cbhr: Api }).__cbhr.setFuel(v), f);
+
+export const grantCredits = (page: Page, n: number): Promise<void> => page.evaluate((v) => (window as unknown as { __cbhr: Api }).__cbhr.grantCredits(v), n);
+
+export const analyticsEvents = (page: Page): Promise<{ name: string }[]> => page.evaluate(() => (window as unknown as { __cbhr: Api }).__cbhr.analytics());
+
+export interface CourseInfo {
+  length: number;
+  startS: number;
+  finishS: number;
+  checkpointS: number[];
+  stops: { id: string; kind: string; s: number }[];
+}
+
+export const courseInfo = (page: Page): Promise<CourseInfo> =>
+  page.evaluate(() => (window as unknown as { __cbhr: Api }).__cbhr.course() as never);
+
+export const storedSave = async (page: Page): Promise<Record<string, any>> => // eslint-disable-line @typescript-eslint/no-explicit-any
+  JSON.parse((await page.evaluate((k) => localStorage.getItem(k), SAVE_KEY)) as string);

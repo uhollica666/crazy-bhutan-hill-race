@@ -1,6 +1,10 @@
 import {
+  AdditiveBlending,
   CanvasTexture,
   CircleGeometry,
+  CylinderGeometry,
+  DoubleSide,
+  Float32BufferAttribute,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -15,6 +19,7 @@ import type { PhysicsWorld } from '../physics/types';
 import { createGroundSample } from '../world/Terrain';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
+import { LIGHT_LAYOUT, cruiserBody, hatchBody } from './vehicleBodies';
 
 const GLASS = 0x2b3f58;
 const TIRE = 0x1c1c1f;
@@ -88,8 +93,7 @@ function coasterBody(def: VehicleDef): BufferGeometry {
 
 function headLights(def: VehicleDef): BufferGeometry {
   const l = def.size.length;
-  const hx = def.visual === 'coaster' ? 0.78 : 0.66;
-  const y = def.visual === 'coaster' ? -0.18 : -0.1;
+  const { hx, y } = LIGHT_LAYOUT[def.visual];
   const g = new GeoBuilder();
   for (const sx of [-1, 1]) g.box(0.32, 0.18, 0.08, 0xfff1b8, { x: sx * hx, y, z: -l / 2 - 0.01 });
   return g.build();
@@ -97,11 +101,52 @@ function headLights(def: VehicleDef): BufferGeometry {
 
 function tailLights(def: VehicleDef): BufferGeometry {
   const l = def.size.length;
-  const hx = def.visual === 'coaster' ? 0.82 : 0.68;
-  const y = def.visual === 'coaster' ? -0.2 : -0.1;
+  const hx = LIGHT_LAYOUT[def.visual].tailHx;
+  const y = LIGHT_LAYOUT[def.visual].tailY;
   const g = new GeoBuilder();
   for (const sx of [-1, 1]) g.box(0.3, 0.2, 0.08, 0xffffff, { x: sx * hx, y, z: l / 2 + 0.01 });
   return g.build();
+}
+
+function bodyFor(def: VehicleDef): BufferGeometry {
+  switch (def.visual) {
+    case 'hatch':
+      return hatchBody(def);
+    case 'coaster':
+      return coasterBody(def);
+    case 'cruiser':
+      return cruiserBody(def);
+    default:
+      return suvBody(def);
+  }
+}
+
+/** A non-simulated copy of a vehicle (body, lights, four static wheels): used for the rival coach. */
+export function createStaticVehicle(def: VehicleDef, livery?: Partial<VehicleDef['livery']>): { group: Group; dispose: () => void } {
+  const d: VehicleDef = livery ? { ...def, livery: { ...def.livery, ...livery } } : def;
+  const body = bodyFor(d);
+  const heads = headLights(d);
+  const tails = tailLights(d);
+  const wheel = wheelGeometry(d);
+  const lambert = new MeshLambertMaterial({ vertexColors: true });
+  const basic = new MeshBasicMaterial({ vertexColors: true });
+  const tailMat = new MeshBasicMaterial({ color: 0xa5272a });
+  const group = new Group();
+  group.add(new Mesh(body, lambert), new Mesh(heads, basic), new Mesh(tails, tailMat));
+  for (const axle of d.axles) {
+    for (const side of [-1, 1]) {
+      const m = new Mesh(wheel, lambert);
+      m.position.set(side * axle.halfTrack, axle.y - d.suspension.rest * 0.8, axle.z);
+      group.add(m);
+    }
+  }
+  return {
+    group,
+    dispose: () => {
+      [body, heads, tails, wheel].forEach((g) => g.dispose());
+      [lambert, basic, tailMat].forEach((m) => m.dispose());
+    },
+  };
 }
 
 function wheelGeometry(def: VehicleDef): BufferGeometry {
@@ -143,11 +188,12 @@ export class VehicleModel {
   private readonly up = new Vector3(0, 1, 0);
   private readonly n = new Vector3();
   private brakeGlow = 0;
+  private readonly beam: Mesh;
 
   constructor(private readonly def: VehicleDef) {
     const lambert = new MeshLambertMaterial({ vertexColors: true });
     const basic = new MeshBasicMaterial({ vertexColors: true });
-    const bodyGeo = def.visual === 'coaster' ? coasterBody(def) : suvBody(def);
+    const bodyGeo = bodyFor(def);
     const headGeo = headLights(def);
     const tailGeo = tailLights(def);
     const wheelGeo = wheelGeometry(def);
@@ -172,6 +218,28 @@ export class VehicleModel {
       }
     }
 
+    // Headlight beam: one additive cone fading to nothing ahead of the car. It costs a single transparent draw
+    // call and no real light, which keeps night driving cheap. Hidden unless the conditions ask for lights.
+    const beamLen = 20;
+    const beamGeo = new CylinderGeometry(3.4, 0.2, beamLen, 12, 1, true);
+    beamGeo.rotateX(-Math.PI / 2);
+    beamGeo.translate(0, 0, -(def.size.length / 2 + beamLen / 2));
+    const bp = beamGeo.getAttribute('position');
+    const bc = new Float32Array(bp.count * 4);
+    for (let i = 0; i < bp.count; i++) {
+      const far = Math.min(1, Math.max(0, (-bp.getZ(i) - def.size.length / 2) / beamLen));
+      bc.set([1, 0.95, 0.75, 0.42 * (1 - far) ** 1.4], i * 4);
+    }
+    beamGeo.setAttribute('color', new Float32BufferAttribute(bc, 4));
+    const beamMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false, side: DoubleSide });
+    this.beam = new Mesh(beamGeo, beamMat);
+    this.beam.position.y = LIGHT_LAYOUT[def.visual].y;
+    this.beam.visible = false;
+    this.beam.renderOrder = 5;
+    this.shell.add(this.beam);
+    this.geos.push(beamGeo);
+    this.mats.push(beamMat);
+
     const blobTex = makeBlobTexture();
     const blobMat = new MeshBasicMaterial({
       map: blobTex,
@@ -187,6 +255,11 @@ export class VehicleModel {
     this.geos.push(blobGeo);
     this.blob = new Mesh(blobGeo, blobMat);
     this.blob.renderOrder = 1;
+  }
+
+  /** Switches the headlight beam (dusk, night, fog, heavy rain). */
+  setHeadlights(on: boolean): void {
+    this.beam.visible = on;
   }
 
   /** Cheap fake shadow for the lowest quality tier (real shadow map otherwise). */

@@ -1,9 +1,12 @@
-import type { LevelDef } from '../data/types';
+import type { LevelDef, SurfaceId } from '../data/types';
+import { SURFACES, wetSurface } from '../data/surfaces';
+import type { SurfaceDef } from '../data/surfaces';
 import type { BarrierHit } from './Road';
-import { Road } from './Road';
+import { Road, createRoadHit } from './Road';
 import { Terrain, createRoadBase } from './Terrain';
 import type { GroundSample } from './Terrain';
-import type { PhysicsWorld } from '../physics/types';
+import { ObstacleSet } from './Obstacles';
+import type { ObstacleHit, PhysicsWorld } from '../physics/types';
 
 export interface SpawnPose {
   x: number;
@@ -14,9 +17,18 @@ export interface SpawnPose {
   tz: number;
 }
 
+export interface FordInfo {
+  fromS: number;
+  toS: number;
+  /** Water surface height (m). */
+  waterY: number;
+  depth: number;
+}
+
 /**
  * Everything the simulation needs to know about a level: geometry plus the gameplay stations
- * (start, ordered checkpoints, finish) expressed as distances along the road.
+ * (start, ordered checkpoints, finish) expressed as distances along the road, the road surface by stretch,
+ * a ford (optional) and the set of movable obstacles.
  */
 export class Course implements PhysicsWorld {
   readonly road: Road;
@@ -25,9 +37,19 @@ export class Course implements PhysicsWorld {
   readonly finishS: number;
   /** Distance along the road of each checkpoint, in required order. */
   readonly checkpointS: number[];
+  readonly obstacles = new ObstacleSet(64);
+  readonly ford: FordInfo | null;
+  /** 0..1 how wet the roads are right now (set by the weather system). */
+  wetness = 0;
+
+  private readonly surfaceIds: SurfaceId[] = ['asphalt'];
+  private readonly sampleSurface: Uint8Array;
+  private readonly shoulderSurface: SurfaceId;
+  private readonly rh = createRoadHit();
 
   constructor(readonly level: LevelDef) {
     this.road = new Road(level.road, createRoadBase(level.terrain));
+    this.ford = level.ford ? this.road.carveFord(level.ford.from, level.ford.to, level.ford.depth) : null;
     this.terrain = new Terrain(level.terrain, this.road);
     this.startS = level.road.startOffset;
     this.finishS = this.road.length - level.road.finishOffset;
@@ -36,6 +58,16 @@ export class Course implements PhysicsWorld {
     for (let i = 1; i < this.checkpointS.length; i++) {
       if (this.checkpointS[i] <= this.checkpointS[i - 1])
         throw new Error(`Level ${level.id}: checkpoints must ascend`);
+    }
+    this.shoulderSurface = level.shoulder ?? 'gravel';
+    this.sampleSurface = new Uint8Array(this.road.count);
+    for (const seg of level.surfaces ?? []) {
+      let idx = this.surfaceIds.indexOf(seg.surface);
+      if (idx < 0) idx = this.surfaceIds.push(seg.surface) - 1;
+      for (let i = 0; i < this.road.count; i++) {
+        const f = this.road.ss[i] / this.road.length;
+        if (f >= seg.from && f <= seg.to) this.sampleSurface[i] = idx;
+      }
     }
   }
 
@@ -47,6 +79,41 @@ export class Course implements PhysicsWorld {
     return this.road.barrier(x, z, out);
   }
 
+  obstacle(x: number, z: number, out: ObstacleHit): boolean {
+    return this.obstacles.hit(x, z, out);
+  }
+
+  /** Surface under a world point, including rain (wet asphalt, mud) and the ford. */
+  surface(x: number, z: number): SurfaceDef {
+    return SURFACES[this.surfaceIdAt(x, z)];
+  }
+
+  surfaceIdAt(x: number, z: number): SurfaceId {
+    const h = this.rh;
+    if (!this.road.project(x, z, h)) return 'grass';
+    if (this.ford && h.s >= this.ford.fromS && h.s <= this.ford.toS && Math.abs(h.lateral) < this.road.wallOffset) {
+      return 'water';
+    }
+    let id: SurfaceId;
+    if (Math.abs(h.lateral) > this.road.halfWidth) {
+      id = Math.abs(h.lateral) > this.road.wallOffset + 1 ? 'grass' : this.shoulderSurface;
+    } else {
+      const i = Math.min(this.road.count - 1, Math.max(0, Math.round((h.s / this.road.length) * (this.road.count - 1))));
+      id = this.surfaceIds[this.sampleSurface[i]];
+    }
+    return this.wetness > 0 ? wetSurface(id, this.wetness) : id;
+  }
+
+  /** Depth of water over the road bed at a point (0 outside the ford). */
+  waterDepthAt(x: number, z: number): number {
+    const f = this.ford;
+    if (!f) return 0;
+    const h = this.rh;
+    if (!this.road.project(x, z, h)) return 0;
+    if (h.s < f.fromS || h.s > f.toS || Math.abs(h.lateral) > this.road.wallOffset) return 0;
+    return Math.max(0, f.waterY - h.y);
+  }
+
   /** Pose on the road at distance `s` - used for spawning and checkpoint recovery. */
   poseAt(s: number): SpawnPose {
     const p = this.road.at(s, { x: 0, y: 0, z: 0, tx: 0, tz: -1 });
@@ -56,5 +123,10 @@ export class Course implements PhysicsWorld {
   /** Road fraction (0..1 of the whole road) to a distance. */
   fractionToS(f: number): number {
     return f * this.road.length;
+  }
+
+  /** Playable-stretch fraction (0..1 between start and finish) to a distance. */
+  stretchToS(f: number): number {
+    return this.startS + f * (this.finishS - this.startS);
   }
 }

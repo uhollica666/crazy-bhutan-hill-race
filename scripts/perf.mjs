@@ -7,10 +7,16 @@ import { chromium } from '@playwright/test';
 
 const base = process.argv[2] ?? 'http://localhost:4173';
 const stage1 = process.argv.includes('--stage1');
-const levels = stage1 ? ['pass-run'] : ['pass-run', 'airport-dash', 'chelela-climb'];
+const levels = stage1
+  ? ['pass-run']
+  : ['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition'];
 
 const full = (quality) => ({
-  version: 2,
+  version: 3,
+  wallet: { credits: 0 },
+  garage: { owned: ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser'], upgrades: {} },
+  story: { seen: levels },
+  stats: { missionsPlayed: 0, creditsEarned: 0 },
   settings: {
     masterVolume: 0.8,
     musicVolume: 0,
@@ -36,19 +42,23 @@ const full = (quality) => ({
           'druk-ranger': { bestTime: 130, bestScore: 40, bestComfort: null, medal: 'bronze', completions: 1 },
         },
       },
+      'chelela-climb': { completions: 1, medal: 'bronze', vehicles: {} },
     },
   },
   selection: { levelId: null, vehicleId: null },
   history: [],
 });
 
-const browser = await chromium.launch({
-  channel: 'chrome',
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-});
+const launch = () =>
+  chromium.launch({
+    channel: 'chrome',
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+  });
 const rows = [];
 for (const level of levels) {
   for (const quality of ['low', 'medium', 'high']) {
+    // Fresh browser per sample also releases SwiftShader's process-level shader caches.
+    const browser = await launch();
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     await ctx.addInitScript(
       ({ s, q, stage1 }) => {
@@ -64,10 +74,10 @@ for (const level of levels) {
               touchControls: 'off',
             }),
           );
-        else localStorage.setItem('cbhr.v2.save', JSON.stringify(s));
+        else localStorage.setItem('cbhr.v3.save', JSON.stringify(s));
         // Time every animation-frame callback.
         const raf = window.requestAnimationFrame.bind(window);
-        window.__frames = { n: 0, ms: 0, max: 0 };
+        window.__frames = { n: 0, ms: 0, max: 0, start: performance.now() };
         window.requestAnimationFrame = (cb) =>
           raf((t) => {
             const t0 = performance.now();
@@ -81,7 +91,7 @@ for (const level of levels) {
       { s: full(quality), q: quality, stage1 },
     );
     const page = await ctx.newPage();
-    await page.goto(`${base}/?debug=1`);
+    await page.goto(`${base}/?debug=1&nosplash=1&noadapt`);
     await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 120000 });
     await page.click('#btn-start');
     if (!stage1) {
@@ -92,36 +102,49 @@ for (const level of levels) {
     await page.waitForFunction(() => window.__cbhr.state().phase === 'running', undefined, {
       timeout: 60000,
     });
-    await page.keyboard.down('KeyW');
+    // Keep the camera and vehicle at the grid for equivalent scenes across quality tiers.
     await page.waitForTimeout(2500);
-    await page.evaluate(() => (window.__frames = { n: 0, ms: 0, max: 0 }));
+    await page.evaluate(() => (window.__frames = { n: 0, ms: 0, max: 0, start: performance.now() }));
     await page.waitForTimeout(6000);
     const r = await page.evaluate(() => {
       const s = window.__cbhr.state();
       const f = window.__frames;
       const mem = performance.memory ? performance.memory.usedJSHeapSize / 1048576 : null;
+      const assets = performance
+        .getEntriesByType('resource')
+        .filter(
+          (e) => e.initiatorType === 'script' || e.initiatorType === 'link' || e.initiatorType === 'img',
+        );
       return {
         stats: s.stats,
-        fps: s.fps,
+        // Wall-clock callback rate avoids the game's clamped-dt FPS estimate.
+        fps: (f.n * 1000) / Math.max(1, performance.now() - f.start),
+        vehicle: s.vehicleId,
         frames: f.n,
         jsMsAvg: f.ms / Math.max(1, f.n),
         jsMsMax: f.max,
         heapMB: mem,
         dpr: s.pixelRatio,
+        loadedAssetKB: assets.reduce((sum, e) => sum + e.decodedBodySize, 0) / 1024,
       };
     });
-    rows.push({
+    const row = {
       level,
       quality,
+      vehicle: r.vehicle,
       ...r.stats,
       swiftshaderFps: +r.fps.toFixed(1),
       jsMsPerFrame: +r.jsMsAvg.toFixed(2),
       jsMsWorst: +r.jsMsMax.toFixed(1),
       heapMB: r.heapMB ? +r.heapMB.toFixed(0) : null,
       pixelRatio: r.dpr,
-    });
+      loadedAssetKB: +r.loadedAssetKB.toFixed(1),
+      browser: browser.version(),
+    };
+    rows.push(row);
+    console.log(JSON.stringify(row));
     await ctx.close();
+    await browser.close();
   }
 }
-await browser.close();
-console.log((stage1 ? 'STAGE1' : 'STAGE2') + '\n' + rows.map((r) => JSON.stringify(r)).join('\n'));
+console.log(`${stage1 ? 'STAGE1' : 'STAGE3'}: ${rows.length} equivalent-grid scenes measured`);

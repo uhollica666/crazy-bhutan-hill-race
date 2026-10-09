@@ -5,7 +5,7 @@
 | Choice                                | Why                                                                                                                                                                                                                                                                                                                    |
 | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **TypeScript + Vite + Bun**           | Fast loop, tiny config, tree-shaken output. Bun runs installs and scripts; Vite/Vitest/Playwright run on Node underneath.                                                                                                                                                                                              |
-| **Three.js** (named imports only)     | Most direct route to a lightweight WebGL game; ~190 KB gzip JS total.                                                                                                                                                                                                                                                  |
+| **Three.js** (named imports only)     | Most direct route to a lightweight WebGL game; See the measured Stage 3 bundle in DEVELOPMENT_LOG.md.                                                                                                                                                                                                                  |
 | **Custom arcade physics, not Rapier** | Re-evaluated in Stage 2 and kept. Ground is an analytic height-field, so a raycast-suspension body is simpler, needs no ~1.5 MB WASM, and runs headless in Vitest (autopilots drive every level in milliseconds). Two very different vehicles came from _data_, not new physics, which is the test of the abstraction. |
 | **Plain DOM/CSS UI**                  | HUD, garage and menus are simple; no framework weight.                                                                                                                                                                                                                                                                 |
 | **Synthesised Web Audio**             | Zero audio downloads and licensing risk; per-vehicle engine voices are just parameters.                                                                                                                                                                                                                                |
@@ -26,7 +26,7 @@ render/    GameRenderer, World3D, WorldMesh, Scenery + landmarks, Gates, Environ
            CameraRig, effects (Snow, Particles, SkidMarks, VehicleEffects), adaptive, quality, geo, palette
 audio/     AudioEngine
 ui/        UI (all DOM screens), TouchControls, MiniMap, icons/logo, styles.css + stage2.css
-storage/   SaveStore (v2 + migration)
+storage/   SaveStore (v3 + v1/v2 migration)
 pwa/       register.ts, sw.template.js
 dev/       AutoDriver (pure-pursuit bot, tests and ?autodrive)
 ```
@@ -36,9 +36,9 @@ Boundaries: `physics`, `gameplay`, `world`, `data` import nothing from `render`/
 ## Lifecycle
 
 `requestAnimationFrame` → `dt` (clamped to 0.1 s) → accumulate → N fixed steps of **1/120 s**:
-`VehicleBody.step(input)` → `Road.project` → `RaceSession.update(s, lateral)` → `MotionSampler` (horizontal acceleration and body lean) → `RaceSession.feedMotion` (comfort) → render with `alpha = acc/step` interpolating the chassis. Camera, wheel visuals, effects and audio run per frame. Timer and comfort advance in fixed steps, so both are exact and frame-rate independent. Paused = no steps. Max 10 steps per frame.
+`VehicleBody.step(input)` → `Road.project` → `RaceSession.update(s, lateral)` → `MotionSampler` (horizontal acceleration and body lean) → `RaceSession.feedMotion` (comfort) → render with `alpha = acc/step` interpolating the chassis. Camera, wheel visuals, effects and audio run per frame. Timer and comfort advance in fixed steps, so both are exact and frame-rate independent. Paused and ended missions = no steps. Max 10 steps per frame.
 
-Menu flow (all inside `flow = menu`): main menu → **mission select** → (loads the level's world if different) → **garage** (live 3D preview of each vehicle at the start line, stats, targets, lock reasons) → run. From pause/results you can restart, change vehicle, jump to the next mission or return to the menu. Level worlds are built on demand and disposed when switching (`World3D.dispose` removes meshes, lights, sky, ridges, fog).
+Menu flow (all inside `flow = menu`): main menu → **mission select** → (loads the level's world if different) → **garage** (live 3D preview of each vehicle at the start line, stats, targets, lock reasons) → first-launch skippable story briefing → run. From pause/results you can restart, change vehicle, jump to the next mission or return to the menu. Level worlds are built on demand and disposed when switching (`World3D.dispose` removes meshes, lights, sky, ridges, fog).
 
 ## Vehicle model (one implementation, many vehicles)
 
@@ -61,11 +61,11 @@ A `LevelDef` is data: mission (kind, timer style/label, comfort on/off), eligibl
 
 ## Progression and saves
 
-`SaveStore` keeps one versioned document (`cbhr.v2.save`): settings, per-level/per-vehicle records (best time, best score, best comfort, medal, completions), the last selection and a 30-entry run history. Unlocks are _derived_ from progress (`gameplay/progression.ts`), never stored, so they cannot drift: `UnlockRule { levelId, requirement: finish | bronze | silver | gold }` on levels and vehicles. Stage 1 data (`cbhr.v1.*`) is migrated on first load (best times become Druk Ranger records, settings carried over) and the old keys are left untouched. Corrupt, partial or unknown-version data falls back field by field to defaults; storage that throws keeps working in memory.
+`SaveStore` keeps `cbhr.v3.save`: settings, per-level/per-vehicle records, selection, a 30-entry history, wallet, owned vehicles, purchased upgrades, seen stories and mission statistics. Unlock rules are derived from progress. Stage 1 (`cbhr.v1.*`) and Stage 2 (`cbhr.v2.save`) migrate without deleting old keys. The old Ranger and previously unlocked Coaster remain owned; migration adds the Hatch and 150 credits per completed mission. Defensive parsing repairs fields independently; unknown progression IDs are retained for compatibility but never become selectable campaign definitions. Unknown saved selections resolve to valid registered choices. Blocked storage keeps progress in memory. Purchase methods validate registered prices, supported upgrades and maximum levels before charging.
 
 ## Rendering and performance
 
-Flat-shaded, vertex-coloured low poly; static things are merged (`GeoBuilder`) and repeated things are `InstancedMesh` (pines, cypresses, broadleaf trees, shrubs, rocks, houses, chortens, yaks, landmark buildings). Effects are three single-draw-call systems: pooled soft particles (dust, tyre smoke, impact bursts), a ring buffer of skid-mark quads, and shader-animated snow (zero per-frame CPU). Quality presets (`render/quality.ts`) control pixel ratio and render scale, shadows (blob shadow on Low), a coarse terrain index (every 2nd node, ~4× fewer terrain triangles), prop density, particle density, skid marks, snow count, fog/draw distance and flag animation. `AdaptiveResolution` lowers the render scale when the smoothed frame time misses the preset's target (30 fps Low, 45 otherwise) and restores it slowly. Hot paths (physics, audio update, HUD object, effects) are allocation-free.
+Flat-shaded, vertex-coloured low poly; static things are merged (`GeoBuilder`) and repeated things are `InstancedMesh` (pines, cypresses, broadleaf trees, shrubs, rocks, houses, chortens, yaks, landmark buildings). Effects are three single-draw-call systems: pooled soft particles (dust, tyre smoke, impact bursts), a ring buffer of skid-mark quads, and shader-animated snow (zero per-frame CPU). Quality presets (`render/quality.ts`) control pixel ratio and render scale, shadows (blob shadow on Low), a coarse terrain index (every 2nd node, ~4× fewer terrain triangles), prop density, particle density, skid marks, snow count, fog/draw distance and flag animation. `AdaptiveResolution` lowers the render scale when the smoothed frame time misses the preset's target (30 fps Low, 45 otherwise) and restores it slowly. Physics scratch vectors, the HUD object and effect buffers are reused; some gameplay queries still allocate small temporary arrays.
 
 ## Audio
 
@@ -74,6 +74,26 @@ Flat-shaded, vertex-coloured low poly; static things are merged (`GeoBuilder`) a
 ## PWA
 
 `manifest.webmanifest` + icons; the build emits `sw.js` with a precache list and a build id hashed from the output. Navigations are network-first (updates arrive immediately online) with the cached shell offline; hashed assets are cache-first; old caches are deleted on activate; the page offers a "Reload" toast when a new version installs. Offline operation is verified by `e2e/pwa.spec.ts`.
+
+## Stage 3 integration
+
+`MissionRuntime` owns the body, `RaceSession`, `VehicleStatus`, `StopManager`, weather, hazards, traffic and optional rival. The fixed simulation step applies weather/surface modifiers, integrates physics, accounts for impacts and fuel, updates stops, gates race progress at the first unfinished required pickup, then advances world events. Paused games do not call the step; ended runtimes reject further simulation and results freeze the chassis. `begin()` resets session, status, stops and seeded world events; the app constructs a fresh runtime on restart. `dispose()` removes course obstacles. `Game.endRun` accepts the finish transition once, records successful progress, then grants one reward per run.
+
+`StopManager` requires speed <=1.6 m/s and a vehicle inside the zone: boarding takes 2.4 s, fuel about 9 s from empty, repair about 10 s from wrecked. Driving away cancels service. Services are free, consume race time and count only when complete. `VehicleStatus` burns distance/throttle/grade/surface-dependent fuel with fixed-step accounting. Empty tanks allow 12% power and 40% top speed so recovery remains possible; deep water also reduces power. Damage reduces power and steering stability and can cause deterministic temporary stalls.
+
+`Course.surface()` samples the route's configured stretches, wet variants, shoulders and ford. The same surface drives tyre force limits, drag, roughness damage, particle colours and road audio. 4x4 drives every supported axle; 4x2 uses the designated axle, with the same total engine power. Water depth is measured against a flat ford surface over the road bed. This is simplified wading/drag with shader water and wheel splashes, without a fluid solver.
+
+`WeatherState` supplies wetness, grip, visibility, wind and seeded thunder. `Environment` applies sky/fog/light presets; `VehicleModel` draws headlights, and `Rain` uses one shader-animated line draw. Flash decay restores the configured ambient intensity. `MissionView` renders passengers, service markers, rockfall, creatures, traffic and rival from the runtime; its textures/materials/geometries are disposed when replacing a mission. Particle and skid buffers are bounded, cleared on restart and thinned on Low.
+
+`HazardSystem` seeds warning/fall/crossing sequences and circular collision obstacles, leaves passing space and resets them between runs. `TrafficSystem` has a fixed car budget, follows left-hand lanes, slows for bends/leaders/static hazards and respawns at least 140 m ahead of the player. Its seed and spawn timer reset. Traffic is simplified lane following, without overtaking or route planning. `MissionDriver` drives the real runtime, stops for pickups/services/delivery and steers around obstacles; it never teleports to demonstrate completion.
+
+`applyUpgrades` is the single source for upgraded physics, fuel and damage definitions. Engine/braking/grip/suspension/range/durability all change real numbers; UI ratings use those same definitions. Rewards pay completion, medal, comfort, condition, optional-objective, weather and first-completion bonuses; timeout grants only 8% consolation and does not unlock progress. Replays can earn ordinary credits again; the first-completion bonus only pays once.
+
+## Feedback and future Firebase adapters
+
+`services/feedback.ts` validates a versioned payload (rating 1–5, optional text/contact/research answers, device block only with consent). `DraftStore` bounds local drafts to 20; JSON download and readable text export preserve the payload. The default `NoRemoteTransport` returns `not-sent`. An optional HTTPS transport seam exists but no endpoint or Firebase is connected. Only a successful HTTP response is called delivery. Storage failures retain a temporary in-memory copy and the UI says so.
+
+`services/seams.ts` defines progress storage, identity, personal leaderboard and analytics interfaces. Current identity is anonymous, the board uses local records and analytics sends nothing off-device (debug events are bounded in memory). A future Firebase integration can implement `FeedbackTransport` behind a validated, rate-limited server endpoint and adapt `ProgressStorage` for cloud saves with explicit conflict/migration policy. `SaveStore` currently uses localStorage directly, so connecting that adapter still requires integration work. Do not embed privileged Firebase credentials or treat a local write as cloud delivery. Consent, auth, abuse protection and migration tests belong to that later work.
 
 ## Planned extensibility
 

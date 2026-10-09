@@ -325,3 +325,38 @@ export function buildRoadMeshes(course: Course): Group {
   }
   return group;
 }
+
+/** Shallow water lying across the road bed at a ford: a flat strip along the road, above the dipped bed. */
+export function buildFordWater(course: Course): Mesh | null {
+  const ford = course.ford;
+  if (!ford) return null;
+  const road = course.road;
+  const half = road.wallOffset + 7;
+  const from = Math.max(0, ford.fromS - 12);
+  const to = Math.min(road.length, ford.toS + 12);
+  const steps = Math.max(2, Math.ceil((to - from) / 3));
+  const pos: number[] = [];
+  const idx: number[] = [];
+  const p = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
+  for (let i = 0; i <= steps; i++) {
+    road.at(from + ((to - from) * i) / steps, p);
+    const rx = -p.tz;
+    const rz = p.tx;
+    pos.push(p.x - rx * half, ford.waterY, p.z - rz * half, p.x + rx * half, ford.waterY, p.z + rz * half);
+    if (i > 0) {
+      const a = (i - 1) * 2;
+      idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+    }
+  }
+  const geo = new BufferGeometry();
+  geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const mesh = new Mesh(
+    geo,
+    new MeshLambertMaterial({ color: PAL.water, transparent: true, opacity: 0.7, side: DoubleSide, depthWrite: false }),
+  );
+  mesh.name = 'ford-water';
+  mesh.renderOrder = 2;
+  return mesh;
+}

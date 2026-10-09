@@ -12,6 +12,8 @@ import {
   Vector3,
 } from 'three';
 import type { Course } from '../world/Course';
+import type { TimeOfDay, WeatherKind } from '../data/types';
+import { TIME, WEATHER } from '../data/weather';
 import { lerp, mulberry32 } from '../core/math';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
@@ -62,12 +64,25 @@ export class Environment {
   private readonly mistStart: number;
   private mistStrength = 0;
   private mist = 0;
+  private weatherVis = 1;
+  private ambientIntensity = 1;
+  private flashLevel = 0;
+  private readonly look: Course['level']['look'];
+  private readonly baseSun: number;
+  private readonly baseHemi: number;
+  private readonly baseSunColor: Color;
+  private readonly baseFog: Color;
+  private readonly baseSky: { top: Color; mid: Color; horizon: Color };
+  private readonly scratch = new Color();
+  /** True when headlights and street lamps should be lit. */
+  lightsOn = false;
 
   constructor(
     readonly scene: Scene,
     course: Course,
   ) {
     const look = course.level.look;
+    this.look = look;
     this.fogColor.setHex(look.fog ?? PAL.fog);
     this.mistColor.setHex(look.mist ?? PAL.mist);
     this.fog = new Fog(this.fogColor.getHex(), 120, 800);
@@ -77,6 +92,15 @@ export class Environment {
     this.mistStart = course.level.atmosphere.mistStart;
     this.visibility = course.level.atmosphere.visibility;
 
+    this.baseSun = look.sun ?? 2.8;
+    this.baseHemi = look.hemi ?? 2.4;
+    this.baseSunColor = new Color(look.sunColor ?? PAL.sun);
+    this.baseFog = new Color(look.fog ?? PAL.fog);
+    this.baseSky = {
+      top: new Color(look.skyTop ?? PAL.skyTop),
+      mid: new Color(look.skyMid ?? PAL.skyMid),
+      horizon: new Color(look.skyHorizon ?? PAL.skyHorizon),
+    };
     this.hemi = new HemisphereLight(0xd6e8f8, 0x7a7448, look.hemi ?? 2.4);
     scene.add(this.hemi);
     this.sun = new DirectionalLight(look.sunColor ?? PAL.sun, look.sun ?? 2.8);
@@ -168,13 +192,59 @@ export class Environment {
   }
 
   applyQuality(q: QualityProfile): void {
-    this.baseFogFar = q.fogFar * this.visibility;
+    this.baseFogFar = q.fogFar * this.visibility * this.weatherVis;
     this.sun.castShadow = q.shadows;
     if (q.shadows) {
       this.sun.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
       this.sun.shadow.map?.dispose();
       this.sun.shadow.map = null;
     }
+    this.applyFog();
+  }
+
+  /** Applies weather and time of day: sky, light, fog distance and colour. Cheap enough to call on change only. */
+  setConditions(weather: WeatherKind, time: TimeOfDay, baseFogFar?: number): void {
+    const w = WEATHER[weather];
+    const t = TIME[time];
+    const grey = new Color(0x8a929c);
+    const tint = (base: Color, to: number, mix: number, out: Color): Color => {
+      out.copy(base).lerp(this.scratch.setHex(to), mix);
+      out.lerp(grey, w.gloom * 0.55);
+      if (time === 'night') out.multiplyScalar(0.85);
+      return out;
+    };
+    const u = this.skyMat.uniforms;
+    tint(this.baseSky.top, t.skyTint, t.skyMix, u.uTop.value as Color);
+    tint(this.baseSky.mid, t.skyTint, t.skyMix, u.uMid.value as Color);
+    tint(this.baseSky.horizon, t.skyTint, t.skyMix, u.uHorizon.value as Color);
+    tint(this.baseFog, t.fogTint, t.fogMix, this.fogColor);
+    this.mistColor.setHex(this.look.mist ?? PAL.mist).lerp(this.fogColor, t.fogMix * 0.8);
+    (u.uMistColor.value as Color).copy(this.mistColor);
+    const dim = 1 - w.gloom * 0.45;
+    this.sun.color.copy(this.baseSunColor).lerp(this.scratch.setHex(t.sunColor), t.skyMix > 0 ? 0.8 : 0);
+    this.sun.intensity = this.baseSun * t.sun * dim;
+    this.hemi.intensity = this.baseHemi * t.hemi * dim;
+    this.ambientIntensity = this.hemi.intensity;
+    this.sunHeight = t.sunHeight;
+    (this.ridges.material as MeshBasicMaterial).color.setScalar(
+      Math.max(0.1, t.hemi * (1 - w.gloom * 0.3)) ** 0.8,
+    );
+    this.weatherVis = w.visibility;
+    this.lightsOn = t.headlights || w.visibility < 0.35;
+    if (baseFogFar !== undefined) this.baseFogFar = baseFogFar * this.visibility * this.weatherVis;
+    else this.baseFogFar = (this.baseFogFar / Math.max(0.01, this.prevWeatherVis)) * this.weatherVis;
+    this.prevWeatherVis = this.weatherVis;
+    this.applyFog();
+  }
+
+  private sunHeight = 1;
+  private prevWeatherVis = 1;
+
+  /** Thunder flash 0..1 (decays by the caller). */
+  setFlash(v: number): void {
+    if (v === this.flashLevel) return;
+    this.flashLevel = v;
+    this.hemi.intensity = this.ambientIntensity * (1 + v * 2.2);
     this.applyFog();
   }
 
@@ -186,9 +256,10 @@ export class Environment {
   }
 
   private applyFog(): void {
-    this.fog.near = lerp(120 * this.visibility, 18, this.mist);
-    this.fog.far = lerp(this.baseFogFar, 230, this.mist);
+    this.fog.near = lerp(120 * this.visibility * this.weatherVis, 14, this.mist);
+    this.fog.far = lerp(this.baseFogFar, 230 * Math.min(1, this.weatherVis + 0.25), this.mist);
     this.fog.color.copy(this.fogColor).lerp(this.mistColor, this.mist);
+    if (this.flashLevel > 0) this.fog.color.lerp(this.scratch.setHex(0xe8eeff), this.flashLevel * 0.5);
     (this.scene.background as Color).copy(this.fog.color);
     this.skyMat.uniforms.uMist.value = this.mist;
   }
@@ -197,7 +268,11 @@ export class Environment {
   follow(camera: Vector3, focus: Vector3): void {
     this.sky.position.copy(camera);
     this.sun.target.position.copy(focus);
-    this.sun.position.copy(focus).add(SUN_OFFSET);
+    this.sun.position.set(
+      focus.x + SUN_OFFSET.x,
+      focus.y + SUN_OFFSET.y * this.sunHeight,
+      focus.z + SUN_OFFSET.z,
+    );
     this.sun.target.updateMatrixWorld();
   }
 

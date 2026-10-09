@@ -1,6 +1,6 @@
 import { CatmullRomCurve3, Vector3 } from 'three';
 import type { LevelDef } from '../data/types';
-import { clamp } from '../core/math';
+import { clamp, smoothstep } from '../core/math';
 
 export interface RoadHit {
   /** Distance along the road (m), clamped to the road's extent. */
@@ -283,6 +283,32 @@ export class Road {
     out.tx = tx / l;
     out.tz = tz / l;
     return out;
+  }
+
+  /**
+   * Lowers the road bed across a stretch (fractions of the road length) to make a ford. Must be called before
+   * the terrain is built. Returns the water surface height and the stretch in metres.
+   */
+  carveFord(fromFrac: number, toFrac: number, depth: number): { fromS: number; toS: number; waterY: number; depth: number } {
+    const fromS = fromFrac * this.length;
+    const toS = toFrac * this.length;
+    const ramp = 14;
+    let waterY = 0;
+    let n = 0;
+    for (let i = 0; i < this.count; i++) {
+      const s = this.ss[i];
+      if (Math.abs(s - (fromS - ramp)) < 3 || Math.abs(s - (toS + ramp)) < 3) {
+        waterY += this.ys[i];
+        n++;
+      }
+    }
+    waterY = n ? waterY / n - 0.04 : this.ys[0] - 0.04;
+    for (let i = 0; i < this.count; i++) {
+      const s = this.ss[i];
+      const t = smoothstep(fromS - ramp, fromS, s) * (1 - smoothstep(toS, toS + ramp, s));
+      this.ys[i] -= depth * t;
+    }
+    return { fromS, toS, waterY, depth };
   }
 
   /** Smallest turning radius found on the centre line (m), looking across ~`window` metres. */

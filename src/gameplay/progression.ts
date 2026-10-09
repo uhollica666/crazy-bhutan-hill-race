@@ -40,32 +40,47 @@ export function describeRule(rule: UnlockRule, levels: LevelDef[]): string {
   return rule.requirement === 'finish' ? `Finish ${name}` : `Earn ${rule.requirement} on ${name}`;
 }
 
-export function canUseVehicle(level: LevelDef, vehicleId: string): boolean {
-  return level.vehicles.includes(vehicleId);
+/** Where a vehicle stands for the player. */
+export type VehicleOwnership = 'owned' | 'available' | 'locked';
+
+export function vehicleOwnership(v: VehicleDef, progress: Progress, owned: readonly string[]): VehicleOwnership {
+  if (owned.includes(v.id)) return 'owned';
+  return isVehicleUnlocked(v, progress) ? 'available' : 'locked';
 }
 
-/** Vehicles usable on `level` that the player owns. */
-export function availableVehicles(level: LevelDef, vehicles: VehicleDef[], progress: Progress): VehicleDef[] {
-  return vehicles.filter((v) => canUseVehicle(level, v.id) && isVehicleUnlocked(v, progress));
+/** True when the player can buy it right now. */
+export function canBuyVehicle(v: VehicleDef, progress: Progress, owned: readonly string[], credits: number): boolean {
+  return vehicleOwnership(v, progress, owned) === 'available' && credits >= v.price;
+}
+
+/** A vehicle may drive a mission only if the mission lists it AND it has seats for the whole party. */
+export function canUseVehicle(level: LevelDef, vehicle: string | Pick<VehicleDef, 'id' | 'capacity'>, vehicles?: VehicleDef[]): boolean {
+  const id = typeof vehicle === 'string' ? vehicle : vehicle.id;
+  if (!level.vehicles.includes(id)) return false;
+  const def = typeof vehicle === 'string' ? vehicles?.find((v) => v.id === vehicle) : vehicle;
+  return !def || def.capacity >= level.mission.party;
+}
+
+/** Vehicles the player owns that may drive `level`. */
+export function availableVehicles(level: LevelDef, vehicles: VehicleDef[], owned: readonly string[]): VehicleDef[] {
+  return vehicles.filter((v) => owned.includes(v.id) && canUseVehicle(level, v));
 }
 
 /**
- * Repairs a saved selection after unlocks/eligibility change: the level must be unlocked, and the vehicle
- * must be unlocked and allowed on that level (falling back to the level's recommended vehicle).
+ * Repairs a saved selection after unlocks/ownership/eligibility change: the level must be unlocked, and the
+ * vehicle must be owned and allowed on that level (falling back to the first usable one in the level's order).
  */
 export function resolveSelection(
   sel: Selection,
   levels: LevelDef[],
   vehicles: VehicleDef[],
   progress: Progress,
+  owned: readonly string[],
 ): { level: LevelDef; vehicle: VehicleDef } {
   const unlocked = levels.filter((l) => isLevelUnlocked(l, progress));
   const level = unlocked.find((l) => l.id === sel.levelId) ?? unlocked[0] ?? levels[0];
-  const usable = availableVehicles(level, vehicles, progress);
-  const vehicle =
-    usable.find((v) => v.id === sel.vehicleId) ??
-    usable.find((v) => v.id === level.vehicles[0]) ??
-    usable[0] ??
-    vehicles[0];
+  const usable = availableVehicles(level, vehicles, owned);
+  const byLevelOrder = level.vehicles.map((id) => usable.find((v) => v.id === id)).find((v) => v);
+  const vehicle = usable.find((v) => v.id === sel.vehicleId) ?? byLevelOrder ?? usable[0] ?? vehicles[0];
   return { level, vehicle };
 }

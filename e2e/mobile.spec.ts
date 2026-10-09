@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { makeSave, openGame, seedSave, startMission, state, waitForPhase } from './helpers';
+import {
+  drive,
+  makeSave,
+  openGame,
+  seedSave,
+  startMission,
+  state,
+  storedSave,
+  waitForPhase,
+} from './helpers';
 
 /** Dispatches a PointerEvent with its own pointerId so simultaneous touches are simulated faithfully. */
 const touch = (
@@ -33,6 +42,7 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
     await page.locator('button[data-level="pass-run"]').tap();
     await expect(page.locator('#screen-garage')).toBeVisible({ timeout: 30_000 });
     await page.locator('#btn-launch').tap();
+    if (await page.locator('#brief-skip').isVisible()) await page.locator('#brief-skip').tap();
     await expect(page.locator('#touch')).toBeVisible();
     await waitForPhase(page, 'running', 20_000);
     await page.screenshot({ path: 'screenshots/mobile-hud.png' });
@@ -92,6 +102,12 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
     await expect.poll(async () => (await readCmd(page)).throttle).toBe(0);
     expect((await readCmd(page)).steer).toBe(0);
 
+    // A new finger can press the same pedal after cancellation; old pointer ids must not lock it.
+    await page.evaluate(touch('.pedal.gas', 'pointerdown', 8));
+    await expect.poll(async () => (await readCmd(page)).throttle).toBe(1);
+    await page.evaluate(touch('.pedal.gas', 'pointerup', 8));
+    await expect.poll(async () => (await readCmd(page)).throttle).toBe(0);
+
     // A cancelled pointer (e.g. system gesture) releases that control too.
     await page.evaluate(touch('.pedal.brake', 'pointerdown', 7));
     await expect.poll(async () => (await readCmd(page)).brake).toBe(1);
@@ -107,7 +123,13 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
   test('choose a mission and vehicle by tapping; garage and cards fit the screen with large targets', async ({
     page,
   }) => {
-    await seedSave(page, makeSave(['pass-run', 'airport-dash']));
+    await seedSave(
+      page,
+      makeSave({
+        finished: ['pass-run', 'airport-dash'],
+        owned: ['dzo-hatch', 'druk-ranger', 'tourist-coaster'],
+      }),
+    );
     await openGame(page);
     await page.locator('#btn-start').tap();
     await expect(page.locator('#screen-levels')).toBeVisible();
@@ -151,7 +173,7 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
   });
 
   test('portrait: a landscape hint appears, menus stay inside the screen', async ({ page }) => {
-    await seedSave(page, makeSave(['pass-run']));
+    await seedSave(page, makeSave({ finished: ['pass-run'] }));
     await page.setViewportSize({ width: 390, height: 780 });
     await openGame(page);
     await page.locator('#btn-start').tap();
@@ -168,4 +190,82 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
     );
     await expect(page.locator('#btn-launch')).toBeVisible();
   });
+});
+
+for (const viewport of [
+  { width: 640, height: 360 },
+  { width: 915, height: 412 },
+]) {
+  test(`Stage 3 touch journey, story, restart and local feedback at ${viewport.width}x${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto('/?debug=1&quality=low');
+    const splash = page.locator('#splash');
+    await expect(splash).toBeVisible();
+    await splash.tap();
+    await expect(splash).toHaveCount(0);
+    await expect(page.locator('#btn-start')).toBeVisible();
+    await page.locator('#btn-credit').tap();
+    await expect(page.locator('#screen-about')).toBeVisible();
+    await page.locator('#about-feedback').tap();
+    await expect(page.locator('#screen-feedback')).toBeVisible();
+    await page.locator('[data-star="4"]').tap();
+    await page.locator('#fb-gameplay').fill('Landscape controls');
+    await page.locator('#fb-submit').tap();
+    await expect(page.locator('#screen-feedback')).toContainText('NOT been sent');
+    await page.locator('#fb-done').tap();
+    await page.locator('#btn-start').tap();
+    await page.locator('button[data-level="pass-run"]').tap();
+    await page.locator('#btn-launch').tap();
+    await expect(page.locator('#screen-briefing')).toBeVisible();
+    await page.screenshot({ path: `screenshots/mobile-${viewport.width}-story.png` });
+    await page.locator('#brief-skip').tap();
+    await waitForPhase(page, 'running');
+    await page.keyboard.press('Backquote'); // hide debug panel for the actual mobile layout
+    await page.locator('#btn-pause').tap();
+    const paused = (await state(page)).time;
+    await page.waitForTimeout(350);
+    expect((await state(page)).time).toBe(paused);
+    await page.locator('#btn-restart').tap();
+    await expect(page.locator('#screen-briefing')).toBeHidden();
+    await waitForPhase(page, 'running');
+    await page.screenshot({ path: `screenshots/mobile-${viewport.width}-hud.png` });
+    const prompt = await page.locator('#hud-prompt').boundingBox();
+    if (prompt)
+      for (const selector of ['.steer-pad', '.pedal.gas', '.pedal.brake']) {
+        const box = await page.locator(selector).boundingBox();
+        expect(prompt.y + prompt.height).toBeLessThanOrEqual(box!.y);
+      }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(
+      1,
+    );
+    for (const selector of ['.pedal.gas', '.pedal.brake', '.steer-pad', '#btn-pause']) {
+      const box = await page.locator(selector).boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height + 1);
+    }
+  });
+}
+
+test('mobile mission completes through real driving, rewards persist and results feedback exports', async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+  await seedSave(page, makeSave());
+  const errors = await openGame(page, '&quality=low');
+  await startMission(page, 'pass-run');
+  await drive(page);
+  await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 300_000 });
+  expect((await storedSave(page)).progress.levels['pass-run'].completions).toBe(1);
+  await page.screenshot({ path: 'screenshots/mobile-results.png' });
+  await page.locator('#btn-finish-feedback').tap();
+  await page.locator('[data-star="5"]').tap();
+  await page.locator('#fb-submit').tap();
+  const download = page.waitForEvent('download');
+  await page.locator('#fb-download').tap();
+  expect((await download).suggestedFilename()).toMatch(/^cbhr-feedback-.*\.json$/);
+  await page.locator('#fb-done').tap();
+  await expect(page.locator('#screen-finish')).toBeVisible();
+  expect(errors).toEqual([]);
 });

@@ -1,10 +1,12 @@
 import './ui/styles.css';
 import './ui/stage2.css';
+import './ui/stage3.css';
 import { Game } from './app/Game';
 import { registerServiceWorker } from './pwa/register';
 import { isWebGLAvailable } from './render/GameRenderer';
 import { detectDefaultQuality } from './render/quality';
 import { SaveStore, openBrowserStorage } from './storage/SaveStore';
+import { showSplash } from './ui/Splash';
 
 function fatal(host: HTMLElement, title: string, message: string, detail = ''): void {
   host.innerHTML = `<section class="screen" style="background:#121c3a;z-index:99"><div class="panel loader" style="text-align:center">
@@ -16,6 +18,9 @@ async function boot(): Promise<void> {
   const uiHost = document.getElementById('ui') as HTMLElement;
   const viewport = document.getElementById('viewport') as HTMLElement;
   const params = new URLSearchParams(location.search);
+  const base = import.meta.env.BASE_URL;
+  // The studio splash starts straight away, on top of everything; the game loads behind it.
+  const splash = showSplash(document.body, base, { skip: params.has('nosplash') });
 
   if (!isWebGLAvailable()) {
     fatal(
@@ -39,6 +44,8 @@ async function boot(): Promise<void> {
       debug: params.has('debug'),
       autodrive: params.has('autodrive'),
       fixedResolution: params.has('noadapt') || params.has('debug'),
+      splash,
+      base,
     });
     await game.init();
     if (params.has('debug')) {

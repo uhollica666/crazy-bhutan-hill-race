@@ -9,6 +9,10 @@ type InputEvents = {
   recover: undefined;
   restart: undefined;
   debug: undefined;
+  /** Toggle 4x2 / 4x4 (F, pad X). */
+  driveMode: undefined;
+  /** Ask for the pit-stop service on offer: refuel or repair (E, pad LB/RB). */
+  service: undefined;
   /** Any real key press / pointer down - used to unlock audio. */
   gesture: undefined;
 };
@@ -64,6 +68,8 @@ export class InputManager {
     if (e.repeat || typing) return;
     if ((KEYS.pause as readonly string[]).includes(e.code)) this.events.emit('pause', undefined);
     else if (e.code === 'KeyR') this.events.emit(e.shiftKey ? 'restart' : 'recover', undefined);
+    else if (e.code === 'KeyF') this.events.emit('driveMode', undefined);
+    else if (e.code === 'KeyE') this.events.emit('service', undefined);
     else if (e.code === 'Backquote') this.events.emit('debug', undefined);
   };
 
@@ -80,6 +86,8 @@ export class InputManager {
     const edge = (i: number): boolean => !!pressedNow[i] && !this.padButtons[i];
     if (edge(9)) this.events.emit('pause', undefined);
     if (edge(3)) this.events.emit('recover', undefined);
+    if (edge(2)) this.events.emit('driveMode', undefined);
+    if (edge(4) || edge(5)) this.events.emit('service', undefined);
     this.padButtons = pressedNow;
     return {
       steer: deadzone(pad.axes[0] ?? 0) + (btn(15) - btn(14)),

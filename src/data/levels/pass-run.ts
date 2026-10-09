@@ -12,8 +12,31 @@ export const passRun: LevelDef = {
     'Your guests have a flight to catch from the hill-top viewpoint. Climb through four hairpins as the mist rolls in.',
   objective: 'Reach the summit viewpoint through every checkpoint before time runs out.',
   difficulty: 2,
-  mission: { kind: 'climb', timerStyle: 'elapsed', timerLabel: 'Time', comfort: false },
-  vehicles: ['druk-ranger', 'tourist-coaster'],
+  mission: { kind: 'climb', party: 2, finishMode: 'cross', timerStyle: 'elapsed', timerLabel: 'Time', comfort: false },
+  vehicles: ['dzo-hatch', 'druk-ranger', 'tourist-coaster', 'dragon-cruiser'],
+  conditions: [
+    { weather: 'clear', time: 'day', bonus: 1 },
+    { weather: 'fog', time: 'day', bonus: 1.2 },
+  ],
+  startFuel: 1,
+  reward: 220,
+  stops: [
+    {
+      id: 'hotel',
+      kind: 'pickup',
+      at: 0.03,
+      label: 'Hotel Tashi lay-by',
+      side: -1,
+      party: 2,
+      optional: false,
+      who: 'sunrise-hikers',
+    },
+  ],
+  hazards: [],
+  optional: [
+    { id: 'gold', kind: 'goldTime', reward: 60, label: 'Gold-medal time' },
+    { id: 'clean', kind: 'condition', value: 90, reward: 40, label: 'Not a scratch' },
+  ],
   tip: 'Brake before each hairpin, then power out. The mist thickens near the top.',
   terrain: {
     seed: 7,
