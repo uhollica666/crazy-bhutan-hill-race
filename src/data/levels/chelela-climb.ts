@@ -102,10 +102,10 @@ export const chelelaClimb: LevelDef = {
   comfortMedals: { gold: 85, silver: 70, bronze: 50 },
   unlock: { levelId: 'airport-dash', requirement: 'finish' },
   look: {
-    skyTop: 0x4a6a96,
+    skyTop: 0x62768a,
     skyMid: 0xb4c7d8,
     skyHorizon: 0xe6e8e6,
-    fog: 0xd3dce4,
+    fog: 0xcfd0cb,
     mist: 0xeef0f2,
     grassA: 0x86995f,
     grassB: 0x6f865a,

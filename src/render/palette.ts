@@ -3,12 +3,12 @@
  * mineral green, lime-wash white) over soft hazy layered ridges, flat-shaded low-poly forms.
  */
 export const PAL = {
-  skyTop: 0x2f6fb5,
-  skyMid: 0x8fc0e0,
-  skyHorizon: 0xf6e7c8,
-  fog: 0xcfdde6,
-  mist: 0xe6e3dc,
-  sun: 0xfff0cf,
+  skyTop: 0x4a7aa8,
+  skyMid: 0x9db9c6,
+  skyHorizon: 0xe6d9bd,
+  fog: 0xd8d0bd,
+  mist: 0xe4dfd2,
+  sun: 0xffe6bd,
 
   grassA: 0x7ea54f,
   grassB: 0x5f8e47,

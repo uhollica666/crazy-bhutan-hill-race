@@ -1,7 +1,7 @@
 /* Visual language: thangka pigments (indigo, madder red, saffron, lime-wash white) on parchment, gold linework. */
 :root {
-  --indigo: #1d2f5c;
-  --indigo-deep: #121c3a;
+  --indigo: #33261b;
+  --indigo-deep: #1b140f;
   --maroon: #7d2a21;
   --maroon-dark: #5a1a14;
   --saffron: #e8a317;
@@ -89,7 +89,7 @@ button {
   box-shadow:
     0 0 0 3px var(--maroon),
     0 0 0 5px var(--gold),
-    0 18px 50px rgba(8, 12, 30, 0.55);
+    0 18px 50px rgba(12, 8, 5, 0.55);
 }
 
 .panel h2 {
@@ -146,7 +146,7 @@ button {
   font-size: clamp(18px, 3vmin, 24px);
 }
 .btn.ghost {
-  background: rgba(29, 47, 92, 0.78);
+  background: rgba(51, 38, 27, 0.78);
 }
 .btn svg {
   width: 1.25em;
@@ -164,7 +164,7 @@ button {
   height: 52px;
   border-radius: 50%;
   border: 2px solid var(--gold);
-  background: rgba(18, 28, 58, 0.78);
+  background: rgba(27, 20, 15, 0.78);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -196,7 +196,7 @@ button {
 
 #screen-loading,
 #screen-error {
-  background: radial-gradient(ellipse at 50% 30%, #2a4580 0%, var(--indigo-deep) 70%);
+  background: radial-gradient(ellipse at 50% 30%, #54402c 0%, var(--indigo-deep) 70%);
   z-index: 50;
 }
 
@@ -224,7 +224,7 @@ button {
 }
 .loader p {
   margin: 8px 0;
-  color: #c9d2ea;
+  color: #ddd2bc;
 }
 .bar {
   height: 10px;
@@ -262,8 +262,8 @@ button {
 #screen-menu {
   place-items: stretch;
   background:
-    linear-gradient(90deg, rgba(18, 28, 58, 0.88) 0%, rgba(18, 28, 58, 0.55) 38%, rgba(18, 28, 58, 0) 70%),
-    linear-gradient(0deg, rgba(18, 28, 58, 0.55), rgba(18, 28, 58, 0) 35%);
+    linear-gradient(90deg, rgba(27, 20, 15, 0.88) 0%, rgba(27, 20, 15, 0.55) 38%, rgba(27, 20, 15, 0) 70%),
+    linear-gradient(0deg, rgba(27, 20, 15, 0.55), rgba(27, 20, 15, 0) 35%);
 }
 .menu-main {
   align-self: center;
@@ -314,7 +314,7 @@ button {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 .level-card {
-  background: rgba(18, 28, 58, 0.72);
+  background: rgba(27, 20, 15, 0.72);
   border: 2px solid var(--gold);
   border-radius: 12px;
   padding: 12px 16px;
@@ -335,7 +335,7 @@ button {
 .level-card p {
   margin: 4px 0 0;
   font-size: clamp(12px, 2.1vmin, 14px);
-  color: #d5dcef;
+  color: #e6dcc8;
   line-height: 1.35;
 }
 .dots {
@@ -352,7 +352,7 @@ button {
   display: flex;
   gap: 8px;
   align-items: center;
-  color: #d5dcef;
+  color: #e6dcc8;
 }
 .menu-actions {
   display: grid;
@@ -383,7 +383,7 @@ button {
   pointer-events: auto;
 }
 .hud-card {
-  background: rgba(18, 28, 58, 0.72);
+  background: rgba(27, 20, 15, 0.72);
   border: 1.5px solid var(--gold);
   border-radius: 12px;
   backdrop-filter: blur(4px);
@@ -588,7 +588,7 @@ button {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(10, 16, 36, 0.62);
+  background: rgba(14, 10, 7, 0.62);
   backdrop-filter: blur(3px);
   padding: calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);
   z-index: 20;
@@ -779,7 +779,7 @@ body.touch #rotate-hint.on {
   width: clamp(190px, 38vw, 330px);
   height: clamp(84px, 22vmin, 120px);
   border-radius: 999px;
-  background: rgba(18, 28, 58, 0.55);
+  background: rgba(27, 20, 15, 0.55);
   border: 2px solid rgba(220, 167, 44, 0.85);
   backdrop-filter: blur(3px);
 }
@@ -830,7 +830,7 @@ body.touch #rotate-hint.on {
   font-family: var(--serif);
   font-weight: 800;
   letter-spacing: 0.06em;
-  background: rgba(18, 28, 58, 0.6);
+  background: rgba(27, 20, 15, 0.6);
   backdrop-filter: blur(3px);
   user-select: none;
   cursor: pointer;
@@ -887,7 +887,7 @@ body.touch #rotate-hint.on {
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at 50% 30%, #2a4580 0%, var(--indigo-deep) 70%);
+  background: radial-gradient(ellipse at 50% 30%, #54402c 0%, var(--indigo-deep) 70%);
   font-family: var(--serif);
   letter-spacing: 0.12em;
   color: var(--saffron-light);

@@ -8,7 +8,7 @@
   z-index: 200;
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at 50% 40%, #1b2a55 0%, #0b1226 72%);
+  background: radial-gradient(ellipse at 50% 40%, #3a2c20 0%, #130e0a 72%);
   color: #f6ecd2;
   text-align: center;
   cursor: pointer;
@@ -49,7 +49,7 @@
 .splash-parent {
   font-size: clamp(11px, 2.2vmin, 14px);
   letter-spacing: 0.1em;
-  color: #aeb9d8;
+  color: #c4b69d;
   animation: splash-fade 1s 0.9s ease both;
 }
 .splash-skip {
@@ -58,7 +58,7 @@
   left: 0;
   right: 0;
   font-size: 12px;
-  color: #7f8bad;
+  color: #9a8d77;
   animation: splash-fade 1s 1.2s ease both;
 }
 .studio-splash.short .splash-logo,
@@ -110,7 +110,7 @@
   padding: 4px 10px 4px 6px;
   border: 1px solid rgba(220, 167, 44, 0.55);
   border-radius: 99px;
-  background: rgba(18, 28, 58, 0.7);
+  background: rgba(27, 20, 15, 0.7);
   color: var(--cream);
   font-size: 12.5px;
   cursor: pointer;
@@ -147,7 +147,7 @@
   flex-wrap: wrap;
   gap: 4px 14px;
   font-size: 13px;
-  color: #d5dcef;
+  color: #e6dcc8;
 }
 .veh-facts b {
   color: var(--saffron-light);
@@ -169,7 +169,7 @@
   display: none;
 }
 .upgrades {
-  background: rgba(18, 28, 58, 0.6);
+  background: rgba(27, 20, 15, 0.6);
   border: 1.5px solid var(--gold);
   border-radius: 12px;
   padding: 6px 12px;
@@ -195,7 +195,7 @@
   min-width: 0;
 }
 .upg-main small {
-  color: #bfc9e3;
+  color: #d0c2a8;
   font-size: 12px;
 }
 .upg .btn {
@@ -250,7 +250,7 @@
   bottom: 0;
   z-index: 2;
   padding: 10px 0 2px;
-  background: linear-gradient(0deg, rgba(18, 28, 58, 0.97) 72%, rgba(18, 28, 58, 0));
+  background: linear-gradient(0deg, rgba(27, 20, 15, 0.97) 72%, rgba(27, 20, 15, 0));
 }
 .garage-panel .stack.row #btn-launch {
   position: static;
@@ -329,7 +329,7 @@
   min-width: 52px;
   border-radius: 99px;
   border: 1.5px solid var(--gold);
-  background: rgba(18, 28, 58, 0.85);
+  background: rgba(27, 20, 15, 0.85);
   color: var(--cream);
   font-size: 13px;
   cursor: pointer;
@@ -347,7 +347,7 @@
 }
 .hud-dist {
   font-size: 12px;
-  color: #bfc9e3;
+  color: #d0c2a8;
   min-height: 1em;
 }
 .route > i.stop-pip {
@@ -732,7 +732,7 @@
 }
 .about-studio {
   text-align: center;
-  background: #1d2f5c;
+  background: #33261b;
   color: var(--cream);
   border-radius: 10px;
   padding: 12px;

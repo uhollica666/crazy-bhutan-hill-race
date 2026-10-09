@@ -46,7 +46,7 @@ export interface TimePreset {
 export const TIME: Record<TimeOfDay, TimePreset> = {
   day: { label: 'Day', sun: 1, sunColor: 0xfff0cf, hemi: 1, skyTint: 0xffffff, skyMix: 0, fogTint: 0xffffff, fogMix: 0, sunHeight: 1, headlights: false, lamps: false },
   dusk: { label: 'Dusk', sun: 0.55, sunColor: 0xff9a52, hemi: 0.62, skyTint: 0xe9825a, skyMix: 0.55, fogTint: 0xd89a86, fogMix: 0.6, sunHeight: 0.35, headlights: true, lamps: true },
-  night: { label: 'Night', sun: 0.14, sunColor: 0x8fb0ff, hemi: 0.3, skyTint: 0x0c1430, skyMix: 0.9, fogTint: 0x0e1730, fogMix: 0.9, sunHeight: 0.8, headlights: true, lamps: true },
+  night: { label: 'Night', sun: 0.14, sunColor: 0x8fb0ff, hemi: 0.3, skyTint: 0x10151b, skyMix: 0.9, fogTint: 0x12171d, fogMix: 0.9, sunHeight: 0.8, headlights: true, lamps: true },
 };
 
 export const conditionsLabel = (c: ConditionsDef): string =>

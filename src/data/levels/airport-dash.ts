@@ -119,10 +119,10 @@ export const airportDash: LevelDef = {
   comfortMedals: { gold: 85, silver: 70, bronze: 50 },
   unlock: { levelId: 'pass-run', requirement: 'finish' },
   look: {
-    skyTop: 0x3a82c8,
+    skyTop: 0x4a82b3,
     skyMid: 0xa6d4ee,
     skyHorizon: 0xfbf0d6,
-    fog: 0xdbe6e8,
+    fog: 0xe0dccd,
     grassA: 0x9fbb5c,
     grassB: 0x7fa84f,
     meadow: 0xb0b968,

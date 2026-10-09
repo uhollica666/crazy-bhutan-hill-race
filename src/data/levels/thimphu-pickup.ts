@@ -132,10 +132,10 @@ export const thimphuPickup: LevelDef = {
   unlock: { levelId: 'pass-run', requirement: 'finish' },
   shoulder: 'asphalt',
   look: {
-    skyTop: 0x3f7cc0,
+    skyTop: 0x4d80ae,
     skyMid: 0x9fcde8,
     skyHorizon: 0xf6ead0,
-    fog: 0xd7e1e6,
+    fog: 0xdcd6c8,
     grassA: 0x91b25a,
     grassB: 0x7a9f4c,
     hemi: 2.5,

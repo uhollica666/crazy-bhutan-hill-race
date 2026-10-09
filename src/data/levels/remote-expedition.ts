@@ -125,10 +125,10 @@ export const remoteExpedition: LevelDef = {
   comfortMedals: { gold: 85, silver: 70, bronze: 50 },
   unlock: { levelId: 'chelela-climb', requirement: 'finish' },
   look: {
-    skyTop: 0x536a86,
+    skyTop: 0x66747f,
     skyMid: 0xa4b8c8,
     skyHorizon: 0xdde3e4,
-    fog: 0xc6d1d4,
+    fog: 0xc4c6bd,
     mist: 0xdfe5e6,
     grassA: 0x598240,
     grassB: 0x477133,

@@ -92,8 +92,8 @@ export class Environment {
     this.mistStart = course.level.atmosphere.mistStart;
     this.visibility = course.level.atmosphere.visibility;
 
-    this.baseSun = look.sun ?? 2.8;
-    this.baseHemi = look.hemi ?? 2.4;
+    this.baseSun = look.sun ?? 3.1;
+    this.baseHemi = look.hemi ?? 1.7;
     this.baseSunColor = new Color(look.sunColor ?? PAL.sun);
     this.baseFog = new Color(look.fog ?? PAL.fog);
     this.baseSky = {
@@ -101,9 +101,9 @@ export class Environment {
       mid: new Color(look.skyMid ?? PAL.skyMid),
       horizon: new Color(look.skyHorizon ?? PAL.skyHorizon),
     };
-    this.hemi = new HemisphereLight(0xd6e8f8, 0x7a7448, look.hemi ?? 2.4);
+    this.hemi = new HemisphereLight(0xe3e1d6, 0x6a5a3c, look.hemi ?? 1.7);
     scene.add(this.hemi);
-    this.sun = new DirectionalLight(look.sunColor ?? PAL.sun, look.sun ?? 2.8);
+    this.sun = new DirectionalLight(look.sunColor ?? PAL.sun, look.sun ?? 3.1);
     this.sun.position.copy(SUN_OFFSET);
     this.sun.shadow.camera.left = -40;
     this.sun.shadow.camera.right = 40;
@@ -161,7 +161,7 @@ export class Environment {
         const dist = L.r * (0.92 + rng() * 0.16);
         const x = cx + Math.cos(a) * dist;
         const z = cz + Math.sin(a) * dist;
-        const base = rock.setHex(0x5f7388).lerp(haze, L.k).getHex();
+        const base = rock.setHex(0x6b716c).lerp(haze, L.k).getHex();
         const snow = new Color(PAL.snow).lerp(haze, L.k * 0.8).getHex();
         const y0 = -60;
         g.cone(radius, h, base, 6, { x, y: y0 + h / 2, z, ry: rng() * 3 });

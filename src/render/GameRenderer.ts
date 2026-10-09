@@ -1,4 +1,4 @@
-import { PCFShadowMap, Scene, WebGLRenderer } from 'three';
+import { ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
 import type { PerspectiveCamera } from 'three';
 import type { QualityLevel } from '../storage/SaveStore';
 import { QUALITY } from './quality';
@@ -46,6 +46,10 @@ export class GameRenderer {
       alpha: false,
     });
     this.renderer.shadowMap.type = PCFShadowMap;
+    // Filmic tone mapping keeps highlights from clipping to flat white and lets lighting do the colour work.
+    this.renderer.outputColorSpace = SRGBColorSpace;
+    this.renderer.toneMapping = ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
     this.renderer.domElement.setAttribute('aria-label', 'Game view');
     this.renderer.domElement.style.touchAction = 'none';
     host.appendChild(this.renderer.domElement);

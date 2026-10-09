@@ -9,7 +9,7 @@ import { SaveStore, openBrowserStorage } from './storage/SaveStore';
 import { showSplash } from './ui/Splash';
 
 function fatal(host: HTMLElement, title: string, message: string, detail = ''): void {
-  host.innerHTML = `<section class="screen" style="background:#121c3a;z-index:99"><div class="panel loader" style="text-align:center">
+  host.innerHTML = `<section class="screen" style="background:#1b140f;z-index:99"><div class="panel loader" style="text-align:center">
     <h2>${title}</h2><p>${message}</p><div class="detail" style="font:12px monospace;opacity:.7;word-break:break-word">${detail}</div>
     <div class="stack" style="margin-top:16px"><button class="btn primary" onclick="location.reload()">Reload</button></div></div></section>`;
 }
