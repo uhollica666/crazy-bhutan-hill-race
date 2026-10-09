@@ -317,3 +317,20 @@
   border-radius: 50%;
   margin-right: 5px;
 }
+
+/* Secondary text on the cream panels needs real contrast (the global .muted is tuned for dark backgrounds). */
+.cl-panel .muted,
+.cl-panel small,
+.cl-panel .hud-label {
+  color: #5f4c3a;
+  opacity: 1;
+}
+.cl-panel .cl-sync.ok {
+  color: #2f7d3b;
+}
+.cl-panel .cl-sync.warn {
+  color: #a4501a;
+}
+.cl-panel .cl-sync span {
+  color: inherit;
+}
