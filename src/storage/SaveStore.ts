@@ -23,6 +23,12 @@ export interface Settings {
   reducedMotion: boolean;
   /** Driving HUD detail: everything, only the essentials, or extra telemetry. */
   hudMode: 'standard' | 'minimal' | 'telemetry';
+  /** Touch steering: a slide bar or a steering wheel. */
+  touchSteer: 'bar' | 'wheel';
+  /** Mirror the touch layout (steering on the right) for left-handed play. */
+  touchMirror: boolean;
+  /** Larger touch controls. */
+  touchLarge: boolean;
 }
 
 export interface VehicleRecord {
@@ -114,6 +120,9 @@ export const defaultSettings = (quality: QualityLevel = 'medium'): Settings => (
   touchSensitivity: 1,
   reducedMotion: false,
   hudMode: 'standard',
+  touchSteer: 'bar',
+  touchMirror: false,
+  touchLarge: false,
 });
 
 export const emptySave = (quality: QualityLevel = 'medium'): SaveData => ({
@@ -150,6 +159,9 @@ export function parseSettings(raw: unknown, fallback: Settings): Settings {
     touchSensitivity: num(o.touchSensitivity, fallback.touchSensitivity, 0.6, 1.6),
     reducedMotion: typeof o.reducedMotion === 'boolean' ? o.reducedMotion : fallback.reducedMotion,
     hudMode: o.hudMode === 'minimal' || o.hudMode === 'telemetry' || o.hudMode === 'standard' ? o.hudMode : fallback.hudMode,
+    touchSteer: o.touchSteer === 'wheel' || o.touchSteer === 'bar' ? o.touchSteer : fallback.touchSteer,
+    touchMirror: typeof o.touchMirror === 'boolean' ? o.touchMirror : fallback.touchMirror,
+    touchLarge: typeof o.touchLarge === 'boolean' ? o.touchLarge : fallback.touchLarge,
   };
 }
 

@@ -892,3 +892,121 @@ body.touch #rotate-hint.on {
   letter-spacing: 0.12em;
   color: var(--saffron-light);
 }
+
+/* ---- Pass 4.5: steering wheel, mirrored and large touch layouts */
+.steer-pad[hidden],
+.steer-wheel[hidden] {
+  display: none;
+}
+.steer-wheel {
+  position: absolute;
+  left: calc(var(--sal) + 18px);
+  bottom: calc(var(--sab) + 12px);
+  width: clamp(120px, 34vmin, 190px);
+  height: clamp(120px, 34vmin, 190px);
+  border-radius: 50%;
+  background: rgba(27, 20, 15, 0.38);
+  transition: transform 0.12s ease-out;
+}
+.steer-wheel svg {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.steer-wheel .rim {
+  fill: none;
+  stroke: rgba(220, 167, 44, 0.92);
+  stroke-width: 9;
+}
+.steer-wheel .spoke {
+  stroke: rgba(220, 167, 44, 0.8);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.steer-wheel .hub {
+  fill: #3b2a1c;
+  stroke: rgba(220, 167, 44, 0.9);
+  stroke-width: 3;
+}
+.steer-wheel .mark {
+  stroke: #e47a6c;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.pedal span {
+  pointer-events: none;
+}
+#touch.mirror .steer-pad,
+#touch.mirror .steer-wheel {
+  left: auto;
+  right: calc(var(--sar) + 16px);
+}
+#touch.mirror .pedal.gas {
+  right: auto;
+  left: calc(var(--sal) + 18px);
+}
+#touch.mirror .pedal.brake {
+  right: auto;
+  left: calc(var(--sal) + clamp(92px, 24vmin, 132px) + 36px);
+}
+#touch.large .steer-pad {
+  width: clamp(230px, 46vw, 400px);
+  height: clamp(100px, 27vmin, 146px);
+}
+#touch.large .steer-wheel {
+  width: clamp(150px, 42vmin, 230px);
+  height: clamp(150px, 42vmin, 230px);
+}
+#touch.large .pedal.gas {
+  width: clamp(112px, 30vmin, 160px);
+  height: clamp(112px, 30vmin, 160px);
+}
+#touch.large .pedal.brake {
+  right: calc(var(--sar) + clamp(112px, 30vmin, 160px) + 36px);
+  width: clamp(88px, 22vmin, 122px);
+  height: clamp(88px, 22vmin, 122px);
+}
+#touch.mirror.large .pedal.brake {
+  right: auto;
+  left: calc(var(--sal) + clamp(112px, 30vmin, 160px) + 36px);
+}
+
+/* ---- settings tabs */
+.tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+  border-bottom: 1px solid rgba(220, 167, 44, 0.35);
+}
+.tabs button {
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: var(--maroon-dark);
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+.tabs button[aria-selected='true'] {
+  border-bottom-color: var(--saffron);
+  opacity: 1;
+}
+.tabs button:focus-visible {
+  outline: 2px solid var(--saffron-light);
+  outline-offset: 2px;
+}
+.tab-panel[hidden] {
+  display: none;
+}
+.sub-tabs {
+  margin-top: 6px;
+}
+
+.field input[type='checkbox'] {
+  accent-color: var(--maroon);
+  width: 22px;
+  height: 22px;
+}

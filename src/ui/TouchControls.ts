@@ -19,6 +19,8 @@ export class TouchControls {
   readonly el: HTMLElement;
   private readonly knob: HTMLElement;
   private readonly pad: HTMLElement;
+  private readonly wheel: HTMLElement;
+  private wheelPointer: number | null = null;
   private steerPointer: number | null = null;
   private sensitivity = 1;
   private readonly resetPedals: (() => void)[] = [];
@@ -32,12 +34,17 @@ export class TouchControls {
         <span class="arrow l">${ICONS.left}</span><span class="arrow r">${ICONS.right}</span>
         <div class="track"></div><div class="knob"></div>
       </div>
-      <button class="pedal brake" data-role="brake" type="button" aria-label="Brake and reverse">BRAKE</button>
-      <button class="pedal gas" data-role="gas" type="button" aria-label="Accelerate">GAS</button>`;
+      <div class="steer-wheel" data-role="wheel" aria-label="Steering wheel" hidden>
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="42" class="rim"/><path class="spoke" d="M50 50 L12 58 M50 50 L88 58 M50 50 L50 90"/><circle cx="50" cy="50" r="9" class="hub"/><path class="mark" d="M50 8 L50 20"/></svg>
+      </div>
+      <button class="pedal brake" data-role="brake" type="button" aria-label="Brake and reverse"><span>BRAKE</span></button>
+      <button class="pedal gas" data-role="gas" type="button" aria-label="Accelerate"><span>GAS</span></button>`;
     this.pad = el.querySelector('.steer-pad') as HTMLElement;
     this.knob = el.querySelector('.knob') as HTMLElement;
+    this.wheel = el.querySelector('.steer-wheel') as HTMLElement;
 
     this.bindSteer();
+    this.bindWheel();
     this.bindPedal(el.querySelector('[data-role=gas]') as HTMLElement, 'throttle');
     this.bindPedal(el.querySelector('[data-role=brake]') as HTMLElement, 'brake');
     el.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -72,6 +79,47 @@ export class TouchControls {
     this.pad.addEventListener('pointerup', end);
     this.pad.addEventListener('pointercancel', end);
     this.pad.addEventListener('lostpointercapture', end);
+  }
+
+  /** Steering wheel: drag around the hub; the wheel turns up to 120 degrees each way and springs back on release. */
+  private bindWheel(): void {
+    const MAX = (120 * Math.PI) / 180;
+    const update = (e: PointerEvent): void => {
+      const r = this.wheel.getBoundingClientRect();
+      const a = Math.atan2(e.clientX - (r.left + r.width / 2), -(e.clientY - (r.top + r.height / 2)));
+      const v = clamp(a / MAX, -1, 1);
+      this.out.steer =
+        Math.abs(v) < 0.04 ? 0 : clamp(Math.sign(v) * Math.pow(Math.abs(v), 1.2) * this.sensitivity, -1, 1);
+      this.wheel.style.transform = `rotate(${v * 120}deg)`;
+    };
+    this.wheel.addEventListener('pointerdown', (e) => {
+      if (this.wheelPointer !== null) return;
+      this.wheelPointer = e.pointerId;
+      capture(this.wheel, e.pointerId);
+      update(e);
+      e.preventDefault();
+    });
+    this.wheel.addEventListener('pointermove', (e) => {
+      if (e.pointerId === this.wheelPointer) update(e);
+    });
+    const end = (e: PointerEvent): void => {
+      if (e.pointerId !== this.wheelPointer) return;
+      this.wheelPointer = null;
+      this.out.steer = 0;
+      this.wheel.style.transform = '';
+    };
+    this.wheel.addEventListener('pointerup', end);
+    this.wheel.addEventListener('pointercancel', end);
+    this.wheel.addEventListener('lostpointercapture', end);
+  }
+
+  /** Steering style, left-handed mirroring and size. */
+  setLayout(steer: 'bar' | 'wheel', mirror: boolean, large: boolean): void {
+    this.reset();
+    this.pad.hidden = steer !== 'bar';
+    this.wheel.hidden = steer !== 'wheel';
+    this.el.classList.toggle('mirror', mirror);
+    this.el.classList.toggle('large', large);
   }
 
   private bindPedal(btn: HTMLElement, key: 'throttle' | 'brake'): void {
@@ -112,6 +160,8 @@ export class TouchControls {
     this.out.brake = 0;
     this.knob.style.transform = '';
     this.steerPointer = null;
+    this.wheel.style.transform = '';
+    this.wheelPointer = null;
     this.el.querySelectorAll('.pedal.on').forEach((n) => n.classList.remove('on'));
   }
 

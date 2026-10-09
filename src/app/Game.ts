@@ -316,6 +316,7 @@ export class Game {
     this.minimap = new MiniMap(ui.minimapCanvas);
     this.touch = new TouchControls(this.input.touch);
     opts.uiHost.appendChild(this.touch.el);
+    this.touch.setLayout(this.store.settings.touchSteer, this.store.settings.touchMirror, this.store.settings.touchLarge);
     this.nav = new MenuNav(opts.uiHost, () => this.ui.menuActive && this.flow.state !== 'playing');
 
     const sel = resolveSelection(
@@ -734,6 +735,7 @@ export class Game {
       else this.audio.stopMusic();
     }
     this.touch.setSensitivity(s.touchSensitivity);
+    this.touch.setLayout(s.touchSteer, s.touchMirror, s.touchLarge);
     this.ui.setHudMode(s.hudMode);
     document.body.classList.toggle('reduce-motion', this.reducedMotion);
     this.updateTouch();

@@ -317,34 +317,72 @@ export class UI {
 
       <div class="modal" id="screen-settings" data-screen hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div class="panel wide">${KNOT}<h2 id="settings-title">Settings</h2>
-          <h3>Sound</h3>
-          <div class="field"><label for="set-master">Master volume</label><output id="out-master"></output><input id="set-master" type="range" min="0" max="100" step="1" /></div>
-          <div class="field"><label for="set-music">Music</label><output id="out-music"></output><input id="set-music" type="range" min="0" max="100" step="1" /></div>
-          <div class="field"><label for="set-sfx">Sound effects</label><output id="out-sfx"></output><input id="set-sfx" type="range" min="0" max="100" step="1" /></div>
-          <div class="field"><label for="set-ambient">Environment (wind, rain, nature)</label><output id="out-ambient"></output><input id="set-ambient" type="range" min="0" max="100" step="1" /></div>
-          <div class="field"><label for="set-mute">Mute all sound</label><input id="set-mute" type="checkbox" /></div>
-          <h3>Graphics</h3>
-          <div class="field"><label for="set-quality">Quality</label>
-            <select id="set-quality"><option value="low">Low (best for phones)</option><option value="medium">Medium</option><option value="high">High</option></select></div>
-          <p class="hint-text">Low drops shadows and thins the scenery, terrain, rain and effects, and lowers the render resolution. Anti-aliasing applies on the next launch.</p>
-          <div class="field"><label for="set-motion">Reduce motion (less camera shake, calmer menus)</label><input id="set-motion" type="checkbox" /></div>
-          <div class="field"><label for="set-hud">Driving HUD</label>
-            <select id="set-hud"><option value="standard">Standard</option><option value="minimal">Minimal</option><option value="telemetry">With telemetry</option></select></div>
-          <h3>Controls</h3>
-          <div class="field"><label for="set-touch">On-screen touch controls</label>
-            <select id="set-touch"><option value="auto">Automatic</option><option value="on">Always show</option><option value="off">Hide</option></select></div>
-          <div class="field"><label for="set-sens">Touch steering sensitivity</label><output id="out-sens"></output><input id="set-sens" type="range" min="60" max="160" step="5" /></div>
-          <div class="controls-grid">
-            <span><kbd>W</kbd><kbd>&uarr;</kbd></span><span>Accelerate</span>
-            <span><kbd>S</kbd><kbd>&darr;</kbd></span><span>Brake, then reverse</span>
-            <span><kbd>A</kbd><kbd>D</kbd> <kbd>&larr;</kbd><kbd>&rarr;</kbd></span><span>Steer</span>
-            <span><kbd>F</kbd></span><span>Switch between 4x2 and 4x4 (vehicles that have both)</span>
-            <span><kbd>E</kbd></span><span>Refuel or repair when stopped at a pit stop</span>
-            <span><kbd>R</kbd></span><span>Recover to the last checkpoint</span>
-            <span><kbd>Shift</kbd>+<kbd>R</kbd></span><span>Restart the run</span>
-            <span><kbd>Esc</kbd><kbd>P</kbd></span><span>Pause</span>
-            <span>Touch</span><span>Slide the steering bar, hold GAS / BRAKE with the other thumb; HUD buttons for 4x4 and services</span>
-            <span>Gamepad</span><span>Left stick steer, RT gas, LT brake, X 4x4, bumpers service, Start pause, Y recover. D-pad / A / B in menus</span>
+          <div class="tabs" role="tablist" aria-label="Settings sections">
+            <button type="button" role="tab" id="tab-audio" data-tab="audio" aria-selected="true" aria-controls="pane-audio">Audio</button>
+            <button type="button" role="tab" id="tab-graphics" data-tab="graphics" aria-selected="false" aria-controls="pane-graphics" tabindex="-1">Graphics</button>
+            <button type="button" role="tab" id="tab-controls" data-tab="controls" aria-selected="false" aria-controls="pane-controls" tabindex="-1">Controls</button>
+            <button type="button" role="tab" id="tab-gameplay" data-tab="gameplay" aria-selected="false" aria-controls="pane-gameplay" tabindex="-1">Gameplay</button>
+            <button type="button" role="tab" id="tab-access" data-tab="access" aria-selected="false" aria-controls="pane-access" tabindex="-1">Accessibility</button>
+          </div>
+          <div class="tab-panel" id="pane-audio" role="tabpanel" aria-labelledby="tab-audio">
+            <div class="field"><label for="set-master">Master volume</label><output id="out-master"></output><input id="set-master" type="range" min="0" max="100" step="1" /></div>
+            <div class="field"><label for="set-music">Music</label><output id="out-music"></output><input id="set-music" type="range" min="0" max="100" step="1" /></div>
+            <div class="field"><label for="set-sfx">Engine and effects</label><output id="out-sfx"></output><input id="set-sfx" type="range" min="0" max="100" step="1" /></div>
+            <div class="field"><label for="set-ambient">Environment (wind, rain, nature)</label><output id="out-ambient"></output><input id="set-ambient" type="range" min="0" max="100" step="1" /></div>
+            <div class="field"><label for="set-mute">Mute all sound</label><input id="set-mute" type="checkbox" /></div>
+          </div>
+          <div class="tab-panel" id="pane-graphics" role="tabpanel" aria-labelledby="tab-graphics" hidden>
+            <div class="field"><label for="set-quality">Quality</label>
+              <select id="set-quality"><option value="low">Low (best for phones)</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+            <p class="hint-text">Low drops shadows and thins the scenery, terrain, rain and effects, and lowers the render resolution. Anti-aliasing applies on the next launch.</p>
+          </div>
+          <div class="tab-panel" id="pane-controls" role="tabpanel" aria-labelledby="tab-controls" hidden>
+            <div class="field"><label for="set-touch">On-screen touch controls</label>
+              <select id="set-touch"><option value="auto">Automatic</option><option value="on">Always show</option><option value="off">Hide</option></select></div>
+            <div class="field"><label for="set-steer">Touch steering style</label>
+              <select id="set-steer"><option value="bar">Slide bar</option><option value="wheel">Steering wheel</option></select></div>
+            <div class="field"><label for="set-sens">Touch steering sensitivity</label><output id="out-sens"></output><input id="set-sens" type="range" min="60" max="160" step="5" /></div>
+            <div class="field"><label for="set-mirror">Left-handed layout (steering on the right)</label><input id="set-mirror" type="checkbox" /></div>
+            <h3>How to drive</h3>
+            <div class="tabs sub-tabs" role="tablist" aria-label="Control schemes">
+              <button type="button" role="tab" data-help="kb" aria-selected="true">Keyboard</button>
+              <button type="button" role="tab" data-help="touch" aria-selected="false" tabindex="-1">Touch</button>
+              <button type="button" role="tab" data-help="pad" aria-selected="false" tabindex="-1">Gamepad</button>
+            </div>
+            <div class="controls-grid" data-help-pane="kb">
+              <span><kbd>W</kbd><kbd>&uarr;</kbd></span><span>Accelerate</span>
+              <span><kbd>S</kbd><kbd>&darr;</kbd></span><span>Brake, then reverse</span>
+              <span><kbd>A</kbd><kbd>D</kbd> <kbd>&larr;</kbd><kbd>&rarr;</kbd></span><span>Steer</span>
+              <span><kbd>F</kbd></span><span>Switch between 4x2 and 4x4 (vehicles that have both)</span>
+              <span><kbd>E</kbd></span><span>Refuel or repair when stopped at a pit stop</span>
+              <span><kbd>R</kbd></span><span>Recover to the last checkpoint</span>
+              <span><kbd>Shift</kbd>+<kbd>R</kbd></span><span>Restart the run</span>
+              <span><kbd>Esc</kbd><kbd>P</kbd></span><span>Pause</span>
+            </div>
+            <div class="controls-grid" data-help-pane="touch" hidden>
+              <span>Steer</span><span>Slide the bar or turn the wheel with one thumb; release to centre</span>
+              <span>GAS / BRAKE</span><span>Hold with the other thumb. BRAKE also reverses once stopped</span>
+              <span>HUD buttons</span><span>4x4, pit-stop service and recover appear on screen when they apply</span>
+              <span>Layout</span><span>Choose the steering style, a left-handed layout and larger controls here and under Accessibility</span>
+            </div>
+            <div class="controls-grid" data-help-pane="pad" hidden>
+              <span>Left stick</span><span>Steer</span>
+              <span>RT / LT</span><span>Gas / brake (and reverse)</span>
+              <span>X</span><span>Switch 4x2 / 4x4</span>
+              <span>Bumpers</span><span>Pit-stop service</span>
+              <span>Y</span><span>Recover to the last checkpoint</span>
+              <span>Start</span><span>Pause</span>
+              <span>D-pad, A, B</span><span>Move, confirm and go back in menus</span>
+            </div>
+          </div>
+          <div class="tab-panel" id="pane-gameplay" role="tabpanel" aria-labelledby="tab-gameplay" hidden>
+            <div class="field"><label for="set-hud">Driving HUD</label>
+              <select id="set-hud"><option value="standard">Standard</option><option value="minimal">Minimal</option><option value="telemetry">With telemetry</option></select></div>
+            <p class="hint-text">Standard shows the instrument cluster, mission and vitals. Minimal keeps only speed, the timer and alerts. Telemetry adds gear, revs, load and traction.</p>
+          </div>
+          <div class="tab-panel" id="pane-access" role="tabpanel" aria-labelledby="tab-access" hidden>
+            <div class="field"><label for="set-motion">Reduce motion (less camera shake, calmer menus)</label><input id="set-motion" type="checkbox" /></div>
+            <div class="field"><label for="set-large">Larger touch controls</label><input id="set-large" type="checkbox" /></div>
           </div>
           <div class="stack" style="margin-top:18px">
             <button class="btn" id="btn-settings-feedback" type="button"><span>Share feedback</span></button>
@@ -484,6 +522,25 @@ export class UI {
     q<HTMLSelectElement>(this.root, '#set-hud').addEventListener('change', (e) =>
       this.actions.settingsChanged({ hudMode: (e.target as HTMLSelectElement).value as HudMode }),
     );
+    q<HTMLSelectElement>(this.root, '#set-steer').addEventListener('change', (e) =>
+      this.actions.settingsChanged({ touchSteer: (e.target as HTMLSelectElement).value as 'bar' | 'wheel' }),
+    );
+    q<HTMLInputElement>(this.root, '#set-mirror').addEventListener('change', (e) =>
+      this.actions.settingsChanged({ touchMirror: (e.target as HTMLInputElement).checked }),
+    );
+    q<HTMLInputElement>(this.root, '#set-large').addEventListener('change', (e) =>
+      this.actions.settingsChanged({ touchLarge: (e.target as HTMLInputElement).checked }),
+    );
+    this.bindTabs(this.screens.settings.querySelectorAll<HTMLElement>('.tabs:not(.sub-tabs) [data-tab]'), (id) => {
+      this.screens.settings.querySelectorAll<HTMLElement>('.tab-panel').forEach((p) => {
+        p.hidden = p.id !== 'pane-' + id;
+      });
+    });
+    this.bindTabs(this.screens.settings.querySelectorAll<HTMLElement>('[data-help]'), (id) => {
+      this.screens.settings.querySelectorAll<HTMLElement>('[data-help-pane]').forEach((p) => {
+        p.hidden = p.dataset.helpPane !== id;
+      });
+    });
     q<HTMLSelectElement>(this.root, '#set-touch').addEventListener('change', (e) =>
       this.actions.settingsChanged({ touchControls: (e.target as HTMLSelectElement).value as TouchMode }),
     );
@@ -505,6 +562,28 @@ export class UI {
     }
   }
 
+  /** A WAI-ARIA tablist: click or arrow keys select; only the selected tab is in the tab order. */
+  private bindTabs(tabs: NodeListOf<HTMLElement>, onSelect: (id: string) => void): void {
+    const list = [...tabs];
+    const select = (t: HTMLElement, focus: boolean): void => {
+      for (const o of list) {
+        o.setAttribute('aria-selected', String(o === t));
+        o.tabIndex = o === t ? 0 : -1;
+      }
+      onSelect(t.dataset.tab ?? t.dataset.help ?? '');
+      if (focus) t.focus();
+    };
+    list.forEach((t, i) => {
+      t.addEventListener('click', () => select(t, false));
+      t.addEventListener('keydown', (e) => {
+        const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        select(list[(i + d + list.length) % list.length], true);
+      });
+    });
+  }
+
   /** Mirrors stored settings into the form controls. */
   syncSettings(s: Settings): void {
     const set = (id: string, v: number, out: string): void => {
@@ -521,6 +600,9 @@ export class UI {
     q<HTMLSelectElement>(this.root, '#set-quality').value = s.quality;
     q<HTMLSelectElement>(this.root, '#set-hud').value = s.hudMode;
     q<HTMLSelectElement>(this.root, '#set-touch').value = s.touchControls;
+    q<HTMLSelectElement>(this.root, '#set-steer').value = s.touchSteer;
+    q<HTMLInputElement>(this.root, '#set-mirror').checked = s.touchMirror;
+    q<HTMLInputElement>(this.root, '#set-large').checked = s.touchLarge;
   }
 
   private focusFirst(screen: HTMLElement, sel = 'button:not([disabled])'): void {
