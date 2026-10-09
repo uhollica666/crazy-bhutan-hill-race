@@ -1,4 +1,5 @@
 import './ui/styles.css';
+import './ui/stage2.css';
 import { Game } from './app/Game';
 import { registerServiceWorker } from './pwa/register';
 import { isWebGLAvailable } from './render/GameRenderer';
@@ -37,6 +38,7 @@ async function boot(): Promise<void> {
       store,
       debug: params.has('debug'),
       autodrive: params.has('autodrive'),
+      fixedResolution: params.has('noadapt') || params.has('debug'),
     });
     await game.init();
     if (params.has('debug')) {

@@ -20,6 +20,7 @@ export class TouchControls {
   private readonly knob: HTMLElement;
   private readonly pad: HTMLElement;
   private steerPointer: number | null = null;
+  private sensitivity = 1;
 
   constructor(private readonly out: VehicleInput) {
     const el = (this.el = document.createElement('div'));
@@ -46,7 +47,9 @@ export class TouchControls {
       const r = this.pad.getBoundingClientRect();
       const half = (r.width - r.height) / 2; // usable travel for the knob centre
       const v = clamp((e.clientX - (r.left + r.width / 2)) / Math.max(1, half), -1, 1);
-      this.out.steer = Math.abs(v) < 0.06 ? 0 : v;
+      // Gentle near the centre for fine corrections, full lock at the end of the bar; sensitivity scales the curve.
+      this.out.steer =
+        Math.abs(v) < 0.05 ? 0 : clamp(Math.sign(v) * Math.pow(Math.abs(v), 1.35) * this.sensitivity, -1, 1);
       this.knob.style.transform = `translateX(${v * half}px)`;
     };
     this.pad.addEventListener('pointerdown', (e) => {
@@ -91,6 +94,10 @@ export class TouchControls {
     btn.addEventListener('lostpointercapture', end);
     // Keyboard users who focus a pedal can still use it with Space/Enter.
     btn.addEventListener('keydown', (e) => e.preventDefault());
+  }
+
+  setSensitivity(s: number): void {
+    this.sensitivity = clamp(s, 0.5, 2);
   }
 
   /** Releases every control (call when the race stops). */

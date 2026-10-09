@@ -14,7 +14,10 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "check": "bun run typecheck && bun run lint && bun run test"
+    "check": "bun run typecheck && bun run lint && bun run test",
+    "dev:lan": "vite --host",
+    "preview:lan": "vite preview --host --port 4173",
+    "shots": "node scripts/shots.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

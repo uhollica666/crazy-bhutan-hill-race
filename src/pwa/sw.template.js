@@ -1,9 +1,11 @@
-/* Offline support. __BUILD_ID__ and __PRECACHE__ are substituted by the build (see vite.config.ts).
+/* Offline support. The build substitutes the build id and the precache list below (see vite.config.ts).
    Strategy: precache the app shell + hashed assets; navigations are network-first (so updates arrive
    immediately when online) with the cached shell as the offline fallback; other GETs are cache-first. */
 const VERSION = '__BUILD_ID__';
 const CACHE = 'cbhr-' + VERSION;
 const PRECACHE = __PRECACHE__;
+// Module scripts are fetched in CORS mode (an Origin header), the precache fetch is not: ignore Vary so they still match.
+const MATCH = { ignoreVary: true };
 const scope = self.registration.scope;
 const shell = new URL('index.html', scope).href;
 
@@ -29,7 +31,10 @@ self.addEventListener('activate', (event) => {
 
 function networkFirst(request) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => caches.match(shell).then((hit) => (hit ? resolve(hit) : undefined)), 4000);
+    const timer = setTimeout(
+      () => caches.match(shell, MATCH).then((hit) => (hit ? resolve(hit) : undefined)),
+      4000,
+    );
     fetch(request)
       .then((res) => {
         clearTimeout(timer);
@@ -41,7 +46,7 @@ function networkFirst(request) {
       })
       .catch(() => {
         clearTimeout(timer);
-        caches.match(shell).then((hit) => (hit ? resolve(hit) : reject(new Error('offline'))));
+        caches.match(shell, MATCH).then((hit) => (hit ? resolve(hit) : reject(new Error('offline'))));
       });
   });
 }
@@ -56,7 +61,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   event.respondWith(
-    caches.match(req).then(
+    caches.match(req, MATCH).then(
       (hit) =>
         hit ||
         fetch(req).then((res) => {

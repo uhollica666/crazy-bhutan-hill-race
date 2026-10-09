@@ -17,6 +17,15 @@ import type { LandmarkDef } from '../data/types';
 import { fbm2, lerp, mulberry32, smoothstep } from '../core/math';
 import { GeoBuilder } from './geo';
 import { FLAG_COLORS, PAL } from './palette';
+import {
+  broadleafGeometry,
+  dzongGeometry,
+  planeGeometry,
+  prayerWheelHouseGeometry,
+  shrubGeometry,
+  terminalGeometry,
+  towerGeometry,
+} from './landmarks';
 
 // ---------------------------------------------------------------- geometry kits
 
@@ -257,29 +266,63 @@ export class Scenery {
       Math.round((x - terrain.minX) / terrain.cell) +
       Math.round((z - terrain.minZ) / terrain.cell) * terrain.nx;
 
-    // ---- forests
+    // ---- forests (species mix, tree line and foliage colours come from the level)
     const pines: Matrix4[] = [];
     const cypresses: Matrix4[] = [];
+    const broadleaf: Matrix4[] = [];
+    const shrubs: Matrix4[] = [];
+    const sp = level.scenery.species;
+    const total = Math.max(0.0001, sp.pine + sp.cypress + sp.broadleaf + sp.shrub);
+    const treeLine = level.look.treeLine ?? 122;
     const want = level.scenery.trees;
-    for (let tries = 0; tries < want * 14 && pines.length + cypresses.length < want; tries++) {
+    for (
+      let tries = 0;
+      tries < want * 14 && pines.length + cypresses.length + broadleaf.length + shrubs.length < want;
+      tries++
+    ) {
       const x = lerp(b.minX + margin, b.maxX - margin, rng());
       const z = lerp(b.minZ + margin, b.maxZ - margin, rng());
       const k = nodeIdx(x, z);
       const d = terrain.roadDist[k];
-      if (d < road.wallOffset + 4.5) continue;
+      const pick = rng() * total;
+      const kind =
+        pick < sp.pine
+          ? 'pine'
+          : pick < sp.pine + sp.cypress
+            ? 'cypress'
+            : pick < sp.pine + sp.cypress + sp.broadleaf
+              ? 'broadleaf'
+              : 'shrub';
+      if (d < road.wallOffset + (kind === 'shrub' ? 2.5 : 4.5)) continue;
       const h = terrain.heightAt(x, z);
-      if (h < terrain.waterLevel + 2.5 || h > 122) continue;
-      if (terrain.normals[k * 3 + 1] < 0.74) continue;
+      if (h < terrain.waterLevel + 2.5 || h > treeLine + (kind === 'shrub' ? 12 : 0)) continue;
+      if (terrain.normals[k * 3 + 1] < (kind === 'shrub' ? 0.62 : 0.74)) continue;
       const forest = fbm2(x / 55, z / 55, level.scenery.seed, 3) * 0.5 + 0.5;
       let accept = smoothstep(0.38, 0.62, forest) * 0.95 + 0.04;
-      if (d < 16) accept *= 0.55;
+      if (d < 16) accept *= kind === 'shrub' ? 1 : 0.55;
       if (rng() > accept) continue;
-      const sc = 0.8 + rng() * 0.95;
+      const sc = (kind === 'shrub' ? 0.8 : 0.8) + rng() * (kind === 'shrub' ? 0.8 : 0.95);
       const m = compose(x, h - 0.15, z, rng() * 6.28, sc, sc * (0.9 + rng() * 0.3), sc);
-      (rng() < 0.28 ? cypresses : pines).push(m);
+      (kind === 'pine'
+        ? pines
+        : kind === 'cypress'
+          ? cypresses
+          : kind === 'broadleaf'
+            ? broadleaf
+            : shrubs
+      ).push(m);
     }
     this.registerInstanced(pineGeometry(), pines, material, true, 0.14, rng);
     this.registerInstanced(cypressGeometry(), cypresses, material, true, 0.12, rng);
+    this.registerInstanced(
+      broadleafGeometry(level.look.leaf ?? 0x7fae4a),
+      broadleaf,
+      material,
+      true,
+      0.12,
+      rng,
+    );
+    this.registerInstanced(shrubGeometry(level.look.blossom ?? 0xd04070), shrubs, material, true, 0.1, rng);
 
     // ---- rocks
     const rocks: Matrix4[] = [];
@@ -310,6 +353,11 @@ export class Scenery {
     const houses: Matrix4[] = [];
     const chortens: Matrix4[] = [];
     const yaks: Matrix4[] = [];
+    const dzongs: Matrix4[] = [];
+    const terminals: Matrix4[] = [];
+    const towers: Matrix4[] = [];
+    const planes: Matrix4[] = [];
+    const wheelHouses: Matrix4[] = [];
     const cloth = new ClothBuilder();
     const poles = new GeoBuilder();
     let poleCount = 0;
@@ -348,6 +396,21 @@ export class Scenery {
           }
           break;
         }
+        case 'dzong':
+          dzongs.push(compose(x, y - 0.5, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'terminal':
+          terminals.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'tower':
+          towers.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'plane':
+          planes.push(compose(x, y, z, faceRoad + (l.rotation ?? 0) + Math.PI / 2, sc));
+          break;
+        case 'prayerWheelHouse':
+          wheelHouses.push(compose(x, y, z, faceRoad, sc));
+          break;
         case 'yak':
           yaks.push(compose(x, y, z, rng() * 6.28, 1.05 + rng() * 0.2));
           break;
@@ -415,6 +478,11 @@ export class Scenery {
     this.registerInstanced(houseGeometry(), houses, material, false);
     this.registerInstanced(chortenGeometry(), chortens, material, false);
     this.registerInstanced(yakGeometry(), yaks, material, false);
+    this.registerInstanced(dzongGeometry(), dzongs, material, false);
+    this.registerInstanced(terminalGeometry(), terminals, material, false);
+    this.registerInstanced(towerGeometry(), towers, material, false);
+    this.registerInstanced(planeGeometry(), planes, material, false);
+    this.registerInstanced(prayerWheelHouseGeometry(), wheelHouses, material, false);
 
     if (poleCount > 0) {
       const geo = poles.build();

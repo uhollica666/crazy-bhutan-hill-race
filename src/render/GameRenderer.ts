@@ -28,6 +28,8 @@ export class GameRenderer {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
   profile: QualityProfile;
+  /** 0.5..1 multiplier from the adaptive-resolution controller. */
+  resolutionScale = 1;
   level: QualityLevel;
   /** Set when WebGL context is lost so the app can show a message instead of a frozen frame. */
   onContextLost: (() => void) | null = null;
@@ -68,11 +70,19 @@ export class GameRenderer {
     this.renderer.shadowMap.needsUpdate = true;
   }
 
+  setResolutionScale(s: number): void {
+    this.resolutionScale = s;
+    this.applySize();
+  }
+
   /** Called on window resize / orientation change / quality change. Returns CSS size. */
   applySize(): { width: number; height: number } {
     const width = this.host.clientWidth || window.innerWidth;
     const height = this.host.clientHeight || window.innerHeight;
-    const ratio = Math.min(window.devicePixelRatio || 1, this.profile.maxPixelRatio);
+    const ratio =
+      Math.min(window.devicePixelRatio || 1, this.profile.maxPixelRatio) *
+      this.profile.renderScale *
+      this.resolutionScale;
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(width, height, false);
     return { width, height };

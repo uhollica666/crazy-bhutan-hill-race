@@ -1,4 +1,5 @@
 import {
+  BufferAttribute,
   BufferGeometry,
   CanvasTexture,
   Color,
@@ -31,22 +32,25 @@ function terrainColor(course: Course, i: number, j: number, out: Color): Color {
   const z = t.minZ + j * t.cell;
   const d = t.roadDist[k];
 
+  const look = course.level.look;
+  const rockColor = look.rock ?? PAL.rock;
   const patch = fbm2(x / 22, z / 22, 91, 2) * 0.5 + 0.5;
-  _a.setHex(PAL.grassA);
-  _b.setHex(PAL.grassB);
+  _a.setHex(look.grassA ?? PAL.grassA);
+  _b.setHex(look.grassB ?? PAL.grassB);
   out.copy(_a).lerp(_b, patch);
 
-  // Alpine meadow and bare ground with altitude, snow on the high rim.
-  const alt = smoothstep(55, 110, h);
-  _a.setHex(PAL.meadow);
-  out.lerp(_a, alt * 0.8);
-  _a.setHex(PAL.rock);
-  out.lerp(_a, smoothstep(105, 150, h) * 0.9);
+  // Alpine meadow and bare ground with altitude, snow on the high ground (all per-level).
+  _a.setHex(look.meadow ?? PAL.meadow);
+  out.lerp(_a, smoothstep(look.meadowFrom ?? 55, look.meadowTo ?? 110, h) * 0.8);
+  const rockFrom = look.rockFrom ?? 105;
+  _a.setHex(rockColor);
+  out.lerp(_a, smoothstep(rockFrom, rockFrom + 45, h) * 0.9);
+  const noise = fbm2(x / 30, z / 30, 5, 2) * 18;
   _a.setHex(PAL.snow);
-  out.lerp(_a, smoothstep(165, 205, h + fbm2(x / 30, z / 30, 5, 2) * 18));
+  out.lerp(_a, smoothstep(look.snowFrom ?? 165, look.snowTo ?? 205, h + noise) * (look.snowMax ?? 1));
 
-  // Steep faces are rock.
-  _a.setHex(PAL.rock);
+  // Steep faces are rock (snow slides off them).
+  _a.setHex(rockColor);
   out.lerp(_a, smoothstep(0.86, 0.66, ny) * 0.85);
 
   // River banks.
@@ -102,12 +106,31 @@ export function buildTerrainMesh(course: Course): Mesh {
   geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
   geo.setAttribute('normal', new Float32BufferAttribute(nor, 3));
   geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+  // Coarse index set (every 2nd node) for the Low preset: ~4x fewer terrain triangles, same vertices.
+  const cidx: number[] = [];
+  for (let j = 0; j + 2 < t.nz; j += 2) {
+    for (let i = 0; i + 2 < t.nx; i += 2) {
+      const a = i + j * t.nx;
+      const b = a + 2;
+      const c = a + 2 * t.nx;
+      const d = c + 2;
+      cidx.push(a, c, b, b, c, d);
+    }
+  }
   geo.setIndex(new Uint32BufferAttribute(idx, 1));
+  geo.userData.fine = geo.index;
+  geo.userData.coarse = new Uint32BufferAttribute(new Uint32Array(cidx), 1);
   geo.computeBoundingSphere();
   const mesh = new Mesh(geo, new MeshLambertMaterial({ vertexColors: true, flatShading: true }));
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
   return mesh;
+}
+
+/** Switches between the full-resolution and coarse (Low quality) terrain triangulation. */
+export function setTerrainCoarse(mesh: Mesh, coarse: boolean): void {
+  const g = mesh.geometry;
+  g.setIndex((coarse ? g.userData.coarse : g.userData.fine) as BufferAttribute);
 }
 
 export function buildWater(course: Course): Mesh {

@@ -1,6 +1,7 @@
 import type { Course } from '../world/Course';
 import { createRoadHit } from '../world/Road';
 import type { RoadPose } from '../world/Road';
+import type { VehicleDef } from '../data/types';
 import type { VehicleBody } from '../physics/VehicleBody';
 import type { VehicleInput } from '../physics/types';
 import { clamp } from '../core/math';
@@ -14,9 +15,21 @@ export class AutoDriver {
   private readonly pose: RoadPose = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
   private readonly head = { x: 0, z: -1 };
   /** Lateral acceleration (m/s^2) the bot is willing to plan corners around. */
-  cornerAccel = 10;
+  cornerAccel: number;
+  /** Strongest brake the bot will apply (0..1) and the deceleration (m/s^2) it plans its braking around. */
+  private readonly maxBrake: number;
+  private readonly brakeDecel: number;
 
-  constructor(private readonly course: Course) {}
+  constructor(
+    private readonly course: Course,
+    vehicle?: VehicleDef,
+    cornerAccel?: number,
+    style: { maxBrake?: number; brakeDecel?: number } = {},
+  ) {
+    this.maxBrake = style.maxBrake ?? 1;
+    this.brakeDecel = style.brakeDecel ?? 8;
+    this.cornerAccel = cornerAccel ?? (vehicle ? 0.5 * vehicle.grip.lateral * vehicle.gravity : 10);
+  }
 
   update(body: VehicleBody, out: VehicleInput): void {
     const road = this.course.road;
@@ -37,7 +50,7 @@ export class AutoDriver {
     out.steer = clamp(err * 1.7, -1, 1);
 
     // Speed plan from the sharpest bend within braking distance.
-    const window = 14 + (speed * speed) / 16;
+    const window = 14 + (speed * speed) / (2 * this.brakeDecel);
     let maxK = 0;
     road.at(s, this.pose);
     let h0 = Math.atan2(this.pose.tz, this.pose.tx);
@@ -54,7 +67,7 @@ export class AutoDriver {
     const target = maxK < 1e-4 ? top : clamp(Math.sqrt(this.cornerAccel / maxK), 8, top);
     if (speed > target + 1) {
       out.throttle = 0;
-      out.brake = clamp((speed - target) / 5, 0, 1);
+      out.brake = clamp((speed - target) / 5, 0, this.maxBrake);
     } else {
       out.brake = 0;
       out.throttle = clamp((target - speed) / 3 + 0.25, 0, 1);

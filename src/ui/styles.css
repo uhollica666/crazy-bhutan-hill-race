@@ -389,10 +389,16 @@ button {
   backdrop-filter: blur(4px);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
-.hud-speed {
+.hud-left {
   position: absolute;
   left: calc(var(--sal) + 12px);
   top: calc(var(--sat) + 10px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(180px, 30vw);
+}
+.hud-speed {
   padding: 6px 14px 8px;
   min-width: 112px;
   text-align: center;
@@ -717,8 +723,8 @@ button {
 }
 #debug {
   position: absolute;
-  left: calc(var(--sal) + 8px);
-  top: calc(var(--sat) + 96px);
+  right: calc(var(--sar) + 8px);
+  bottom: calc(var(--sab) + 8px);
   margin: 0;
   padding: 6px 8px;
   font:

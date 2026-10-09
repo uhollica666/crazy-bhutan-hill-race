@@ -58,6 +58,8 @@ export class Environment {
   private readonly mistColor = new Color(PAL.mist);
   private readonly sunDir = SUN_OFFSET.clone().normalize();
   private baseFogFar = 800;
+  private readonly visibility: number;
+  private readonly mistStart: number;
   private mistStrength = 0;
   private mist = 0;
 
@@ -65,14 +67,19 @@ export class Environment {
     readonly scene: Scene,
     course: Course,
   ) {
-    this.fog = new Fog(PAL.fog, 120, 800);
+    const look = course.level.look;
+    this.fogColor.setHex(look.fog ?? PAL.fog);
+    this.mistColor.setHex(look.mist ?? PAL.mist);
+    this.fog = new Fog(this.fogColor.getHex(), 120, 800);
     scene.fog = this.fog;
-    scene.background = new Color(PAL.fog);
+    scene.background = new Color(this.fogColor.getHex());
     this.mistStrength = course.level.atmosphere.summitMist;
+    this.mistStart = course.level.atmosphere.mistStart;
+    this.visibility = course.level.atmosphere.visibility;
 
-    this.hemi = new HemisphereLight(0xd6e8f8, 0x7a7448, 2.4);
+    this.hemi = new HemisphereLight(0xd6e8f8, 0x7a7448, look.hemi ?? 2.4);
     scene.add(this.hemi);
-    this.sun = new DirectionalLight(PAL.sun, 2.8);
+    this.sun = new DirectionalLight(look.sunColor ?? PAL.sun, look.sun ?? 2.8);
     this.sun.position.copy(SUN_OFFSET);
     this.sun.shadow.camera.left = -40;
     this.sun.shadow.camera.right = 40;
@@ -91,11 +98,11 @@ export class Environment {
       depthWrite: false,
       fog: false,
       uniforms: {
-        uTop: { value: new Color(PAL.skyTop) },
-        uMid: { value: new Color(PAL.skyMid) },
-        uHorizon: { value: new Color(PAL.skyHorizon) },
+        uTop: { value: new Color(look.skyTop ?? PAL.skyTop) },
+        uMid: { value: new Color(look.skyMid ?? PAL.skyMid) },
+        uHorizon: { value: new Color(look.skyHorizon ?? PAL.skyHorizon) },
         uSun: { value: this.sunDir.clone() },
-        uMistColor: { value: new Color(PAL.mist) },
+        uMistColor: { value: this.mistColor.clone() },
         uMist: { value: 0 },
       },
     });
@@ -104,19 +111,19 @@ export class Environment {
     this.sky.renderOrder = -10;
     scene.add(this.sky);
 
-    this.ridges = this.buildRidges(course);
+    this.ridges = this.buildRidges(course, this.fogColor.getHex());
     scene.add(this.ridges);
   }
 
   /** Layered, hazy ridge line with snow peaks, far outside the drivable area. */
-  private buildRidges(course: Course): Mesh {
+  private buildRidges(course: Course, hazeColor: number): Mesh {
     const b = course.level.terrain.bounds;
     const cx = (b.minX + b.maxX) / 2;
     const cz = (b.minZ + b.maxZ) / 2;
     const rng = mulberry32(course.level.scenery.seed + 77);
     const g = new GeoBuilder();
     const rock = new Color();
-    const haze = new Color(PAL.fog);
+    const haze = new Color(hazeColor);
     const layers = [
       { r: 760, n: 20, h: [210, 330], k: 0.35 },
       { r: 980, n: 26, h: [300, 470], k: 0.55 },
@@ -161,7 +168,7 @@ export class Environment {
   }
 
   applyQuality(q: QualityProfile): void {
-    this.baseFogFar = q.fogFar;
+    this.baseFogFar = q.fogFar * this.visibility;
     this.sun.castShadow = q.shadows;
     if (q.shadows) {
       this.sun.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
@@ -173,13 +180,13 @@ export class Environment {
 
   /** 0..1 along the route: drives the rolling mist. */
   setProgress(f: number): void {
-    const t = Math.min(1, Math.max(0, (f - 0.45) / 0.5));
+    const t = Math.min(1, Math.max(0, (f - this.mistStart) / Math.max(0.1, 0.95 - this.mistStart)));
     this.mist = t * t * (3 - 2 * t) * this.mistStrength;
     this.applyFog();
   }
 
   private applyFog(): void {
-    this.fog.near = lerp(120, 18, this.mist);
+    this.fog.near = lerp(120 * this.visibility, 18, this.mist);
     this.fog.far = lerp(this.baseFogFar, 230, this.mist);
     this.fog.color.copy(this.fogColor).lerp(this.mistColor, this.mist);
     (this.scene.background as Color).copy(this.fog.color);
@@ -195,6 +202,7 @@ export class Environment {
   }
 
   dispose(): void {
+    this.scene.remove(this.hemi, this.sun, this.sun.target, this.sky, this.ridges);
     this.sky.geometry.dispose();
     this.skyMat.dispose();
     this.ridges.geometry.dispose();

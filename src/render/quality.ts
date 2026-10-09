@@ -3,7 +3,14 @@ import type { QualityLevel } from '../storage/SaveStore';
 export interface QualityProfile {
   /** Upper bound for devicePixelRatio. */
   maxPixelRatio: number;
-  /** Render scale applied on top of the pixel ratio (dynamic-resolution floor). */
+  /** Multiplier on the pixel ratio (Low renders fewer pixels). */
+  renderScale: number;
+  /** Draw the terrain with every 2nd grid node (about 4x fewer terrain triangles). */
+  terrainCoarse: boolean;
+  /** 0..1 share of dust / smoke particles that are spawned. */
+  particleDensity: number;
+  skidMarks: boolean;
+  snowCount: number;
   shadows: boolean;
   shadowMapSize: number;
   /** Fraction of the level's tree / rock budget that is drawn. */
@@ -18,6 +25,11 @@ export interface QualityProfile {
 export const QUALITY: Record<QualityLevel, QualityProfile> = {
   low: {
     maxPixelRatio: 1,
+    renderScale: 0.8,
+    terrainCoarse: true,
+    particleDensity: 0.4,
+    skidMarks: false,
+    snowCount: 220,
     shadows: false,
     shadowMapSize: 0,
     propDensity: 0.4,
@@ -28,6 +40,11 @@ export const QUALITY: Record<QualityLevel, QualityProfile> = {
   },
   medium: {
     maxPixelRatio: 1.5,
+    renderScale: 1,
+    terrainCoarse: false,
+    particleDensity: 0.75,
+    skidMarks: true,
+    snowCount: 500,
     shadows: true,
     shadowMapSize: 1024,
     propDensity: 0.75,
@@ -38,6 +55,11 @@ export const QUALITY: Record<QualityLevel, QualityProfile> = {
   },
   high: {
     maxPixelRatio: 2,
+    renderScale: 1,
+    terrainCoarse: false,
+    particleDensity: 1,
+    skidMarks: true,
+    snowCount: 900,
     shadows: true,
     shadowMapSize: 2048,
     propDensity: 1,

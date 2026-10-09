@@ -7,6 +7,8 @@ import type { PhysicsWorld, VehicleInput } from './types';
 
 export interface WheelState {
   readonly mountLocal: Vector3;
+  /** World position of the tyre contact patch (valid while inContact). */
+  readonly contact: Vector3;
   readonly steered: boolean;
   readonly driven: boolean;
   /** Radians, + = right. Visual and force direction. */
@@ -23,7 +25,6 @@ export interface WheelState {
 }
 
 const GRAVITY_DIR_Y = -1;
-const CONTACT_LIFT = 0.6;
 
 /**
  * Arcade raycast-suspension rigid body.
@@ -64,6 +65,7 @@ export class VehicleBody {
   private readonly inertia = new Vector3();
   private readonly drivenCount: number;
   private readonly restHeight: number;
+  private readonly wheelbase: number;
 
   // Scratch (allocated once; the step loop never allocates).
   private readonly m4 = new Matrix4();
@@ -103,6 +105,7 @@ export class VehicleBody {
       for (const side of [-1, 1]) {
         this.wheels.push({
           mountLocal: new Vector3(side * axle.halfTrack, axle.y, axle.z),
+          contact: new Vector3(),
           steered: axle.steered,
           driven: axle.driven,
           steerAngle: 0,
@@ -116,6 +119,8 @@ export class VehicleBody {
       }
     }
     this.drivenCount = Math.max(1, this.wheels.filter((x) => x.driven).length);
+    const zs = def.axles.map((a) => a.z);
+    this.wheelbase = Math.max(0.5, Math.max(...zs) - Math.min(...zs));
     const lowest = Math.min(...def.axles.map((a) => a.y));
     const sag = (def.mass * def.gravity) / this.wheels.length / def.suspension.stiffness;
     this.restHeight = -lowest + def.suspension.rest - sag + def.wheelRadius;
@@ -219,9 +224,14 @@ export class VehicleBody {
     // --- Steering: speed-sensitive and rate-limited.
     const speedRatio = clamp(absSpeed / d.steering.fullSpeed, 0, 1);
     const maxAngle = d.steering.maxAngle * lerp(1, d.steering.highSpeedRatio, Math.pow(speedRatio, 0.8));
-    const step = d.steering.rate * dt;
+    // The rack returns to centre faster than it winds on, which feels natural and keeps corrections crisp.
+    const returning = Math.abs(input.steer) < Math.abs(this.steerValue) || input.steer * this.steerValue < 0;
+    const step = d.steering.rate * (returning ? 1.7 : 1) * dt;
     this.steerValue += clamp(input.steer - this.steerValue, -step, step);
-    const steerAngle = this.steerValue * maxAngle;
+    // Arcade rollover guard: never steer harder than the vehicle can corner without tipping.
+    const tanLimit = (d.stability.maxLateralAccel * this.wheelbase) / Math.max(fwdSpeed * fwdSpeed, 1);
+    const steerLimit = Math.atan(tanLimit);
+    const steerAngle = clamp(this.steerValue * maxAngle, -steerLimit, steerLimit);
 
     // --- Pedals.
     let drive = 0;
@@ -304,6 +314,7 @@ export class VehicleBody {
 
       // Contact patch and its velocity.
       this.contact.copy(this.mountW).addScaledVector(this.ay, -len);
+      w.contact.copy(this.contact);
       this.r.subVectors(this.contact, this.position);
       this.vp.crossVectors(this.angularVelocity, this.r).add(this.velocity);
 
@@ -329,6 +340,7 @@ export class VehicleBody {
         fx += clamp((-vf * wheelMass) / dt, -bmax, bmax);
       }
       fx -= (vf * d.engine.rollingResistance) / nWheels;
+      if (drive === 0 && brake === 0 && w.driven) fx -= (vf * d.engine.engineBraking) / this.drivenCount;
       if (drive === 0 && brake === 0 && Math.abs(vf) < 1.2) {
         // Auto-hold: stops the car creeping on slopes when the player lets go.
         fx += clamp((-vf * wheelMass) / dt, -muLong * 0.9, muLong * 0.9);
@@ -351,7 +363,7 @@ export class VehicleBody {
 
       // Apply a little above the ground to tame body roll/pitch (arcade handling).
       this.tmp.subVectors(this.position, this.contact);
-      const lift = Math.max(0, this.tmp.dot(this.ay)) * CONTACT_LIFT;
+      const lift = Math.max(0, this.tmp.dot(this.ay)) * d.stability.contactLift;
       this.pt.copy(this.contact).addScaledVector(this.ay, lift);
       this.addForceAt(
         this.f.x * fx + this.right.x * fy,
@@ -384,6 +396,14 @@ export class VehicleBody {
           this.mountW.z,
         );
       }
+    }
+
+    // --- Yaw stability aid: damps only the yaw the steering did NOT ask for (spin-outs, snap oversteer).
+    if (grounded >= 2 && d.stability.yawAssist > 0) {
+      const speedFactor = clamp(absSpeed / 8, 0, 1);
+      const limit = (0.9 * d.grip.lateral * d.gravity) / Math.max(absSpeed, 4);
+      const target = clamp((-fwdSpeed * Math.tan(steerAngle)) / this.wheelbase, -limit, limit);
+      this.torque.y -= d.stability.yawAssist * speedFactor * (this.angularVelocity.dot(this.ay) - target);
     }
 
     // --- Aero drag, downforce, and a gentle self-righting torque while on the ground.

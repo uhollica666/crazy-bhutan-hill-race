@@ -18,8 +18,9 @@ import { PAL } from './palette';
 
 const GLASS = 0x2b3f58;
 const TIRE = 0x1c1c1f;
+const DARK = 0x303034;
 
-function bodyGeometry(def: VehicleDef): BufferGeometry {
+function suvBody(def: VehicleDef): BufferGeometry {
   const { body, accent, trim } = def.livery;
   const w = def.size.width;
   const l = def.size.length;
@@ -30,33 +31,76 @@ function bodyGeometry(def: VehicleDef): BufferGeometry {
   g.box(1.5, 0.34, 2.64, GLASS, { y: 0.4, z: 0.35 }); // screens
   g.box(1.64, 0.1, 2.5, body, { y: 0.72, z: 0.35 }); // roof
   g.box(1.78, 0.15, 1.15, body, { y: 0.09, z: -1.55 }); // bonnet
-  g.box(1.9, 0.26, 0.22, 0x303034, { y: -0.45, z: -l / 2 + 0.05 }); // bumpers
-  g.box(1.9, 0.26, 0.22, 0x303034, { y: -0.45, z: l / 2 - 0.05 });
-  // Saffron + madder-red livery stripes along the flanks.
+  g.box(1.9, 0.26, 0.22, DARK, { y: -0.45, z: -l / 2 + 0.05 }); // bumpers
+  g.box(1.9, 0.26, 0.22, DARK, { y: -0.45, z: l / 2 - 0.05 });
   for (const sx of [-1, 1]) {
     g.box(0.03, 0.14, 3.7, accent, { x: sx * (w / 2 - 0.01), y: -0.14 });
     g.box(0.03, 0.07, 3.7, trim, { x: sx * (w / 2 - 0.01), y: -0.28 });
-    g.box(0.1, 0.14, 0.22, 0x303034, { x: sx * 0.98, y: 0.28, z: -0.82 }); // mirrors
+    g.box(0.1, 0.14, 0.22, DARK, { x: sx * 0.98, y: 0.28, z: -0.82 }); // mirrors
   }
-  // Roof rack with luggage: guests' bags in festival colours.
-  g.box(1.5, 0.06, 2.0, 0x303034, { y: 0.82, z: 0.35 });
+  g.box(1.5, 0.06, 2.0, DARK, { y: 0.82, z: 0.35 }); // roof rack
   g.box(0.7, 0.34, 0.55, accent, { x: -0.3, y: 1.0, z: 0.0 });
   g.box(0.6, 0.28, 0.5, trim, { x: 0.35, y: 0.97, z: 0.75 });
   g.box(0.5, 0.24, 0.4, PAL.flagBlue, { x: 0.45, y: 0.95, z: 0.05 });
-  // Little festival prayer-flag bunting on the rear.
-  g.box(0.08, 0.5, 0.06, PAL.woodDark, { x: -0.8, y: 1.02, z: 1.5 });
+  g.box(0.08, 0.5, 0.06, PAL.woodDark, { x: -0.8, y: 1.02, z: 1.5 }); // bunting pole
   g.quad(0.28, 0.2, PAL.flagBlue, { x: -0.72, y: 1.18, z: 1.5 });
   g.quad(0.28, 0.2, PAL.flagRed, { x: -0.72, y: 1.0, z: 1.5 });
   return g.build();
 }
 
-function lightsGeometry(def: VehicleDef): BufferGeometry {
+/** Coaster-style minibus: tall, boxy, long windows band, roof rack with luggage, festival stripe. */
+function coasterBody(def: VehicleDef): BufferGeometry {
+  const { body, accent, trim } = def.livery;
+  const w = def.size.width;
   const l = def.size.length;
   const g = new GeoBuilder();
+  g.box(w, 0.95, l - 0.1, body, { y: -0.52 }); // lower body (floor to waist)
+  g.box(w - 0.04, 1.0, l - 0.5, body, { y: 0.5, z: 0.12 }); // upper body
+  g.box(w + 0.04, 0.64, l - 1.2, GLASS, { y: 0.62, z: 0.2 }); // side windows band
+  g.box(w - 0.3, 0.64, l - 0.45, GLASS, { y: 0.62, z: 0.12 }); // front/rear glass
+  for (let i = 0; i < 6; i++) g.box(w + 0.06, 0.7, 0.1, body, { y: 0.62, z: -2.0 + i * 0.86 }); // window pillars
+  g.box(w - 0.1, 0.16, l - 0.55, body, { y: 1.07, z: 0.1 }); // roof
+  g.box(1.2, 0.2, 1.7, 0xbfc3c6, { y: 1.26, z: 0.4 }); // air-con pod
+  g.box(w + 0.02, 0.4, 0.3, DARK, { y: -0.66, z: -l / 2 + 0.1 }); // bumpers
+  g.box(w + 0.02, 0.4, 0.3, DARK, { y: -0.66, z: l / 2 - 0.1 });
+  g.box(1.3, 0.34, 0.1, DARK, { y: -0.35, z: -l / 2 - 0.02 }); // grille
+  g.box(1.1, 0.26, 0.14, trim, { y: 0.98, z: -l / 2 + 0.52 }); // destination board
+  g.box(1.0, 0.1, 0.16, accent, { y: 0.98, z: -l / 2 + 0.52 });
   for (const sx of [-1, 1]) {
-    g.box(0.32, 0.16, 0.08, 0xfff1b8, { x: sx * 0.66, y: -0.1, z: -l / 2 - 0.01 });
-    g.box(0.3, 0.14, 0.08, 0xd8262a, { x: sx * 0.68, y: -0.1, z: l / 2 + 0.01 });
+    g.box(0.03, 0.22, l - 0.9, accent, { x: sx * (w / 2 + 0.005), y: -0.2 }); // saffron flank stripe
+    g.box(0.03, 0.1, l - 0.9, trim, { x: sx * (w / 2 + 0.005), y: -0.42 });
+    g.box(0.16, 0.34, 0.24, DARK, { x: sx * (w / 2 + 0.12), y: 0.45, z: -l / 2 + 0.75 }); // mirrors
+    g.box(0.06, 0.5, 0.9, DARK, { x: sx * (w / 2 + 0.05), y: -0.52, z: -2.25, rz: 0 }); // wheel-arch shadow
+    g.box(0.06, 0.5, 0.9, DARK, { x: sx * (w / 2 + 0.05), y: -0.52, z: 1.95 });
   }
+  // Roof rack with luggage.
+  g.box(1.7, 0.06, 3.4, DARK, { y: 1.22, z: -0.1 });
+  g.box(0.9, 0.42, 0.7, accent, { x: -0.4, y: 1.5, z: -0.8 });
+  g.box(0.8, 0.36, 0.7, trim, { x: 0.4, y: 1.47, z: -0.4 });
+  g.box(0.7, 0.34, 0.6, PAL.flagBlue, { x: -0.3, y: 1.45, z: 0.3 });
+  g.box(0.9, 0.4, 0.8, PAL.flagGreen, { x: 0.35, y: 1.48, z: 0.8 });
+  g.cylinder(0.18, 0.18, 1.5, PAL.wood, 8, { x: 0, y: 1.42, z: -1.4, rz: Math.PI / 2 }); // rolled mat
+  // Festival prayer-flag bunting from the mirrors across the windscreen.
+  const flags = [PAL.flagBlue, PAL.flagWhite, PAL.flagRed, PAL.flagGreen, PAL.flagYellow];
+  for (let i = 0; i < 5; i++) g.quad(0.22, 0.2, flags[i], { x: -0.8 + i * 0.4, y: 0.82, z: -l / 2 + 0.2 });
+  return g.build();
+}
+
+function headLights(def: VehicleDef): BufferGeometry {
+  const l = def.size.length;
+  const hx = def.visual === 'coaster' ? 0.78 : 0.66;
+  const y = def.visual === 'coaster' ? -0.18 : -0.1;
+  const g = new GeoBuilder();
+  for (const sx of [-1, 1]) g.box(0.32, 0.18, 0.08, 0xfff1b8, { x: sx * hx, y, z: -l / 2 - 0.01 });
+  return g.build();
+}
+
+function tailLights(def: VehicleDef): BufferGeometry {
+  const l = def.size.length;
+  const hx = def.visual === 'coaster' ? 0.82 : 0.68;
+  const y = def.visual === 'coaster' ? -0.2 : -0.1;
+  const g = new GeoBuilder();
+  for (const sx of [-1, 1]) g.box(0.3, 0.2, 0.08, 0xffffff, { x: sx * hx, y, z: l / 2 + 0.01 });
   return g.build();
 }
 
@@ -82,32 +126,38 @@ function makeBlobTexture(): CanvasTexture {
   return new CanvasTexture(c);
 }
 
-/** Procedural low-poly vehicle: 1 body + 1 lights + 4 wheel draw calls. */
+/** Procedural vehicle: 1 body + head/tail light meshes + 1 draw call per wheel. */
 export class VehicleModel {
   readonly root = new Group();
   readonly blob: Mesh;
+  /** Body, lights and rack ride on a child group so engine vibration never touches the wheels. */
+  private readonly shell = new Group();
   private readonly pivots: Group[] = [];
   private readonly rolls: Mesh[] = [];
   private readonly geos: BufferGeometry[] = [];
   private readonly mats: { dispose(): void }[] = [];
+  private readonly tailMat = new MeshBasicMaterial({ color: 0x5a1416 });
   private readonly ground = createGroundSample();
   private readonly pos = new Vector3();
   private readonly quat = new Quaternion();
   private readonly up = new Vector3(0, 1, 0);
   private readonly n = new Vector3();
+  private brakeGlow = 0;
 
   constructor(private readonly def: VehicleDef) {
     const lambert = new MeshLambertMaterial({ vertexColors: true });
     const basic = new MeshBasicMaterial({ vertexColors: true });
-    const bodyGeo = bodyGeometry(def);
-    const lightGeo = lightsGeometry(def);
+    const bodyGeo = def.visual === 'coaster' ? coasterBody(def) : suvBody(def);
+    const headGeo = headLights(def);
+    const tailGeo = tailLights(def);
     const wheelGeo = wheelGeometry(def);
-    this.geos.push(bodyGeo, lightGeo, wheelGeo);
-    this.mats.push(lambert, basic);
+    this.geos.push(bodyGeo, headGeo, tailGeo, wheelGeo);
+    this.mats.push(lambert, basic, this.tailMat);
 
     const body = new Mesh(bodyGeo, lambert);
     body.castShadow = true;
-    this.root.add(body, new Mesh(lightGeo, basic));
+    this.shell.add(body, new Mesh(headGeo, basic), new Mesh(tailGeo, this.tailMat));
+    this.root.add(this.shell);
 
     for (const axle of def.axles) {
       for (const side of [-1, 1]) {
@@ -144,25 +194,44 @@ export class VehicleModel {
     this.blob.visible = v;
   }
 
-  sync(body: VehicleBody, alpha: number, world: PhysicsWorld): void {
+  /**
+   * @param time seconds, drives engine vibration
+   * @param rpm   0..1 engine speed, scales the vibration
+   */
+  sync(body: VehicleBody, alpha: number, world: PhysicsWorld, time = 0, rpm = 0): void {
     body.interpolate(alpha, this.pos, this.quat);
     this.root.position.copy(this.pos);
     this.root.quaternion.copy(this.quat);
+
+    // Engine shudder (diesel coach shakes more than the petrol 4x4) fading out at speed.
+    const vib = (0.0035 + rpm * 0.006) * (this.def.audio.rumble + 0.4);
+    this.shell.position.y = Math.sin(time * (46 + rpm * 60)) * vib;
+    this.shell.rotation.z = Math.sin(time * (37 + rpm * 50) + 1.3) * vib * 0.5;
+
     body.wheels.forEach((w, i) => {
       this.pivots[i].position.set(w.mountLocal.x, w.mountLocal.y - w.suspLength, w.mountLocal.z);
       this.pivots[i].rotation.y = -w.steerAngle;
       this.rolls[i].rotation.x = -w.spin;
     });
+
+    // Brake lights glow while braking (smoothed so quick taps are still visible).
+    const target = body.braking > 0.05 && body.speed > 0.5 ? 1 : 0;
+    this.brakeGlow += (target - this.brakeGlow) * 0.35;
+    this.tailMat.color.setRGB(
+      0.35 + this.brakeGlow * 0.65,
+      0.08 + this.brakeGlow * 0.1,
+      0.08 + this.brakeGlow * 0.08,
+    );
+
     if (this.blob.visible) {
       world.ground(this.pos.x, this.pos.z, this.ground);
       const g = this.ground;
       this.blob.position.set(this.pos.x, g.height + 0.12, this.pos.z);
       this.n.set(g.nx, g.ny, g.nz);
       this.blob.quaternion.setFromUnitVectors(this.up, this.n);
-      // Align the blob's long axis with the car's heading.
       const fx = -2 * (this.quat.x * this.quat.z + this.quat.w * this.quat.y);
       const fz = -(1 - 2 * (this.quat.x * this.quat.x + this.quat.y * this.quat.y));
-      this.blob.rotateY(Math.atan2(-fx, -fz) + Math.PI);
+      this.blob.rotateY(Math.atan2(fx, fz));
       const h = Math.max(0, this.pos.y - g.height);
       (this.blob.material as MeshBasicMaterial).opacity = Math.max(0.15, 1 - h / 5);
     }

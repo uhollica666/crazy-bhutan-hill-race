@@ -1,4 +1,5 @@
 import { clamp } from '../core/math';
+import type { VehicleDef } from '../data/types';
 
 export interface AudioLevels {
   masterVolume: number;
@@ -15,15 +16,30 @@ export interface DriveSound {
   braking: boolean;
   slip: number;
   grounded: boolean;
+  /** True while a wheel is on the gravel verge. */
+  offRoad: boolean;
+  /** Frame time (s), for rpm smoothing. */
+  dt: number;
+}
+
+export interface AmbientDef {
+  /** 0..1 base wind. */
+  wind: number;
+  birds: boolean;
+  /** Occasional distant aircraft. */
+  aircraft: boolean;
 }
 
 const PENTATONIC = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
 const MAX_ONE_SHOTS = 14;
 
+type ContextFactory = () => AudioContext;
+
 /**
- * Fully synthesised audio (no sample files). Continuous layers (engine, tyres, skid, wind) are built once
- * and only have their parameters modulated; one-shots reuse a shared noise buffer and are capped in number.
- * Every public method is safe to call when audio is unavailable or still locked.
+ * Fully synthesised audio (no sample files). Continuous layers (engine, tyres, skid, wind) are built once and
+ * only have their parameters modulated; one-shots reuse a shared noise buffer, are capped in number, and
+ * disconnect themselves when they end so no nodes accumulate. Every public method is safe to call when audio
+ * is unavailable or still locked (browsers require a user gesture before sound starts).
  */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -34,22 +50,42 @@ export class AudioEngine {
   private noise!: AudioBuffer;
   private levels: AudioLevels = { masterVolume: 0.8, musicVolume: 0.5, sfxVolume: 0.9, muted: false };
 
-  private engine: { o1: OscillatorNode; o2: OscillatorNode; lp: BiquadFilterNode; gain: GainNode } | null =
-    null;
+  private engine: {
+    o1: OscillatorNode;
+    o2: OscillatorNode;
+    sub: OscillatorNode;
+    harsh: GainNode;
+    subGain: GainNode;
+    lp: BiquadFilterNode;
+    gain: GainNode;
+  } | null = null;
   private tyre: { gain: GainNode; bp: BiquadFilterNode } | null = null;
   private skid: { gain: GainNode } | null = null;
   private wind: { gain: GainNode; lp: BiquadFilterNode } | null = null;
+  private drones: OscillatorNode[] = [];
   private driving = false;
   private oneShots = 0;
   private lastCrash = 0;
   private musicTimer: number | null = null;
   private nextBird = 0;
+  private nextAircraft = 0;
   private nextNote = 0;
   private musicOn = false;
-  private drones: OscillatorNode[] = [];
+  private rpm = 0.2;
+  private gear = 0;
+  private wasBraking = 0;
+  private profile: VehicleDef['audio'] = { idleHz: 34, rangeHz: 78, cutoff: 380, harsh: 0.35, rumble: 0.3 };
+  private ambient: AmbientDef = { wind: 0.4, birds: true, aircraft: false };
+
+  constructor(private readonly makeContext?: ContextFactory) {}
 
   get available(): boolean {
     return !!this.ctx && !this.failed;
+  }
+
+  /** Number of live one-shot nodes (exposed so tests can prove nothing leaks). */
+  get liveOneShots(): number {
+    return this.oneShots;
   }
 
   /** Must be called from a genuine user gesture (key press / pointer down). */
@@ -64,14 +100,19 @@ export class AudioEngine {
   }
 
   private create(): void {
-    const Ctor =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctor) {
-      this.failed = true;
-      return;
+    let ctx: AudioContext;
+    if (this.makeContext) {
+      ctx = this.makeContext();
+    } else {
+      const Ctor =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctor) {
+        this.failed = true;
+        return;
+      }
+      ctx = new Ctor();
     }
-    const ctx = new Ctor();
     this.ctx = ctx;
     this.master = ctx.createGain();
     this.sfx = ctx.createGain();
@@ -102,24 +143,28 @@ export class AudioEngine {
   }
 
   private buildLayers(ctx: AudioContext): void {
-    // Engine: two detuned oscillators through a low-pass whose cutoff follows rpm and load.
     const o1 = ctx.createOscillator();
     const o2 = ctx.createOscillator();
+    const sub = ctx.createOscillator();
     o1.type = 'sawtooth';
     o2.type = 'square';
+    sub.type = 'triangle';
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.Q.value = 1.2;
     const eg = ctx.createGain();
     eg.gain.value = 0;
-    const g2 = ctx.createGain();
-    g2.gain.value = 0.35;
+    const harsh = ctx.createGain();
+    const subGain = ctx.createGain();
     o1.connect(lp);
-    o2.connect(g2).connect(lp);
+    o2.connect(harsh).connect(lp);
+    sub.connect(subGain).connect(lp);
     lp.connect(eg).connect(this.sfx);
     o1.start();
     o2.start();
-    this.engine = { o1, o2, lp, gain: eg };
+    sub.start();
+    this.engine = { o1, o2, sub, harsh, subGain, lp, gain: eg };
+    this.applyProfile();
 
     const tn = this.noiseSource(ctx);
     const tbp = ctx.createBiquadFilter();
@@ -154,6 +199,24 @@ export class AudioEngine {
     this.wind = { gain: wg, lp: wlp };
   }
 
+  /** Switches the engine character (called when the player picks a vehicle). */
+  setVehicle(audio: VehicleDef['audio']): void {
+    this.profile = audio;
+    this.applyProfile();
+  }
+
+  private applyProfile(): void {
+    if (!this.engine || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.engine.harsh.gain.setTargetAtTime(0.15 + this.profile.harsh * 0.55, t, 0.05);
+    this.engine.subGain.gain.setTargetAtTime(this.profile.rumble * 0.9, t, 0.05);
+  }
+
+  /** Per-level wind / birds / aircraft. */
+  setAmbient(a: AmbientDef): void {
+    this.ambient = a;
+  }
+
   setLevels(levels: AudioLevels): void {
     this.levels = levels;
     this.applyLevels();
@@ -186,45 +249,76 @@ export class AudioEngine {
     const t = ctx.currentTime;
     const speed = Math.abs(s.speed);
     const wind = this.wind;
-    wind.gain.gain.setTargetAtTime(0.035 + clamp(speed / s.topSpeed, 0, 1) * 0.1, t, 0.15);
+    wind.gain.gain.setTargetAtTime(
+      0.02 + this.ambient.wind * 0.06 + clamp(speed / s.topSpeed, 0, 1) * 0.1,
+      t,
+      0.15,
+    );
     wind.lp.frequency.setTargetAtTime(350 + speed * 30, t, 0.15);
-    this.ambientBirds(t);
+    this.ambientEvents(t);
     if (!this.driving) return;
 
-    // Simple gearbox: rpm climbs within a gear, drops on shift.
+    // Simple gearbox: rpm climbs within a gear and drops on shift. The target is smoothed in JS so pitch
+    // glides instead of stepping, with a brief rev-hang on lift-off.
     let gear = 0;
     while (gear < s.gearTopSpeeds.length - 1 && speed > s.gearTopSpeeds[gear]) gear++;
     const prev = gear === 0 ? 0 : s.gearTopSpeeds[gear - 1] * 0.62;
-    const rpm =
-      0.2 +
-      0.8 *
-        clamp((speed - prev) / (s.gearTopSpeeds[gear] - prev || 1), 0, 1) *
-        (0.5 + 0.5 * clamp(s.throttle + 0.3, 0, 1));
-    const f0 = 34 + rpm * 78;
-    this.engine.o1.frequency.setTargetAtTime(f0, t, 0.04);
-    this.engine.o2.frequency.setTargetAtTime(f0 * 2.005, t, 0.04);
-    this.engine.lp.frequency.setTargetAtTime(380 + rpm * 900 + s.throttle * 700, t, 0.06);
-    this.engine.gain.gain.setTargetAtTime(0.07 + s.throttle * 0.07 + rpm * 0.03, t, 0.06);
+    const load = 0.55 + 0.45 * clamp(s.throttle + 0.25, 0, 1);
+    const target = 0.2 + 0.8 * clamp((speed - prev) / (s.gearTopSpeeds[gear] - prev || 1), 0, 1) * load;
+    const rate = target > this.rpm ? 9 : 4.5;
+    this.rpm += (target - this.rpm) * (1 - Math.exp(-rate * Math.max(s.dt, 0.001)));
+    const shifted = gear !== this.gear;
+    this.gear = gear;
+
+    const p = this.profile;
+    const f0 = p.idleHz + this.rpm * p.rangeHz;
+    this.engine.o1.frequency.setTargetAtTime(f0, t, 0.03);
+    this.engine.o2.frequency.setTargetAtTime(f0 * 2.005, t, 0.03);
+    this.engine.sub.frequency.setTargetAtTime(f0 * 0.5, t, 0.03);
+    this.engine.lp.frequency.setTargetAtTime(p.cutoff + this.rpm * 900 + s.throttle * 700, t, 0.06);
+    const base = 0.07 + s.throttle * 0.07 + this.rpm * 0.03;
+    this.engine.gain.gain.setTargetAtTime(shifted ? base * 0.45 : base, t, shifted ? 0.01 : 0.06);
 
     const roll = s.grounded ? clamp(speed / 30, 0, 1) : 0;
-    this.tyre.gain.gain.setTargetAtTime(roll * 0.1, t, 0.08);
-    this.tyre.bp.frequency.setTargetAtTime(380 + speed * 22, t, 0.1);
+    // The gravel verge is crunchier and louder than asphalt.
+    this.tyre.gain.gain.setTargetAtTime(roll * (s.offRoad ? 0.2 : 0.1), t, 0.08);
+    this.tyre.bp.frequency.setTargetAtTime((s.offRoad ? 260 : 380) + speed * 22, t, 0.1);
     const skid = s.grounded
       ? clamp((s.slip - 2.5) / 5, 0, 1) * 0.1 + (s.braking && speed > 12 ? 0.04 : 0)
       : 0;
     this.skid.gain.gain.setTargetAtTime(skid, t, 0.05);
+
+    // Air-brake hiss for the coach after a firm stop-and-release.
+    const braking = s.braking && speed > 6 ? 1 : 0;
+    if (this.wasBraking && !braking && this.profile.rumble > 0.5) this.airBrake();
+    this.wasBraking = braking;
   }
 
-  private ambientBirds(now: number): void {
-    if (now < this.nextBird || !this.ctx) return;
-    this.nextBird = now + 3 + Math.random() * 6;
-    const base = 2200 + Math.random() * 1800;
-    const n = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < n; i++)
-      this.tone(base * (1 + i * 0.06), now + i * 0.11, 0.07, 0.015, 'sine', this.sfx, base * 1.25);
+  private ambientEvents(now: number): void {
+    if (!this.ctx) return;
+    if (this.ambient.birds && now >= this.nextBird) {
+      this.nextBird = now + 3 + Math.random() * 6;
+      const base = 2200 + Math.random() * 1800;
+      const n = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++)
+        this.tone(base * (1 + i * 0.06), now + i * 0.11, 0.07, 0.015, 'sine', this.sfx, base * 1.25);
+    }
+    if (this.ambient.aircraft && now >= this.nextAircraft) {
+      this.nextAircraft = now + 30 + Math.random() * 30;
+      this.flyover(now);
+    }
   }
 
   // ------------------------------------------------------------------ one-shots
+
+  private track(node: AudioScheduledSourceNode, ...extra: AudioNode[]): void {
+    this.oneShots++;
+    node.onended = () => {
+      this.oneShots--;
+      node.disconnect();
+      extra.forEach((n) => n.disconnect());
+    };
+  }
 
   private tone(
     freq: number,
@@ -248,11 +342,34 @@ export class AudioEngine {
     o.connect(g).connect(dest);
     o.start(at);
     o.stop(at + dur + 0.05);
-    this.oneShots++;
-    o.onended = () => {
-      this.oneShots--;
-      g.disconnect();
-    };
+    this.track(o, g);
+  }
+
+  /** Filtered noise burst. */
+  private noiseBurst(
+    at: number,
+    dur: number,
+    gain: number,
+    type: BiquadFilterType,
+    f0: number,
+    f1: number,
+  ): void {
+    const ctx = this.ctx;
+    if (!ctx || this.oneShots >= MAX_ONE_SHOTS) return;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = type;
+    f.frequency.setValueAtTime(f0, at);
+    f.frequency.exponentialRampToValueAtTime(Math.max(20, f1), at + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(gain, at + Math.min(0.03, dur / 4));
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    src.connect(f).connect(g).connect(this.sfx);
+    src.start(at, Math.random());
+    src.stop(at + dur + 0.05);
+    this.track(src, f, g);
   }
 
   private ready(): AudioContext | null {
@@ -263,6 +380,12 @@ export class AudioEngine {
   click(back = false): void {
     const ctx = this.ready();
     if (ctx) this.tone(back ? 520 : 760, ctx.currentTime, 0.07, 0.12, 'triangle');
+  }
+
+  /** Soft sweep for opening / closing a screen. */
+  whoosh(): void {
+    const ctx = this.ready();
+    if (ctx) this.noiseBurst(ctx.currentTime, 0.28, 0.12, 'bandpass', 500, 2200);
   }
 
   countdown(n: number): void {
@@ -296,12 +419,68 @@ export class AudioEngine {
     });
   }
 
+  /** Something new opened up (level or vehicle): a bright rising pentatonic phrase. */
+  unlockFanfare(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [392, 523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      this.tone(f, t + i * 0.09, 1.1, 0.15, 'triangle');
+      this.tone(f * 2.01, t + i * 0.09, 0.6, 0.03, 'sine');
+    });
+  }
+
+  /** Personal best / medal sting. */
+  record(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(784, t, 0.35, 0.16, 'triangle');
+    this.tone(1175, t + 0.12, 0.6, 0.16, 'triangle');
+    this.tone(1568, t + 0.24, 0.9, 0.12, 'sine');
+  }
+
   fail(): void {
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime;
     this.tone(392, t, 0.6, 0.18, 'triangle');
     this.tone(293.66, t + 0.25, 0.9, 0.18, 'triangle');
+    this.tone(220, t + 0.55, 1.2, 0.16, 'triangle');
+  }
+
+  /** Passenger-comfort warning: a gentle two-note "ding-dong". */
+  comfortWarning(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(659.25, t, 0.4, 0.09, 'sine');
+    this.tone(523.25, t + 0.16, 0.5, 0.09, 'sine');
+  }
+
+  airBrake(): void {
+    const ctx = this.ready();
+    if (ctx) this.noiseBurst(ctx.currentTime, 0.45, 0.14, 'highpass', 2500, 900);
+  }
+
+  private flyover(at: number): void {
+    const ctx = this.ctx;
+    if (!ctx || this.oneShots >= MAX_ONE_SHOTS - 2) return;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(180, at);
+    f.frequency.linearRampToValueAtTime(520, at + 4);
+    f.frequency.linearRampToValueAtTime(160, at + 9);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.linearRampToValueAtTime(0.1, at + 4);
+    g.gain.linearRampToValueAtTime(0.0001, at + 9);
+    src.connect(f).connect(g).connect(this.sfx);
+    src.start(at, Math.random());
+    src.stop(at + 9.1);
+    this.track(src, f, g);
   }
 
   /** Collision thud + crunch. `intensity` is impact speed in m/s. */
@@ -312,23 +491,7 @@ export class AudioEngine {
     if (t - this.lastCrash < 0.12 || this.oneShots >= MAX_ONE_SHOTS) return;
     this.lastCrash = t;
     const k = clamp(intensity / 14, 0.15, 1);
-    const src = ctx.createBufferSource();
-    src.buffer = this.noise;
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(1400, t);
-    lp.frequency.exponentialRampToValueAtTime(160, t + 0.3);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.5 * k, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-    src.connect(lp).connect(g).connect(this.sfx);
-    src.start(t, Math.random());
-    src.stop(t + 0.4);
-    this.oneShots++;
-    src.onended = () => {
-      this.oneShots--;
-      g.disconnect();
-    };
+    this.noiseBurst(t, 0.35, 0.5 * k, 'lowpass', 1400, 160);
     this.tone(95, t, 0.28, 0.45 * k, 'sine', this.sfx, 38);
   }
 
@@ -348,6 +511,7 @@ export class AudioEngine {
       } catch {
         /* already stopped */
       }
+      o.disconnect();
     });
     this.drones = [];
     if (this.musicTimer !== null) {
@@ -358,7 +522,7 @@ export class AudioEngine {
 
   private startMusicTimer(): void {
     const ctx = this.ctx;
-    if (!ctx) return;
+    if (!ctx || this.musicTimer !== null) return;
     this.nextNote = ctx.currentTime + 0.3;
     // A sustained fifth underneath.
     for (const f of [65.41, 98.0]) {

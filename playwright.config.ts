@@ -28,7 +28,7 @@ export default defineConfig({
   webServer: {
     command: 'bun run build && bun run preview',
     url: 'http://localhost:4173',
-    reuseExistingServer: true,
+    reuseExistingServer: !!process.env.REUSE_SERVER,
     timeout: 180_000,
   },
   projects: [

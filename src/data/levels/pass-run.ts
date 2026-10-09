@@ -4,7 +4,7 @@ import type { LevelDef } from '../types';
  * A fictionalised mountain-pass run. Inspired by the feel of the climb toward a high Himalayan pass,
  * not a survey of any real road.
  */
-export const chelelaRun: LevelDef = {
+export const passRun: LevelDef = {
   id: 'pass-run',
   name: 'Pass Run',
   subtitle: 'Valley to the prayer-flag pass',
@@ -12,7 +12,9 @@ export const chelelaRun: LevelDef = {
     'Your guests have a flight to catch from the hill-top viewpoint. Climb through four hairpins as the mist rolls in.',
   objective: 'Reach the summit viewpoint through every checkpoint before time runs out.',
   difficulty: 2,
-  vehicleId: 'druk-ranger',
+  mission: { kind: 'climb', timerStyle: 'elapsed', timerLabel: 'Time', comfort: false },
+  vehicles: ['druk-ranger', 'tourist-coaster'],
+  tip: 'Brake before each hairpin, then power out. The mist thickens near the top.',
   terrain: {
     seed: 7,
     bounds: { minX: -230, maxX: 270, minZ: -480, maxZ: 170 },
@@ -72,11 +74,15 @@ export const chelelaRun: LevelDef = {
   finishLabel: 'Pass summit',
   timeLimit: 150,
   medals: { gold: 72, silver: 88, bronze: 110 },
+  comfortMedals: { gold: 85, silver: 70, bronze: 50 },
   unlock: null,
+  look: {},
+  weather: 'none',
   scenery: {
     seed: 21,
     trees: 1100,
     rocks: 220,
+    species: { pine: 0.72, cypress: 0.28, broadleaf: 0, shrub: 0 },
     landmarks: [
       { kind: 'flagSpan', at: 0.035, side: 1, offset: 0 },
       { kind: 'house', at: 0.02, side: -1, offset: 18, rotation: 0.1 },
@@ -105,5 +111,5 @@ export const chelelaRun: LevelDef = {
       { kind: 'flagSpan', at: 0.96, side: 1, offset: 0 },
     ],
   },
-  atmosphere: { summitMist: 0.75 },
+  atmosphere: { summitMist: 0.75, mistStart: 0.45, visibility: 1 },
 };

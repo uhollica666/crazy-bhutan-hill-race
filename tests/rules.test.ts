@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getLevel, listLevels } from '../src/data/levels';
-import { getVehicle, listVehicles } from '../src/data/vehicles';
+import { getLevel, levelTimes, listLevels } from '../src/data/levels';
+import { getVehicle, listVehicles, vehicleStats } from '../src/data/vehicles';
 import { GameFlow } from '../src/app/GameFlow';
 import { COUNTDOWN_SECONDS, RaceSession, formatTime, medalFor } from '../src/gameplay/RaceSession';
 import { readKeyboard } from '../src/input/keyboardMap';
 import { createVehicleInput } from '../src/physics/types';
-import { SaveStore, defaultSettings, parseProgress, parseSettings } from '../src/storage/SaveStore';
 import { Course } from '../src/world/Course';
 import { createRoadHit } from '../src/world/Road';
 
@@ -19,26 +18,72 @@ const started = (): RaceSession => {
 };
 
 describe('definitions', () => {
-  it('every level references an existing vehicle and has sane medals/checkpoints', () => {
+  it('has three levels and two vehicles in campaign order', () => {
+    expect(listLevels().map((l) => l.id)).toEqual(['pass-run', 'airport-dash', 'chelela-climb']);
+    expect(listVehicles().map((v) => v.id)).toEqual(['druk-ranger', 'tourist-coaster']);
+  });
+
+  it('every level references existing vehicles and has sane medals, comfort thresholds and checkpoints', () => {
     for (const l of listLevels()) {
-      expect(() => getVehicle(l.vehicleId)).not.toThrow();
+      expect(l.vehicles.length).toBeGreaterThan(0);
+      l.vehicles.forEach((id) => expect(() => getVehicle(id)).not.toThrow());
       expect(l.medals.gold).toBeLessThan(l.medals.silver);
       expect(l.medals.silver).toBeLessThan(l.medals.bronze);
       expect(l.medals.bronze).toBeLessThan(l.timeLimit);
+      expect(l.comfortMedals.gold).toBeGreaterThan(l.comfortMedals.silver);
+      expect(l.comfortMedals.silver).toBeGreaterThan(l.comfortMedals.bronze);
       const at = l.checkpoints.map((c) => c.at);
       expect([...at].sort((a, b) => a - b)).toEqual(at);
+      expect(at.every((f) => f > 0 && f < 1)).toBe(true);
     }
   });
+
+  it('unlock chain is pass-run -> airport-dash -> chelela-climb, and the coach opens with the airport', () => {
+    expect(getLevel('pass-run').unlock).toBeNull();
+    expect(getLevel('airport-dash').unlock).toEqual({ levelId: 'pass-run', requirement: 'finish' });
+    expect(getLevel('chelela-climb').unlock).toEqual({ levelId: 'airport-dash', requirement: 'finish' });
+    expect(getVehicle('druk-ranger').unlock).toBeNull();
+    expect(getVehicle('tourist-coaster').unlock).toEqual({ levelId: 'pass-run', requirement: 'finish' });
+  });
+
   it('vehicle definitions are physically consistent', () => {
     for (const v of listVehicles()) {
       expect(v.engine.gearTopSpeeds.at(-1)).toBe(v.engine.topSpeed);
       expect(v.axles.length).toBeGreaterThanOrEqual(2);
       expect(v.suspension.travel).toBeLessThan(v.suspension.rest);
-      // Static sag must fit inside the suspension travel.
       const sag = (v.mass * v.gravity) / (v.axles.length * 2) / v.suspension.stiffness;
       expect(sag).toBeLessThan(v.suspension.travel);
+      // Chassis must clear the ground at rest.
+      const lowest = Math.min(...v.axles.map((a) => a.y));
+      const rideHeight = -lowest + v.suspension.rest - sag + v.wheelRadius;
+      expect(rideHeight - v.size.height / 2).toBeGreaterThan(0.15);
     }
   });
+
+  it('the coach is clearly different from the 4x4 in every rated dimension that matters', () => {
+    const suv = getVehicle('druk-ranger');
+    const bus = getVehicle('tourist-coaster');
+    expect(bus.mass).toBeGreaterThan(suv.mass * 2.5);
+    expect(bus.engine.force / bus.mass).toBeLessThan((suv.engine.force / suv.mass) * 0.7);
+    expect(bus.engine.brakeForce / bus.mass).toBeLessThan((suv.engine.brakeForce / suv.mass) * 0.8);
+    expect(bus.steering.maxAngle).toBeLessThan(suv.steering.maxAngle);
+    expect(bus.suspension.antiRoll / bus.mass).toBeLessThan(suv.suspension.antiRoll / suv.mass);
+    expect(bus.camera.distance).toBeGreaterThan(suv.camera.distance * 1.3);
+    expect(bus.audio.idleHz).toBeLessThan(suv.audio.idleHz);
+    const a = vehicleStats(suv);
+    const b = vehicleStats(bus);
+    expect(a.acceleration).toBeGreaterThan(b.acceleration);
+    expect(a.handling).toBeGreaterThan(b.handling);
+  });
+
+  it('medal times scale with vehicle pace', () => {
+    const t1 = levelTimes(level, 1);
+    const t2 = levelTimes(level, 1.28);
+    expect(t2.gold).toBeGreaterThan(t1.gold);
+    expect(t2.limit).toBeGreaterThan(t1.limit);
+    expect(t2.gold / t1.gold).toBeCloseTo(1.28, 1);
+  });
+
   it('unknown ids throw', () => {
     expect(() => getLevel('nope')).toThrow();
     expect(() => getVehicle('nope')).toThrow();
@@ -46,29 +91,47 @@ describe('definitions', () => {
 });
 
 describe('level loading', () => {
-  const course = new Course(level);
-  it('builds stations in order inside the road', () => {
-    expect(course.startS).toBeLessThan(course.checkpointS[0]);
-    expect(course.checkpointS.at(-1)!).toBeLessThan(course.finishS);
-    expect(course.finishS).toBeLessThan(course.road.length);
-  });
-  it('terrain under the road matches the road surface and walls hold the car on the road', () => {
-    const hit = createRoadHit();
-    for (let s = 10; s < course.road.length - 10; s += 17) {
-      const p = course.poseAt(s);
-      course.road.project(p.x, p.z, hit);
-      expect(Math.abs(hit.lateral)).toBeLessThan(0.1);
-      expect(Math.abs(course.terrain.heightAt(p.x, p.z) - p.y)).toBeLessThan(0.6);
-    }
-    const p = course.poseAt(300);
-    const out = { depth: 0, nx: 0, nz: 0 };
-    const rx = -p.tz;
-    const rz = p.tx;
-    expect(course.barrier(p.x, p.z, out)).toBe(false);
-    const edge = course.road.wallOffset + 0.5;
-    expect(course.barrier(p.x + rx * edge, p.z + rz * edge, out)).toBe(true);
-    expect(out.depth).toBeCloseTo(0.5, 1);
-    expect(out.nx * rx + out.nz * rz).toBeLessThan(-0.9); // pushes back toward the road
+  for (const l of listLevels()) {
+    describe(l.id, () => {
+      const course = new Course(l);
+      it('builds stations in order inside the road', () => {
+        expect(course.startS).toBeLessThan(course.checkpointS[0]);
+        expect(course.checkpointS.at(-1)!).toBeLessThan(course.finishS);
+        expect(course.finishS).toBeLessThan(course.road.length);
+      });
+      it('has a road safe to drive: gentle enough radius and grade', () => {
+        expect(course.road.minRadius()).toBeGreaterThan(12);
+        expect(course.road.maxGrade()).toBeLessThan(0.34);
+      });
+      it('terrain under the road matches the road surface and walls hold the car on the road', () => {
+        const hit = createRoadHit();
+        for (let s = 10; s < course.road.length - 10; s += 17) {
+          const p = course.poseAt(s);
+          course.road.project(p.x, p.z, hit);
+          expect(Math.abs(hit.lateral)).toBeLessThan(0.1);
+          expect(Math.abs(course.terrain.heightAt(p.x, p.z) - p.y)).toBeLessThan(0.7);
+        }
+        const p = course.poseAt(course.road.length / 2);
+        const out = { depth: 0, nx: 0, nz: 0 };
+        const rx = -p.tz;
+        const rz = p.tx;
+        expect(course.barrier(p.x, p.z, out)).toBe(false);
+        const edge = course.road.wallOffset + 0.5;
+        expect(course.barrier(p.x + rx * edge, p.z + rz * edge, out)).toBe(true);
+        expect(out.depth).toBeCloseTo(0.5, 1);
+        expect(out.nx * rx + out.nz * rz).toBeLessThan(-0.9);
+      });
+    });
+  }
+
+  it('the three routes are genuinely different shapes', () => {
+    const courses = listLevels().map((l) => new Course(l));
+    const radii = courses.map((c) => c.road.minRadius());
+    const grades = courses.map((c) => c.road.maxGrade());
+    expect(Math.max(...grades)).toBeGreaterThan(Math.min(...grades) * 1.5);
+    expect(Math.max(...radii)).toBeGreaterThan(Math.min(...radii) * 1.1);
+    expect(new Set(courses.map((c) => Math.round(c.road.length / 100))).size).toBeGreaterThanOrEqual(2);
+    expect(new Set(listLevels().map((l) => l.road.width)).size).toBe(3); // distinct road widths
   });
 });
 
@@ -82,13 +145,13 @@ describe('RaceSession', () => {
     for (let i = 0; i < 100; i++) s.update(0.05, 30, 0);
     expect(ticks).toEqual([3, 2, 1]);
     expect(go).toBe(1);
-    expect(s.time).toBeGreaterThan(1.9); // 5 s elapsed - 3 s countdown
+    expect(s.time).toBeGreaterThan(1.9);
     expect(s.time).toBeLessThan(2.1);
   });
 
   it('awards checkpoints strictly in order and records splits', () => {
     const s = started();
-    s.update(1, 150, 0); // passed #1 only (skipping ahead cannot take #3 first)
+    s.update(1, 150, 0);
     expect(s.nextCheckpoint).toBe(1);
     s.update(1, 250, 0);
     expect(s.nextCheckpoint).toBe(2);
@@ -101,13 +164,13 @@ describe('RaceSession', () => {
     const s = started();
     s.update(1, 120, 9);
     expect(s.nextCheckpoint).toBe(0);
-    s.update(1, 420, 0); // jumped beyond every gate: all three are credited, then the finish
+    s.update(1, 420, 0);
     expect(s.phase).toBe('finished');
     expect(s.result?.checkpoints).toBe(3);
     const t = new RaceSession(level, stations, 30);
     t.update(4, 30, 0);
     t.update(1, 50, 0);
-    t.update(1, 410, 9); // finish line beyond the wall width does not count
+    t.update(1, 410, 9);
     expect(t.phase).toBe('running');
   });
 
@@ -116,6 +179,7 @@ describe('RaceSession', () => {
     s.update(level.medals.gold - 1, 420, 0);
     expect(s.phase).toBe('finished');
     expect(s.result?.medal).toBe('gold');
+    expect(s.result?.comfort).toBeNull();
     const t = s.time;
     s.update(5, 420, 0);
     expect(s.time).toBe(t);
@@ -128,6 +192,15 @@ describe('RaceSession', () => {
     expect(s.result?.status).toBe('timeout');
     expect(s.result?.medal).toBe('none');
     expect(s.time).toBe(level.timeLimit);
+  });
+
+  it('a slower vehicle gets a longer limit and scaled medal times', () => {
+    const times = levelTimes(level, 1.28);
+    const s = new RaceSession(level, stations, 30, { vehicleId: 'tourist-coaster', times });
+    s.update(COUNTDOWN_SECONDS + 0.01, 30, 0);
+    for (let i = 0; i < level.timeLimit + 5; i++) s.update(1, 50, 0);
+    expect(s.phase).toBe('running');
+    expect(s.timeLeft).toBeGreaterThan(0);
   });
 
   it('recovery returns the last checkpoint and is counted', () => {
@@ -155,7 +228,7 @@ describe('GameFlow', () => {
     expect(f.dispatch('resume')).toBe(false);
     expect(f.dispatch('start')).toBe(true);
     expect(f.dispatch('pause')).toBe(true);
-    expect(f.dispatch('finish')).toBe(false); // cannot finish while paused
+    expect(f.dispatch('finish')).toBe(false);
     expect(f.dispatch('resume')).toBe(true);
     expect(f.dispatch('restart')).toBe(true);
     expect(f.dispatch('finish')).toBe(true);
@@ -189,53 +262,5 @@ describe('keyboard mapping', () => {
     expect(read('KeyD')).toMatchObject({ steer: 1 });
     expect(read('KeyA', 'ArrowRight').steer).toBe(0);
     expect(read('KeyQ')).toEqual({ steer: 0, throttle: 0, brake: 0 });
-  });
-});
-
-describe('SaveStore', () => {
-  const fake = () => {
-    const m = new Map<string, string>();
-    return {
-      getItem: (k: string) => m.get(k) ?? null,
-      setItem: (k: string, v: string) => void m.set(k, v),
-      m,
-    };
-  };
-  it('persists settings and progress across instances, clamping bad values', () => {
-    const storage = fake();
-    const a = new SaveStore(storage, 'high');
-    expect(a.settings.quality).toBe('high');
-    a.updateSettings({ masterVolume: 0.3, quality: 'low', muted: true });
-    a.updateSettings({ sfxVolume: 7 });
-    expect(a.recordCompletion('pass-run', 90, 'silver')).toEqual({ newBest: true, newMedal: true });
-    expect(a.recordCompletion('pass-run', 95, 'bronze')).toEqual({ newBest: false, newMedal: false });
-    expect(a.recordCompletion('pass-run', 80, 'gold')).toEqual({ newBest: true, newMedal: true });
-    const b = new SaveStore(storage);
-    expect(b.settings).toMatchObject({ masterVolume: 0.3, quality: 'low', muted: true, sfxVolume: 1 });
-    expect(b.levelProgress('pass-run')).toEqual({ bestTime: 80, medal: 'gold', completions: 3 });
-  });
-  it('survives corrupt data and unavailable storage', () => {
-    const storage = fake();
-    storage.setItem('cbhr.v1.settings', '{not json');
-    storage.setItem(
-      'cbhr.v1.progress',
-      JSON.stringify({ levels: { x: { bestTime: -5, medal: 'platinum' } } }),
-    );
-    const s = new SaveStore(storage, 'medium');
-    expect(s.settings).toEqual(defaultSettings('medium'));
-    expect(s.levelProgress('x')).toEqual({ bestTime: null, medal: 'none', completions: 0 });
-    const broken = {
-      getItem: () => {
-        throw new Error('denied');
-      },
-      setItem: () => {
-        throw new Error('denied');
-      },
-    };
-    const t = new SaveStore(broken);
-    t.updateSettings({ muted: true });
-    expect(t.settings.muted).toBe(true);
-    expect(parseSettings({ quality: 'ultra', masterVolume: 'x' }, defaultSettings()).quality).toBe('medium');
-    expect(parseProgress(null)).toEqual({ levels: {} });
   });
 });

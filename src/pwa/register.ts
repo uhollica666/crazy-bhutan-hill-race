@@ -5,7 +5,7 @@
  */
 export function registerServiceWorker(onUpdate: () => void): void {
   if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return;
-  window.addEventListener('load', () => {
+  const register = (): void => {
     navigator.serviceWorker
       .register(`${import.meta.env.BASE_URL}sw.js`)
       .then((reg) => {
@@ -18,5 +18,8 @@ export function registerServiceWorker(onUpdate: () => void): void {
         window.setInterval(() => void reg.update().catch(() => undefined), 60 * 60 * 1000);
       })
       .catch((err) => console.warn('Service worker registration failed', err));
-  });
+  };
+  // The game boots asynchronously, so the window may already have fired "load" by the time we get here.
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, { once: true });
 }

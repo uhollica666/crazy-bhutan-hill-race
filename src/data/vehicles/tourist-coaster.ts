@@ -1,0 +1,47 @@
+import type { VehicleDef } from '../types';
+
+/** A Coaster-style tourist minibus: heavy, wide-turning, soft and rolling, but smooth and stable. */
+export const touristCoaster: VehicleDef = {
+  id: 'tourist-coaster',
+  name: 'Tourist Coaster',
+  blurb: 'Tourist minibus. Heavy and wide, with a lazy lean: brake early and flow through the bends.',
+  visual: 'coaster',
+  pace: 1.32,
+  unlock: { levelId: 'pass-run', requirement: 'finish' },
+  camera: { distance: 11.5, height: 4.7, lookAhead: 6.5, fov: 62, fovBoost: 10 },
+  audio: { idleHz: 24, rangeHz: 50, cutoff: 260, harsh: 0.75, rumble: 0.75 },
+  recovery: { overturnSeconds: 4.5 },
+  mass: 4300,
+  size: { width: 2.1, height: 2.2, length: 6.6 },
+  inertiaScale: { x: 1.0, y: 1.0, z: 1.7 },
+  gravity: 16,
+  axles: [
+    { z: -2.25, halfTrack: 0.92, y: -0.45, steered: true, driven: false },
+    { z: 1.95, halfTrack: 0.92, y: -0.45, steered: false, driven: true },
+  ],
+  wheelRadius: 0.46,
+  wheelWidth: 0.3,
+  suspension: { rest: 0.6, travel: 0.38, stiffness: 120000, damping: 13000, antiRoll: 4000 },
+  engine: {
+    force: 21000,
+    reverseForce: 8000,
+    topSpeed: 30,
+    reverseSpeed: 8,
+    brakeForce: 52000,
+    rollingResistance: 45,
+    engineBraking: 160,
+    aeroDrag: 1.4,
+    gearTopSpeeds: [6, 12, 19, 30],
+  },
+  steering: { maxAngle: 0.48, highSpeedRatio: 0.24, fullSpeed: 28, rate: 3.0 },
+  grip: { longitudinal: 1.0, lateral: 1.1, slipSpeed: 1.5 },
+  stability: {
+    downforce: 0.8,
+    angularDamping: 1.8,
+    uprighting: 6500,
+    yawAssist: 15000,
+    contactLift: 0.28,
+    maxLateralAccel: 9.5,
+  },
+  livery: { body: 0xf3efe6, accent: 0xe39a1c, trim: 0x8c2a20 },
+};

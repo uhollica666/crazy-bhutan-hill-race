@@ -1,0 +1,486 @@
+/* Stage 2: mission select, garage, comfort meter, results. Same palette tokens as styles.css. */
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--saffron-light);
+}
+.muted {
+  color: #aab4d0;
+  font-size: 13px;
+}
+.sheet {
+  place-items: start center;
+  align-content: start;
+  background: linear-gradient(
+    180deg,
+    rgba(18, 28, 58, 0.86),
+    rgba(18, 28, 58, 0.62) 55%,
+    rgba(18, 28, 58, 0.82)
+  );
+  overflow: auto;
+  gap: 14px;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+.sheet-head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(22px, 4.4vmin, 34px);
+  color: var(--saffron-light);
+  letter-spacing: 0.04em;
+}
+.sheet > .sheet-head {
+  max-width: 1040px;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 14px;
+  width: min(1040px, 100%);
+}
+.mission-card {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  text-align: left;
+  padding: 16px 16px 14px;
+  border-radius: 14px;
+  border: 2px solid var(--gold);
+  background: linear-gradient(180deg, rgba(34, 52, 100, 0.92), rgba(18, 28, 58, 0.92));
+  color: var(--cream);
+  cursor: pointer;
+  min-height: 190px;
+  transition:
+    transform 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.mission-card:hover,
+.mission-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--saffron-light);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+.mission-card.selected {
+  box-shadow: 0 0 0 3px var(--saffron);
+}
+.mission-card h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(20px, 3.2vmin, 26px);
+  color: var(--saffron-light);
+}
+.mission-card p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #d5dcef;
+}
+.mission-kind {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9fb0da;
+}
+.new-tag {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: var(--red);
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.mission-card.locked {
+  filter: grayscale(0.75) brightness(0.8);
+  cursor: not-allowed;
+  border-color: #6b6f85;
+}
+.mission-card.locked:hover {
+  transform: none;
+  box-shadow: none;
+}
+.card-lock,
+.card-best,
+.veh-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.card-veh {
+  font-size: 12px;
+  color: #aab4d0;
+  margin-top: auto;
+}
+svg.lock {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+svg.pax {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  color: var(--saffron-light);
+}
+.medal.sm {
+  width: 34px;
+  height: 34px;
+  margin: 0;
+}
+
+.garage {
+  place-items: stretch;
+  background:
+    linear-gradient(90deg, rgba(18, 28, 58, 0.92) 0%, rgba(18, 28, 58, 0.78) 34%, rgba(18, 28, 58, 0) 62%),
+    linear-gradient(0deg, rgba(18, 28, 58, 0.5), rgba(18, 28, 58, 0) 30%);
+}
+.garage-panel {
+  align-self: center;
+  width: min(420px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  padding-left: clamp(0px, 2vw, 28px);
+}
+.garage-panel .sheet-head h2 {
+  font-size: clamp(20px, 3.6vmin, 28px);
+}
+.veh-nav {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+.veh-name {
+  text-align: center;
+}
+.veh-name h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(20px, 3.6vmin, 28px);
+  color: var(--cream);
+  text-shadow: 0 2px 0 var(--maroon-dark);
+}
+.veh-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 4px;
+}
+.veh-dots span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+}
+.veh-dots span.on {
+  background: var(--saffron-light);
+}
+.veh-dots span.lk {
+  border: 1.5px dashed rgba(255, 255, 255, 0.5);
+  background: transparent;
+}
+.veh-blurb {
+  margin: 0;
+  font-size: 14px;
+  color: #d5dcef;
+}
+.stats {
+  display: grid;
+  gap: 4px;
+  background: rgba(18, 28, 58, 0.6);
+  border: 1.5px solid var(--gold);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13.5px;
+}
+.pips {
+  color: var(--saffron);
+  letter-spacing: 3px;
+}
+.pips .off {
+  color: rgba(255, 255, 255, 0.22);
+}
+.veh-status.ok {
+  color: #9be2ae;
+}
+.veh-status.bad {
+  color: #ffb4a6;
+}
+.mission-brief {
+  font-size: 13.5px;
+  background: rgba(18, 28, 58, 0.6);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.mission-brief p {
+  margin: 0 0 6px;
+}
+.mission-brief .tip {
+  color: var(--saffron-light);
+  font-family: var(--serif);
+  font-style: italic;
+}
+.targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.targets .t {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 99px;
+  color: #2b1a05;
+}
+.t.gold {
+  background: #f6c452;
+}
+.t.silver {
+  background: #d4dae4;
+}
+.t.bronze {
+  background: #e0a070;
+}
+.btn[disabled] {
+  filter: grayscale(0.8) brightness(0.7);
+  cursor: not-allowed;
+}
+
+/* HUD comfort meter */
+.hud-comfort {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  transition: box-shadow 0.2s;
+}
+.comfort-body {
+  flex: 1;
+  min-width: 0;
+}
+.comfort-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.comfort-row .hud-label {
+  letter-spacing: 0.1em;
+}
+.comfort-row {
+  gap: 6px;
+}
+.comfort-row b {
+  font-variant-numeric: tabular-nums;
+}
+.comfort-bar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+  margin: 3px 0;
+}
+.comfort-bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--green);
+  transition:
+    width 0.2s,
+    background-color 0.3s;
+}
+.hud-comfort[data-quality='firm'] .comfort-bar i {
+  background: var(--saffron);
+}
+.hud-comfort[data-quality='rough'] .comfort-bar i {
+  background: var(--red);
+}
+.comfort-msg {
+  font-size: 11.5px;
+  color: #d5dcef;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hud-comfort.warn {
+  box-shadow:
+    0 0 0 2px var(--saffron),
+    0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.hud-comfort.warn .comfort-msg {
+  color: var(--saffron-light);
+  font-weight: 700;
+}
+
+/* Results */
+.result-grid {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.rg {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  background: var(--parchment-dark);
+  border-radius: 10px;
+  padding: 6px 14px;
+  min-width: 96px;
+}
+.rg .hud-label {
+  color: var(--maroon);
+}
+.rg b {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  color: var(--maroon-dark);
+}
+.mini-medal {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 99px;
+  color: #2b1a05;
+}
+.mini-medal.gold {
+  background: #f6c452;
+}
+.mini-medal.silver {
+  background: #d4dae4;
+}
+.mini-medal.bronze {
+  background: #e0a070;
+}
+.mini-medal.none {
+  background: #cdbf9d;
+}
+.unlocks {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+.unlock {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: linear-gradient(90deg, #2e9c4f, #3fb862);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 12px;
+  animation: slide-in 0.5s ease-out both;
+}
+.unlock.veh {
+  background: linear-gradient(90deg, var(--maroon), #a63a2d);
+}
+.unlock div {
+  display: grid;
+}
+.unlock span {
+  font-size: 14px;
+}
+@keyframes slide-in {
+  from {
+    transform: translateX(-16px);
+    opacity: 0;
+  }
+}
+.modal .panel.wide .stack {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.modal .panel.wide .stack .btn.primary {
+  grid-column: 1 / -1;
+}
+
+@media (max-height: 520px) {
+  .mission-card {
+    min-height: 0;
+    padding: 10px 12px;
+  }
+  .garage-panel {
+    gap: 6px;
+  }
+  .stats {
+    padding: 6px 10px;
+  }
+  .mission-brief {
+    padding: 6px 10px;
+    font-size: 12.5px;
+  }
+  .modal .panel.wide {
+    padding: 12px 18px;
+  }
+  .result-time {
+    font-size: 30px;
+  }
+  .medal {
+    width: 56px;
+    height: 56px;
+  }
+}
+@media (max-width: 640px) {
+  .garage {
+    background: linear-gradient(180deg, rgba(18, 28, 58, 0.15) 0%, rgba(18, 28, 58, 0.9) 45%);
+    align-items: end;
+  }
+  .hud-left {
+    width: 150px;
+  }
+}
+
+/* Garage on small screens: the launch button stays pinned, the car stays visible. */
+.garage-panel #btn-launch {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  box-shadow:
+    0 -10px 18px rgba(18, 28, 58, 0.9),
+    0 3px 0 rgba(0, 0, 0, 0.35);
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .garage-panel {
+    width: min(460px, 56vw);
+    gap: 6px;
+  }
+  .veh-blurb {
+    font-size: 12.5px;
+  }
+  .stats {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+  }
+  .stat {
+    font-size: 12.5px;
+    gap: 6px;
+  }
+  .pips {
+    letter-spacing: 1px;
+  }
+}
+@media (max-width: 640px) {
+  .garage-panel {
+    max-height: 62vh;
+    background: linear-gradient(180deg, rgba(18, 28, 58, 0.78), rgba(18, 28, 58, 0.94));
+    border-radius: 16px 16px 0 0;
+    padding: 12px 14px 0;
+    align-self: end;
+  }
+}

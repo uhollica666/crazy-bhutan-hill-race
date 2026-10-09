@@ -5,7 +5,7 @@ import { Environment } from './Environment';
 import { Gates } from './Gates';
 import { Scenery } from './Scenery';
 import type { QualityProfile } from './quality';
-import { buildRoadMeshes, buildTerrainMesh, buildWater } from './WorldMesh';
+import { buildRoadMeshes, buildTerrainMesh, buildWater, setTerrainCoarse } from './WorldMesh';
 
 /** Everything visible that belongs to a level, created from a Course and removable as a unit. */
 export class World3D {
@@ -22,7 +22,9 @@ export class World3D {
   ) {
     this.root.name = 'world';
     this.terrain = buildTerrainMesh(course);
-    this.root.add(this.terrain, buildWater(course), buildRoadMeshes(course));
+    this.root.add(this.terrain, buildRoadMeshes(course));
+    // Only levels with a river valley get a water plane.
+    if (course.terrain.waterLevel > course.terrain.minHeight) this.root.add(buildWater(course));
     this.scenery = new Scenery(course, quality.propDensity, quality.windSway);
     this.root.add(this.scenery.group);
     this.gates = new Gates(course);
@@ -36,6 +38,7 @@ export class World3D {
     this.env.applyQuality(q);
     this.scenery.setQuality(q.propDensity, q.windSway);
     this.terrain.receiveShadow = q.shadows;
+    setTerrainCoarse(this.terrain, q.terrainCoarse);
     // Shadow-receiving materials need a recompile when shadows are switched on or off.
     this.root.traverse((o) => {
       const m = (o as Mesh).material as Material | Material[] | undefined;
