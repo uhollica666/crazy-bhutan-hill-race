@@ -33,6 +33,7 @@ bun run dev        # http://localhost:5273 (localhost only)
 | `node scripts/build-models.mjs` | Optimises the Blender exports in `assets-src/out/` into `public/models/` (meshopt)             |
 | `node scripts/stage4-shots.mjs <dir> [quality]` | Visual-regression screenshots: menu, all four vehicles, every level and condition |
 | `node scripts/ui-shots.mjs <dir> [w h]` | Menu, mission map and campaign-complete screenshots at any size                         |
+| `bun run emulators` / `bun run test:emulator` / `bun run test:e2e:cloud` | Firebase emulators; rules and integration tests; online-feature browser tests (docs/FIREBASE.md)                      |
 | `bun scripts/survey.ts [level…]` | Full autopilot mission per vehicle in three driving styles, for calibration                 |
 
 Debug URL flags: `?debug=1` (overlay with fps, CPU ms/frame, physics ms, draw calls, triangles, render scale; `` ` `` toggles it; exposes `window.__cbhr` for tests), `?autodrive=1` (a bot drives), `?quality=low|medium|high`, `?noadapt` (freeze adaptive resolution).
@@ -47,6 +48,23 @@ Debug URL flags: `?debug=1` (overlay with fps, CPU ms/frame, physics ms, draw ca
 | Gamepad  | Left stick steer · RT gas · LT brake · Start pause · Y recover · D-pad/A/B in menus                                                                  |
 
 Settings are grouped in tabs (Audio, Graphics, Controls, Gameplay, Accessibility); the Controls tab has keyboard, touch and gamepad help. Touch controls appear on first touch (or if the primary pointer is coarse), hide when you use the keyboard, and can be forced on/off in Settings. Losing focus or a cancelled touch releases every control.
+
+## Longer missions and dual headlights (Stage 5)
+
+All ten missions are now roughly **twice as long** (2.1 to 3.6 km instead of 1.1 to 1.8 km), with new checkpoints, scenery, extra hazards on several missions and a second pit stop where fuel matters. Each is the original route with a new stretch spliced in (`src/data/levels/extend.ts`, `extensions.ts`), so the starts and finishes you know are unchanged. Time limits and medals were recalibrated against the autopilot (`bun scripts/medals.ts`), vehicle fuel ranges were scaled to match, and the terrain stays within a size budget. The headlights now cast **two** beams, one from each lamp.
+
+## Connected game (Stage 5): accounts, cloud saves, leaderboards, feedback
+
+Optional, and never required: the game plays, saves and works offline exactly as before. See [docs/FIREBASE.md](docs/FIREBASE.md).
+
+- **Guest play**: no sign-in; an anonymous online identity appears by itself when the network allows.
+- **Accounts**: e-mail and password (Firebase Authentication), password reset, verification e-mail; creating an account from a guest keeps your progress.
+- **Cloud saves**: progress, garage and credits sync in the background; two devices that both changed are never overwritten silently (you choose: account, this device, or combine).
+- **Leaderboards (beta)**: best time per mission. Times are not verified.
+- **Feedback** reaches Novarah for real, and says exactly whether it was delivered, is waiting for the network, or failed.
+- **Privacy**: optional anonymous statistics are off until you turn them on (Settings, Privacy).
+
+Local development uses the Firebase emulators (`bun run emulators`, `bun run test:emulator`, `bun run test:e2e:cloud`). Nothing has been deployed to the live project: **its Firestore is still in test mode until `firestore.rules` is deployed**.
 
 ## Game feel and interface (Pass 4.5)
 

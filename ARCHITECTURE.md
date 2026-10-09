@@ -128,6 +128,14 @@ Flat-shaded, vertex-coloured low poly; static things are merged (`GeoBuilder`) a
 
 **Settings.** Added `ambientVolume`, `touchSteer`, `touchMirror`, `touchLarge`, `levelsView` (older saves load with defaults). The settings screen is a tablist (arrow keys, ARIA roles).
 
+## Stage 5: longer missions and the connected layer
+
+**Lengthened levels.** `data/levels/*.ts` stay as authored; `levels/extensions.ts` gives each mission a `Stretch` and `levels/index.ts` registers `extendLevel(level, stretch)`. A stretch is a turtle path (straights and arcs whose turns cancel) spliced into the road at the control point nearest a fraction; everything after the splice is slid by the stretch's displacement, all fractions (checkpoints, stops, hazards, landmarks, surfaces, ford, mist) are remapped by arc length, new checkpoints, stops, hazards and landmarks are given in stretch coordinates, terrain bounds grow to cover the new road with a margin, the grid gets coarser cells if it would exceed about 80k nodes, and time limits and medals come from the stretch spec (calibrated with the autopilot). `scripts/extend-search.ts` finds paths that keep clear of the rest of the road and respect corner radius and grade; `tests/extend.test.ts` enforces length, clearance, ordering, calibration and terrain coverage.
+
+**Cloud layer (`src/cloud`).** `CloudBackend` is the only interface to Firebase; `FirebaseBackend` implements it with lazily imported modular SDK modules, tests use `FakeBackend`. `CloudService` owns identity (guest, account, offline) and sync status; `payload.ts` holds the pure sync logic (shared payload, forward-only progress merge, wealth ledger, three-way `decide`); `Leaderboards`, `feedbackTransport` (server-confirmed delivery, outbox, sent log) and `Telemetry` (consent-gated aggregation, local incident log) build on it; `privacy.ts` stores the choices; `events.ts` is the versioned vocabulary. `ui/CloudUI.ts` renders profile, sign-in, conflict, leaderboard, privacy and the menu chip; `ui/Heatmap.ts` is the developer incident view. `Game` wires events (mission start/finish, purchases, incidents, abandon) and starts the layer after the menu is up and the page is idle. `SaveStore` gained `onChange` and `replaceData`; its document format is unchanged.
+
+**Safety rails.** The browser test build is made with `VITE_CLOUD_ENABLED=0` (`.env.e2e`) so ordinary tests cannot reach the live project; the emulator build (`--mode emulated`) forces the `demo-` project id.
+
 ## Planned extensibility
 
 More vehicles (taxi, bus, performance car) and missions through data; passenger/vehicle-condition systems build on `MotionSampler` and `consumeImpact`; traffic and rivals follow `Road` and reuse `AutoDriver`; ghost replay records the command stream (physics is deterministic given inputs); leaderboards replace the `SaveStore.recordCompletion` sink.

@@ -19,3 +19,5 @@ ui-debug.log
 emulator-data
 scratch-roads.json
 !.env.emulated
+!.env.e2e
+dist-emulated

@@ -98,6 +98,7 @@ export function renderMapPreview(c: LevelCardModel, canGo: boolean): string {
       ${state}
       <p class="muted">Best with ${esc(c.recommended)}</p>
       <button class="btn primary" id="btn-map-go" type="button" data-go="${esc(c.id)}"${canGo ? '' : ' disabled'}>${c.locked ? 'Locked' : 'Choose vehicle'}</button>
+      <button class="btn ghost" id="btn-map-board" type="button" data-board="${esc(c.id)}">Leaderboard</button>
     </div>`;
 }
 

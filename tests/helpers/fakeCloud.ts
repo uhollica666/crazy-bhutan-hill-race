@@ -196,6 +196,18 @@ export class FakeBackend implements CloudBackend {
     if (!this.online) throw new CloudError('offline', 'offline');
     if (this.feedback.has(id)) throw new CloudError('permission-denied', 'exists');
     this.feedback.set(id, { ...doc, uid: this.current.uid, submissionId: id });
+    if (this.loseFeedbackAck) {
+      this.loseFeedbackAck = false;
+      await new Promise(() => undefined); // the server has it, but the acknowledgement never arrives
+    }
+  }
+
+  /** Make the NEXT feedback write reach the server but lose its acknowledgement (the client sees a timeout). */
+  loseFeedbackAck = false;
+
+  async feedbackExists(id: string): Promise<boolean> {
+    this.gate('feedbackExists');
+    return this.feedback.get(id)?.uid === this.current?.uid && this.feedback.has(id);
   }
 
   async submitTelemetry(id: string, doc: TelemetryDoc): Promise<void> {
@@ -203,6 +215,18 @@ export class FakeBackend implements CloudBackend {
     if (!this.current) throw new CloudError('not-configured', 'not signed in');
     if (this.telemetry.has(id)) throw new CloudError('permission-denied', 'exists');
     this.telemetry.set(id, { ...doc, uid: this.current.uid, sessionId: id });
+  }
+
+  readonly analyticsLog: { name: string; params: Record<string, string | number> }[] = [];
+  analyticsEnabled = false;
+
+  async logAnalytics(name: string, params: Record<string, string | number>): Promise<void> {
+    this.count('logAnalytics');
+    this.analyticsLog.push({ name, params });
+  }
+
+  async setAnalyticsEnabled(on: boolean): Promise<void> {
+    this.analyticsEnabled = on;
   }
 
   async dispose(): Promise<void> {

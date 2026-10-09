@@ -20,7 +20,11 @@
     "shots": "node scripts/shots.mjs",
     "test:emulator": "firebase emulators:exec --only auth,firestore --project demo-crazy-bhutan-hill-race \"vitest run --config vitest.emulator.config.ts\"",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-crazy-bhutan-hill-race",
-    "dev:emulated": "vite --mode emulated"
+    "dev:emulated": "vite --mode emulated",
+    "build:e2e": "tsc --noEmit && vite build --mode e2e",
+    "build:emulated": "tsc --noEmit && vite build --mode emulated --outDir dist-emulated",
+    "preview:emulated": "vite preview --outDir dist-emulated --port 4174",
+    "test:e2e:cloud": "firebase emulators:exec --only auth,firestore --project demo-crazy-bhutan-hill-race \"playwright test --project=cloud\""
   },
   "dependencies": {
     "firebase": "^13.0.0",

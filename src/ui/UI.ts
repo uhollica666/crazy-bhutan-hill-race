@@ -43,6 +43,8 @@ export interface UIActions {
   /** Campaign-complete screen: go back to the mission map. */
   campaignContinue(): void;
   openFeedback(origin: 'menu' | 'settings' | 'results' | 'about'): void;
+  /** Opens the online leaderboard (beta) on a mission. */
+  openBoard(levelId?: string): void;
   /** UI feedback sound hook. */
   click(back?: boolean): void;
 }
@@ -194,6 +196,8 @@ export class UI {
   private toastTimer = 0;
   private garageModel: GarageModel | null = null;
   private levelCardsModel: LevelCardModel[] = [];
+  /** The mission whose results are on screen (for the leaderboard button). */
+  private finishLevelId: string | null = null;
   private mapSelected: string | null = null;
   private levelsView: 'map' | 'list' = 'map';
 
@@ -223,6 +227,7 @@ export class UI {
             <h1 id="menu-title" class="sr-only">Crazy Bhutan Hill Race</h1>
           </div>
           <p class="tagline">Deliver your guests. Beat the mist.</p>
+          <div class="menu-cloud" id="menu-cloud"></div>
           <div class="level-card" id="menu-summary"></div>
           <div class="menu-actions">
             <button class="btn primary" id="btn-start" type="button">${ICONS.play}<span>Drive</span></button>
@@ -313,6 +318,7 @@ export class UI {
             <button class="btn" id="btn-replay" type="button">${ICONS.recover}<span>Replay</span></button>
             <button class="btn" id="btn-finish-feedback" type="button"><span>Share feedback</span></button>
             <button class="btn" id="btn-finish-garage" type="button">${COIN}<span>Garage</span></button>
+            <button class="btn" id="btn-finish-board" type="button"><span>Leaderboard</span></button>
             <button class="btn ghost" id="btn-finish-menu" type="button">${ICONS.home}<span>End game</span></button>
           </div>
           <div class="studio-mark"><img src="${brandBase}brand/novarah-symbol.webp" alt="" width="16" height="16" decoding="async" /><span>Novarah Interactives</span></div>
@@ -343,6 +349,7 @@ export class UI {
             <button type="button" role="tab" id="tab-controls" data-tab="controls" aria-selected="false" aria-controls="pane-controls" tabindex="-1">Controls</button>
             <button type="button" role="tab" id="tab-gameplay" data-tab="gameplay" aria-selected="false" aria-controls="pane-gameplay" tabindex="-1">Gameplay</button>
             <button type="button" role="tab" id="tab-access" data-tab="access" aria-selected="false" aria-controls="pane-access" tabindex="-1">Accessibility</button>
+            <button type="button" role="tab" id="tab-privacy" data-tab="privacy" aria-selected="false" aria-controls="pane-privacy" tabindex="-1">Privacy</button>
           </div>
           <div class="tab-panel" id="pane-audio" role="tabpanel" aria-labelledby="tab-audio">
             <div class="field"><label for="set-master">Master volume</label><output id="out-master"></output><input id="set-master" type="range" min="0" max="100" step="1" /></div>
@@ -404,6 +411,7 @@ export class UI {
             <div class="field"><label for="set-motion">Reduce motion (less camera shake, calmer menus)</label><input id="set-motion" type="checkbox" /></div>
             <div class="field"><label for="set-large">Larger touch controls</label><input id="set-large" type="checkbox" /></div>
           </div>
+          <div class="tab-panel" id="pane-privacy" role="tabpanel" aria-labelledby="tab-privacy" hidden></div>
           <div class="stack" style="margin-top:18px">
             <button class="btn" id="btn-settings-feedback" type="button"><span>Share feedback</span></button>
             <button class="btn" id="btn-settings-about" type="button"><span>About &amp; credits</span></button>
@@ -474,6 +482,7 @@ export class UI {
     on('#btn-next', () => this.actions.nextMission());
     on('#btn-finish-feedback', () => this.actions.openFeedback('results'));
     on('#btn-finish-garage', () => this.actions.openGarage());
+    on('#btn-finish-board', () => this.actions.openBoard(this.finishLevelId ?? undefined));
     on('#btn-finish-menu', () => this.actions.quit(), true);
     on('#btn-settings-back', () => this.closeSettings(), true);
     on('#btn-settings-feedback', () => this.actions.openFeedback('settings'));
@@ -512,6 +521,9 @@ export class UI {
       if (go && !go.hasAttribute('disabled')) {
         this.actions.click();
         this.actions.chooseLevel(go.dataset.go as string);
+      } else if (t.closest<HTMLElement>('[data-board]')) {
+        this.actions.click();
+        this.actions.openBoard(t.closest<HTMLElement>('[data-board]')?.dataset.board);
       } else if (pin) {
         this.actions.click();
         this.previewMapPin(pin.dataset.pin ?? null);
@@ -1102,6 +1114,25 @@ export class UI {
     this.screens.settings.hidden = true;
     const target = this.settingsReturn === 'menu' ? '#btn-menu-settings' : '#btn-pause-settings';
     q<HTMLElement>(this.root, target).focus({ preventScroll: true });
+  }
+
+  setFinishLevel(id: string): void {
+    this.finishLevelId = id;
+  }
+
+  /** The empty containers other modules fill in: the menu's online-status slot and the Privacy settings tab. */
+  get menuCloudSlot(): HTMLElement {
+    return q(this.root, '#menu-cloud');
+  }
+
+  get privacyPane(): HTMLElement {
+    return q(this.root, '#pane-privacy');
+  }
+
+  /** Opens the settings screen on a given tab (from the menu or the pause screen). */
+  openSettingsTab(from: 'menu' | 'pause', tab: string): void {
+    if (!this.settingsOpen) this.openSettings(from);
+    q<HTMLElement>(this.root, `#tab-${tab}`).click();
   }
 
   get settingsOpen(): boolean {

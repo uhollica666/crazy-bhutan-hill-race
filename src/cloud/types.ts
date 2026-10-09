@@ -124,6 +124,12 @@ export interface CloudBackend {
   /** Resolves only after the SERVER has accepted the document (never on a local-cache write). */
   submitFeedback(id: string, doc: FeedbackDoc): Promise<void>;
   submitTelemetry(id: string, doc: TelemetryDoc): Promise<void>;
+  /** True when the server holds the author's own feedback document with this id (confirms a delivery whose acknowledgement was lost). */
+  feedbackExists(id: string): Promise<boolean>;
+
+  /** Product analytics (Google Analytics for Firebase). Only ever called after the player opted in. */
+  logAnalytics(name: string, params: Record<string, string | number>): Promise<void>;
+  setAnalyticsEnabled(on: boolean): Promise<void>;
 
   /** Releases listeners and the SDK instance (tests). */
   dispose(): Promise<void>;

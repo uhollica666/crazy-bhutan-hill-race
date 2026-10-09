@@ -202,14 +202,16 @@ describe('feedback/{id}', () => {
     await assertFails(setDoc(doc(bob(), 'feedback/fb-20261009-0003'), validFeedback('alice', 'fb-20261009-0003')));
   });
 
-  it('feedback is never readable, editable or deletable by clients, including its author', async () => {
+  it('feedback is never listable, editable or deletable by clients; only its author can GET it by id, nobody else can read it', async () => {
     await seed('feedback/fb-20261009-0004', { ...validFeedback('alice', 'fb-20261009-0004'), createdAt: new Date() });
     for (const db of [alice(), bob(), anon()]) {
-      await assertFails(getDoc(doc(db, 'feedback/fb-20261009-0004')));
       await assertFails(updateDoc(doc(db, 'feedback/fb-20261009-0004'), { rating: 1 }));
       await assertFails(deleteDoc(doc(db, 'feedback/fb-20261009-0004')));
       await assertFails(getDocs(collection(db, 'feedback')));
     }
+    await assertSucceeds(getDoc(doc(alice(), 'feedback/fb-20261009-0004'))); // the author can confirm their own delivery
+    await assertFails(getDoc(doc(bob(), 'feedback/fb-20261009-0004')));
+    await assertFails(getDoc(doc(anon(), 'feedback/fb-20261009-0004')));
   });
 
   it('a submission cannot overwrite an existing one (the id is the idempotency key, and edits are denied)', async () => {

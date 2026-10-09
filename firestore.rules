@@ -177,8 +177,10 @@ service cloud.firestore {
 
     // ------------------------------------------------------------------ feedback (write-only for players)
 
-    // feedback/{feedbackId}: create-only. Players can never read, edit or delete feedback, theirs or anyone else's.
-    // Novarah reads it in the Firebase Console. Anonymous sign-in alone does not stop spam: see docs/FIREBASE.md.
+    // feedback/{feedbackId}: create-only. Players can never edit or delete feedback, theirs or anyone else's, and
+    // nobody can list it. An author may GET their own submission by id (nothing else), which is how the game finds out
+    // for certain whether a submission whose confirmation was lost on the way back actually arrived.
+    // Novarah reads everything in the Firebase Console. Anonymous sign-in alone does not stop spam: see docs/FIREBASE.md.
     match /feedback/{feedbackId} {
       function optText(v, max) {
         return v is string && v.size() <= max;
@@ -212,7 +214,8 @@ service cloud.firestore {
           && validInterest(d.interest);
       }
       allow create: if signedIn() && feedbackId.matches('^[A-Za-z0-9_-]{8,64}$') && validFeedback(request.resource.data);
-      allow read, update, delete: if false;
+      allow get: if signedIn() && resource.data.uid == request.auth.uid;
+      allow list, update, delete: if false;
     }
 
     // ------------------------------------------------------------------ optional gameplay statistics (write-only)

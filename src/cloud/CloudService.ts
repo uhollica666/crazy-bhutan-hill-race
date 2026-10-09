@@ -123,6 +123,23 @@ export class CloudService {
     return this.meta.data.deviceId;
   }
 
+  /** Resolves with the signed-in user, or null if there is none within `ms` (guest sign-in can take a moment). */
+  whenUser(ms: number): Promise<CloudUser | null> {
+    if (this.state.user) return Promise.resolve(this.state.user);
+    if (!this.backend) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const done = (u: CloudUser | null): void => {
+        clearTimeout(t);
+        off();
+        resolve(u);
+      };
+      const off = this.onStatus((st) => {
+        if (st.user) done(st.user);
+      });
+      const t = setTimeout(() => done(null), ms);
+    });
+  }
+
   onStatus(l: Listener): () => void {
     this.listeners.add(l);
     return () => this.listeners.delete(l);
@@ -308,6 +325,19 @@ export class CloudService {
     this.set({ displayName: v.name });
     if (!user || !this.backend) return;
     await this.backend.setProfile(user.uid, { displayName: v.name, accountType: user.isAnonymous ? 'guest' : 'registered' }, true);
+  }
+
+  /** Puts one of the saved copies of this device's progress back (a local change, so it is synced like any other). */
+  restoreBackup(index: number): boolean {
+    const b = this.meta.data.backups[index];
+    if (!b) return false;
+    this.meta.addBackup('before-restore', this.store.snapshot());
+    this.store.replaceData(b.data, 'local');
+    return true;
+  }
+
+  get backups(): { at: number; reason: string; missions: number; credits: number }[] {
+    return this.meta.data.backups.map((b) => ({ at: b.at, reason: b.reason, missions: Object.values(b.data.progress.levels).filter((l) => l.completions > 0).length, credits: b.data.wallet.credits }));
   }
 
   /** Removes this player's online data (cloud save, leaderboard entries, profile). The account itself stays. */

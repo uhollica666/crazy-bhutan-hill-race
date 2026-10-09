@@ -1,6 +1,7 @@
 import {
   DraftStore,
   buildPayload,
+  newSubmissionId,
   collectDevice,
   describeDevice,
   emptyForm,
@@ -9,6 +10,7 @@ import {
   mailtoUrl,
   validateFeedback,
 } from '../services/feedback';
+import type { SentLog } from '../cloud/feedbackTransport';
 import type {
   Difficulty,
   FeedbackConfig,
@@ -24,6 +26,10 @@ export interface FeedbackDeps {
   config: FeedbackConfig;
   transport: FeedbackTransport;
   drafts: DraftStore;
+  /** Log of what the service has confirmed (ids and times only). */
+  sent: SentLog;
+  /** Called once a submission has been confirmed by the service (statistics, if the player agreed to them). */
+  onSent?: (rating: number) => void;
   quality: () => string;
   click: (back?: boolean) => void;
   /** Called after the screen closes so the caller can restore its own focus/state. */
@@ -33,17 +39,14 @@ export interface FeedbackDeps {
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
 const TEXT_FIELDS: {
-  key: 'gameplay' | 'controls' | 'performance' | 'favourite' | 'improve' | 'add' | 'bugs';
+  key: 'gameplay' | 'controls' | 'graphics' | 'performance' | 'favourite' | 'improve' | 'add' | 'bugs';
   label: string;
   hint: string;
 }[] = [
   { key: 'gameplay', label: 'How was the gameplay?', hint: 'Missions, pickups, fuel, the story...' },
   { key: 'controls', label: 'How do the driving controls feel?', hint: 'Keyboard, touch or gamepad' },
-  {
-    key: 'performance',
-    label: 'Graphics and performance',
-    hint: 'Smoothness, loading, anything that looked off',
-  },
+  { key: 'graphics', label: 'How do the graphics look?', hint: 'Vehicles, scenery, weather, the HUD' },
+  { key: 'performance', label: 'How is the performance?', hint: 'Smoothness, loading, battery, anything that stuttered' },
   { key: 'favourite', label: 'What is your favourite feature?', hint: '' },
   { key: 'improve', label: 'What should we improve?', hint: '' },
   { key: 'add', label: 'What would you like us to add?', hint: '' },
@@ -64,6 +67,7 @@ export class FeedbackScreen {
   private origin: FeedbackPayload['origin'] = 'menu';
   private lastPayload: FeedbackPayload | null = null;
   private busy = false;
+  private draftId: string | null = null;
   private readonly liveDevice: string;
 
   constructor(private readonly d: FeedbackDeps) {
@@ -110,7 +114,7 @@ export class FeedbackScreen {
 
   private banner(): string {
     return this.d.transport.delivers
-      ? `<p class="fb-note">Your answers will be sent to the studio when you press Send. You choose what is included.</p>`
+      ? `<p class="fb-note">Your answers are sent to Novarah when you press Send. If you are offline they are kept on this device and sent automatically later; you will always be told which of those happened. You choose what is included.</p>`
       : `<p class="fb-note warn" role="note"><b>No feedback server is connected in this build.</b> You can save your feedback on this device, download it as a file or copy it, but it will <b>not</b> be sent to Novarah automatically.</p>`;
   }
 
@@ -248,17 +252,32 @@ export class FeedbackScreen {
     }
     this.busy = true;
     this.renderForm();
+    // Saved on this device BEFORE any attempt to send: nothing the player wrote can be lost to a network failure.
+    const draft = this.d.drafts.add(payload, new Date(), 'pending');
+    this.draftId = draft.id;
+    await this.deliver(payload, draft.id);
+  }
+
+  /** One delivery attempt. "Delivered" is claimed only when the transport reports the service's confirmation. */
+  private async deliver(payload: FeedbackPayload, draftId: string): Promise<void> {
+    this.busy = true;
     const res = await this.d.transport.submit(payload);
     this.busy = false;
     if (res.status === 'sent') {
+      this.d.sent.add(payload.submissionId);
+      this.d.drafts.remove(draftId);
+      this.d.onSent?.(payload.rating);
       this.renderResult('sent');
+    } else if (res.retryable) {
+      this.d.drafts.update(draftId, { status: 'pending', attempts: 1, lastError: res.reason });
+      this.renderResult('pending', res.reason);
     } else {
-      this.d.drafts.add(payload);
+      this.d.drafts.update(draftId, { status: 'failed', attempts: 1, lastError: res.reason });
       this.renderResult('failed', res.reason);
     }
   }
 
-  private renderResult(kind: 'sent' | 'local' | 'failed', reason = ''): void {
+  private renderResult(kind: 'sent' | 'local' | 'pending' | 'failed', reason = ''): void {
     const p = this.lastPayload as FeedbackPayload;
     const mail = mailtoUrl(this.d.config, p);
     const saved = this.d.drafts.persisted;
@@ -267,25 +286,29 @@ export class FeedbackScreen {
       : 'Browser storage is unavailable. This copy lasts only until you close or reload the page; download it to keep it.';
     const title =
       kind === 'sent'
-        ? 'Thank you!'
+        ? 'Thank you! Delivered'
         : kind === 'local'
           ? saved
             ? 'Saved on this device only'
             : 'Not saved permanently'
-          : 'Not sent';
+          : kind === 'pending'
+            ? 'Saved, not delivered yet'
+            : 'Not delivered';
     const body =
       kind === 'sent'
-        ? '<p>Your feedback was delivered to the studio.</p>'
+        ? '<p>The online service confirmed it received your feedback. Thank you for helping us make the game better.</p>'
         : kind === 'local'
           ? `<p class="fb-note warn"><b>This has NOT been sent to Novarah.</b> ${localCopy} You can download or copy it and send it yourself.</p>`
-          : `<p class="fb-note warn"><b>Your feedback was not sent.</b> ${esc(reason)} ${localCopy} You can try again later or export it.</p>`;
+          : kind === 'pending'
+            ? `<p class="fb-note warn"><b>Not delivered yet.</b> ${esc(reason)} Your feedback is saved on this device and will be sent automatically when the connection is back. You can also try again now or export it.</p>`
+            : `<p class="fb-note warn"><b>Your feedback was not delivered.</b> ${esc(reason)} ${localCopy} You can try again with a new copy or export it.</p>`;
     this.el.innerHTML = `<div class="panel wide fb-panel" role="status">
       <header class="fb-head"><h2 id="fb-title">${title}</h2></header>
       ${body}
       <div class="stack fb-actions">
         ${kind !== 'sent' ? '<button class="btn" type="button" id="fb-download">Download as a file</button><button class="btn" type="button" id="fb-copy">Copy text</button>' : ''}
         ${kind !== 'sent' && mail ? `<a class="btn" id="fb-mail" href="${esc(mail)}">Open an email draft</a>` : ''}
-        ${kind === 'failed' ? '<button class="btn" type="button" id="fb-retry">Try sending again</button>' : ''}
+        ${kind === 'failed' || kind === 'pending' ? `<button class="btn" type="button" id="fb-retry">${kind === 'pending' ? 'Send now' : 'Try sending again'}</button>` : ''}
         <button class="btn primary" type="button" id="fb-done" data-back>Done</button>
       </div>
       <p class="fb-status" id="fb-status" aria-live="polite"></p></div>`;
@@ -313,10 +336,18 @@ export class FeedbackScreen {
       }
     });
     q('#fb-retry')?.addEventListener('click', async () => {
+      if (this.busy) return;
       this.status('Sending...');
-      const r = await this.d.transport.submit(p);
-      if (r.status === 'sent') this.renderResult('sent');
-      else this.renderResult('failed', r.reason);
+      if (kind === 'failed') {
+        // The service refused that copy: send a fresh one under a new id rather than reuse the refused one.
+        const fresh: FeedbackPayload = { ...p, submissionId: newSubmissionId() };
+        if (this.draftId) this.d.drafts.remove(this.draftId);
+        this.lastPayload = fresh;
+        this.draftId = this.d.drafts.add(fresh, new Date(), 'pending').id;
+        await this.deliver(fresh, this.draftId);
+      } else if (this.draftId) {
+        await this.deliver(p, this.draftId);
+      }
     });
     requestAnimationFrame(() => q<HTMLElement>('#fb-done')?.focus({ preventScroll: true }));
   }

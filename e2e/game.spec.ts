@@ -75,7 +75,7 @@ test.describe('startup, settings and navigation', () => {
     await expect(page.locator('#screen-settings')).toBeVisible();
     await page.screenshot({ path: 'screenshots/desktop-settings.png' });
     // Settings are organised in tabs: Audio, Graphics, Controls, Gameplay, Accessibility.
-    await expect(page.locator('[role=tab][data-tab]')).toHaveCount(5);
+    await expect(page.locator('[role=tab][data-tab]')).toHaveCount(6);
     await page.locator('#set-master').fill('35');
     await page.locator('#set-mute').check();
     await page.locator('#tab-graphics').click();

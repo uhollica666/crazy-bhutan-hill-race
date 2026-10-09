@@ -41,6 +41,7 @@ export interface FeedbackForm {
   rating: number;
   gameplay: string;
   controls: string;
+  graphics: string;
   performance: string;
   difficulty: Difficulty | null;
   favourite: string;
@@ -57,13 +58,16 @@ export interface FeedbackForm {
 export interface FeedbackPayload {
   schema: typeof FEEDBACK_SCHEMA;
   schemaVersion: typeof FEEDBACK_SCHEMA_VERSION;
+  /** Unique per submission: the idempotency key, so a retry can never create a second copy. */
+  submissionId: string;
   createdAt: string;
   appVersion: string;
   /** Where in the game the form was opened from. */
-  origin: 'menu' | 'settings' | 'results' | 'about';
+  origin: 'menu' | 'settings' | 'results' | 'about' | 'campaign';
   rating: number;
   gameplay: string;
   controls: string;
+  graphics: string;
   performance: string;
   difficulty: Difficulty | null;
   favourite: string;
@@ -86,6 +90,7 @@ export const emptyForm = (): FeedbackForm => ({
   rating: 0,
   gameplay: '',
   controls: '',
+  graphics: '',
   performance: '',
   difficulty: null,
   favourite: '',
@@ -121,7 +126,7 @@ export function validateFeedback(form: FeedbackForm): ValidationResult {
   const errors: Record<string, string> = {};
   if (!Number.isInteger(form.rating) || form.rating < 1 || form.rating > 5)
     errors.rating = 'Please choose a star rating from 1 to 5.';
-  for (const key of ['gameplay', 'controls', 'performance', 'favourite', 'improve', 'add', 'bugs'] as const) {
+  for (const key of ['gameplay', 'controls', 'graphics', 'performance', 'favourite', 'improve', 'add', 'bugs'] as const) {
     if (form[key].length > MAX_TEXT) errors[key] = `Please keep this under ${MAX_TEXT} characters.`;
   }
   if (form.difficulty !== null && !DIFFICULTIES.includes(form.difficulty))
@@ -134,6 +139,7 @@ export function validateFeedback(form: FeedbackForm): ValidationResult {
   const anything =
     form.gameplay.trim() ||
     form.controls.trim() ||
+    form.graphics.trim() ||
     form.performance.trim() ||
     form.favourite.trim() ||
     form.improve.trim() ||
@@ -146,7 +152,7 @@ export function validateFeedback(form: FeedbackForm): ValidationResult {
 /** Builds the versioned payload. Throws only if the form is invalid; callers validate first. */
 export function buildPayload(
   form: FeedbackForm,
-  ctx: { appVersion: string; origin: FeedbackPayload['origin']; device: FeedbackDevice | null; now?: Date },
+  ctx: { appVersion: string; origin: FeedbackPayload['origin']; device: FeedbackDevice | null; now?: Date; id?: string },
 ): FeedbackPayload {
   const v = validateFeedback(form);
   if (!v.ok) throw new Error(`Invalid feedback: ${Object.values(v.errors).join(' ')}`);
@@ -154,12 +160,14 @@ export function buildPayload(
   return {
     schema: FEEDBACK_SCHEMA,
     schemaVersion: FEEDBACK_SCHEMA_VERSION,
+    submissionId: ctx.id ?? newSubmissionId(),
     createdAt: (ctx.now ?? new Date()).toISOString(),
     appVersion: ctx.appVersion,
     origin: ctx.origin,
     rating: form.rating,
     gameplay: cleanText(form.gameplay),
     controls: cleanText(form.controls),
+    graphics: cleanText(form.graphics),
     performance: cleanText(form.performance),
     difficulty: form.difficulty,
     favourite: cleanText(form.favourite),
@@ -171,6 +179,13 @@ export function buildPayload(
     device: form.includeDevice ? ctx.device : null,
     interest: { ...form.interest },
   };
+}
+
+/** A unique, URL-safe id (matches the pattern firestore.rules accepts for a feedback document). */
+export function newSubmissionId(): string {
+  const c = globalThis.crypto;
+  const raw = c?.randomUUID ? c.randomUUID().replaceAll('-', '') : Array.from({ length: 3 }, () => Math.random().toString(16).slice(2, 12)).join('');
+  return `fb-${raw}`.slice(0, 40);
 }
 
 /** Reads the device facts shown to the player in the disclosure. Nothing here identifies a person or place. */
@@ -197,7 +212,9 @@ export function describeDevice(d: FeedbackDevice): string {
 // ------------------------------------------------------------------------------ transports
 
 export type SubmitResult =
-  { status: 'sent'; via: string; reference?: string } | { status: 'not-sent'; reason: string };
+  | { status: 'sent'; via: string; reference?: string }
+  /** `retryable`: the problem is the network or a timeout, so the draft stays queued and is sent automatically later. */
+  | { status: 'not-sent'; reason: string; retryable?: boolean };
 
 export interface FeedbackTransport {
   /** Short name for logs ("http-endpoint"). */
@@ -284,10 +301,16 @@ export function createTransport(cfg: FeedbackConfig, fetchImpl?: typeof fetch): 
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
+export type DraftStatus = 'draft' | 'pending' | 'failed';
+
 export interface Draft {
   id: string;
   savedAt: string;
   payload: FeedbackPayload;
+  /** draft: saved on this device only. pending: waiting to be sent. failed: the service refused it. */
+  status?: DraftStatus;
+  attempts?: number;
+  lastError?: string | null;
 }
 
 /** Locally stored feedback. These are NOT sent anywhere; the UI always labels them as saved on this device. */
@@ -315,15 +338,26 @@ export class DraftStore {
     return [...this.memory];
   }
 
-  add(payload: FeedbackPayload, now = new Date()): Draft {
+  add(payload: FeedbackPayload, now = new Date(), status: DraftStatus = 'draft'): Draft {
     let id: string;
     do {
       id = `${now.getTime().toString(36)}-${this.serial++}`;
     } while (this.memory.some((d) => d.id === id));
-    const draft: Draft = { id, savedAt: now.toISOString(), payload };
+    const draft: Draft = { id, savedAt: now.toISOString(), payload, status, attempts: 0, lastError: null };
     this.memory = [...this.memory, draft].slice(-MAX_DRAFTS);
     this.write();
     return draft;
+  }
+
+  /** Updates the delivery state of a stored copy. */
+  update(id: string, patch: Partial<Pick<Draft, 'status' | 'attempts' | 'lastError'>>): void {
+    this.memory = this.memory.map((d) => (d.id === id ? { ...d, ...patch } : d));
+    this.write();
+  }
+
+  /** Copies waiting to be sent automatically. */
+  pending(): Draft[] {
+    return this.memory.filter((d) => d.status === 'pending');
   }
 
   remove(id: string): void {
@@ -367,7 +401,8 @@ export function feedbackAsText(p: FeedbackPayload): string {
   add('Overall rating (1-5)', p.rating);
   add('Gameplay', p.gameplay);
   add('Controls', p.controls);
-  add('Graphics / performance', p.performance);
+  add('Graphics', p.graphics);
+  add('Performance', p.performance);
   add('Difficulty', p.difficulty);
   add('Favourite feature', p.favourite);
   add('To improve', p.improve);

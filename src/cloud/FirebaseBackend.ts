@@ -174,7 +174,7 @@ export class FirebaseBackend implements CloudBackend {
 
   getProfile(uid: string): Promise<CloudProfile | null> {
     return this.wrap(async ({ db, F }) => {
-      const snap = await F.getDoc(F.doc(db, 'players', uid));
+      const snap = await F.getDocFromServer(F.doc(db, 'players', uid));
       if (!snap.exists()) return null;
       const d = snap.data() as Partial<CloudProfile>;
       return typeof d.displayName === 'string' ? { displayName: d.displayName, accountType: d.accountType === 'registered' ? 'registered' : 'guest' } : null;
@@ -196,7 +196,8 @@ export class FirebaseBackend implements CloudBackend {
 
   loadSave(uid: string): Promise<CloudSaveDoc | 'unreadable' | null> {
     return this.wrap(async ({ db, F }) => {
-      const snap = await F.getDoc(F.doc(db, 'players', uid, 'saves', 'current'));
+      // From the server, never the cache: a stale local copy must not drive a sync decision.
+      const snap = await F.getDocFromServer(F.doc(db, 'players', uid, 'saves', 'current'));
       if (!snap.exists()) return null;
       return parseCloudSave(snap.data());
     });
@@ -257,13 +258,14 @@ export class FirebaseBackend implements CloudBackend {
   topEntries(levelId: string, max: number): Promise<LeaderboardEntryDoc[]> {
     return this.wrap(async (s) => {
       const q = s.F.query(this.entries(s, levelId), s.F.orderBy('timeMs', 'asc'), s.F.limit(Math.min(100, Math.max(1, max))));
-      return (await s.F.getDocs(q)).docs.map((d) => FirebaseBackend.toEntry(d.data()));
+      // Server only: offline must fail (so the game can say so) rather than silently serve whatever is cached.
+      return (await s.F.getDocsFromServer(q)).docs.map((d) => FirebaseBackend.toEntry(d.data()));
     });
   }
 
   myEntry(levelId: string, uid: string): Promise<LeaderboardEntryDoc | null> {
     return this.wrap(async (s) => {
-      const snap = await s.F.getDoc(s.F.doc(s.db, 'leaderboards', levelId, 'entries', uid));
+      const snap = await s.F.getDocFromServer(s.F.doc(s.db, 'leaderboards', levelId, 'entries', uid));
       return snap.exists() ? FirebaseBackend.toEntry(snap.data()) : null;
     });
   }
@@ -325,6 +327,42 @@ export class FirebaseBackend implements CloudBackend {
 
   submitTelemetry(id: string, doc: TelemetryDoc): Promise<void> {
     return this.sendCreateOnly('telemetrySessions', id, doc, 'sessionId');
+  }
+
+  async feedbackExists(id: string): Promise<boolean> {
+    try {
+      return await this.wrap(async ({ db, F }) => (await F.getDocFromServer(F.doc(db, 'feedback', id))).exists());
+    } catch (e) {
+      if ((e as { code?: string }).code === 'permission-denied') return false; // not ours (or does not exist)
+      throw e;
+    }
+  }
+
+  // ------------------------------------------------------------------------------------- analytics
+
+  private analytics: Promise<{ log: (n: string, p: Record<string, string | number>) => void; enable: (on: boolean) => void } | null> | null = null;
+
+  /** Loads the Analytics SDK only when first needed (after consent), only where the browser supports it. */
+  private loadAnalytics() {
+    this.analytics ??= (async () => {
+      if (this.cfg.useEmulators) return null;
+      const { app } = await this.init();
+      const A = await import('firebase/analytics');
+      if (!(await A.isSupported())) return null;
+      const an = A.initializeAnalytics(app, { config: { send_page_view: false, allow_google_signals: false, allow_ad_personalization_signals: false, anonymize_ip: true } });
+      A.setConsent({ analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
+      return { log: (n: string, p: Record<string, string | number>) => A.logEvent(an, n, p), enable: (on: boolean) => A.setAnalyticsCollectionEnabled(an, on) };
+    })().catch(() => null);
+    return this.analytics;
+  }
+
+  async logAnalytics(name: string, params: Record<string, string | number>): Promise<void> {
+    (await this.loadAnalytics())?.log(name, params);
+  }
+
+  async setAnalyticsEnabled(on: boolean): Promise<void> {
+    if (!on && !this.analytics) return; // never load the SDK just to switch it off
+    (await this.loadAnalytics())?.enable(on);
   }
 
   async dispose(): Promise<void> {

@@ -2,6 +2,7 @@ import './ui/styles.css';
 import './ui/stage2.css';
 import './ui/stage3.css';
 import './ui/hud.css';
+import './ui/cloud.css';
 import { Game } from './app/Game';
 import { registerServiceWorker } from './pwa/register';
 import { isWebGLAvailable } from './render/GameRenderer';

@@ -38,6 +38,9 @@ export interface GameState {
   garageView: { azimuth: number; polar: number; distance: number } | null;
   audioMix: { master: number; engine: number; sfx: number; ambience: number; weather: number; duck: number };
   particlesAlive: number;
+  cloud: { connection: string; sync: string; uid: string | null; name: string };
+  privacy: { analytics: boolean; decided: boolean };
+  incidents: number;
 }
 
 type Api = {

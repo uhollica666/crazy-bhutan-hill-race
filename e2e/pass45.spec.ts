@@ -23,7 +23,7 @@ test.describe('Pass 4.5: settings tabs', () => {
     const errors = await openGame(page);
     await page.locator('#btn-menu-settings').click();
     const tabs = page.locator('.tabs:not(.sub-tabs) [role=tab]');
-    await expect(tabs).toHaveCount(5);
+    await expect(tabs).toHaveCount(6);
     await expect(page.locator('#pane-audio')).toBeVisible();
     await expect(page.locator('#pane-graphics')).toBeHidden();
     await tabs.first().focus();

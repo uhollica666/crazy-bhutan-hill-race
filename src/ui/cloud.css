@@ -1,0 +1,319 @@
+/* Stage 5: profile, sign-in, save conflict, leaderboard, privacy and the developer heatmap.
+   Same palette tokens as styles.css. */
+
+/* The online status chip and the one-time statistics question sit in the top-right corner of the menu, out of the
+   vertical flow, so the main buttons never move. */
+.menu-cloud {
+  position: absolute;
+  top: calc(var(--sat) + 12px);
+  right: calc(var(--sar) + 16px);
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  max-width: min(320px, 46vw);
+}
+.menu-cloud .cl-card-ask {
+  text-align: left;
+}
+.cl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(220, 167, 44, 0.55);
+  background: rgba(27, 20, 15, 0.7);
+  color: var(--cream);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cl-chip:hover,
+.cl-chip:focus-visible {
+  border-color: var(--saffron-light);
+}
+.cl-chip .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #8a7d68;
+}
+.cl-chip.ok .dot {
+  background: #7fcf8a;
+}
+.cl-chip.warn .dot {
+  background: #f2a65a;
+}
+.cl-card-ask {
+  max-width: 420px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(220, 167, 44, 0.45);
+  background: rgba(27, 20, 15, 0.78);
+  font-size: 13px;
+}
+.cl-card-ask p {
+  margin: 0 0 8px;
+}
+.cl-card-ask .stack {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cl-panel {
+  max-height: min(92vh, 900px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+.cl-panel h3 {
+  margin: 4px 0;
+  font-family: var(--serif);
+}
+.cl-id {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.cl-avatar {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--saffron-light), var(--saffron) 60%, #b87a0c);
+  border: 3px solid var(--maroon-dark);
+  color: var(--maroon-dark);
+  font-family: var(--serif);
+  font-weight: 800;
+  font-size: 24px;
+}
+.cl-name-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.cl-name input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 2px solid var(--maroon);
+  background: #fff7e6;
+  font: inherit;
+  color: #2a1c12;
+}
+.cl-line {
+  margin: 4px 0;
+}
+.cl-sync.ok {
+  color: #2f7d3b;
+}
+.cl-sync.warn {
+  color: #a4501a;
+}
+.cl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cl-auth {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid rgba(125, 42, 33, 0.35);
+  background: rgba(255, 247, 230, 0.55);
+}
+.cl-auth input {
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 2px solid var(--maroon);
+  background: #fff7e6;
+  font: inherit;
+  color: #2a1c12;
+}
+.cl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.cl-grid div {
+  display: grid;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(125, 42, 33, 0.08);
+}
+.cl-grid b {
+  font-family: var(--serif);
+  font-size: 20px;
+}
+.cl-grid span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.cl-records {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.cl-records li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dotted rgba(125, 42, 33, 0.3);
+}
+.cl-records i {
+  font-style: normal;
+  opacity: 0.75;
+  min-width: 56px;
+}
+.cl-backups ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.cl-backups li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+.cl-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* save conflict */
+.cl-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.cl-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid rgba(125, 42, 33, 0.4);
+  background: rgba(255, 247, 230, 0.6);
+}
+.cl-card ul {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+@media (max-width: 640px) {
+  .cl-cards {
+    grid-template-columns: 1fr;
+  }
+  .cl-id {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* leaderboard */
+.cl-beta {
+  font-family: var(--sans, system-ui);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--maroon);
+  color: var(--cream);
+}
+.cl-lb-pick {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.cl-lb-pick select {
+  flex: 1;
+  min-width: 160px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 2px solid var(--maroon);
+  background: #fff7e6;
+  font: inherit;
+  color: #2a1c12;
+}
+.cl-table-wrap {
+  overflow-x: auto;
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1.5px solid rgba(125, 42, 33, 0.35);
+  border-radius: 10px;
+}
+.cl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.cl-table th,
+.cl-table td {
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+.cl-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f0dfb8;
+}
+.cl-table tbody tr:nth-child(even) {
+  background: rgba(125, 42, 33, 0.05);
+}
+.cl-table tr.you {
+  background: rgba(220, 167, 44, 0.3) !important;
+  font-weight: 700;
+}
+.cl-table .rk {
+  width: 36px;
+  font-family: var(--serif);
+}
+.cl-table .tm {
+  font-variant-numeric: tabular-nums;
+}
+.cl-mine {
+  margin: 8px 0 0;
+}
+
+/* privacy pane */
+.cl-priv p {
+  margin: 6px 0;
+}
+
+/* heatmap */
+.hm canvas {
+  width: 100%;
+  max-width: 760px;
+  height: auto;
+  border-radius: 10px;
+  border: 2px solid var(--maroon);
+}
+.cl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+}
+.cl-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 5px;
+}

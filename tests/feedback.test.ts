@@ -21,6 +21,7 @@ const payload = () =>
     origin: 'menu',
     device: null,
     now: new Date('2026-10-09T00:00:00Z'),
+    id: 'fb-test-0001',
   });
 
 describe('feedback validation and privacy', () => {

@@ -39,7 +39,18 @@ import { QUALITY } from '../render/quality';
 import { VehicleModel } from '../render/VehicleModel';
 import { GarageScene } from '../render/GarageScene';
 import { World3D } from '../render/World3D';
+import { CloudService } from '../cloud/CloudService';
+import { readCloudConfig } from '../cloud/config';
+import { perfTierOf, platformOf, routeFraction, severityFor } from '../cloud/events';
+import type { IncidentType, Severity } from '../cloud/events';
+import { FirestoreFeedbackTransport, SentLog, flushFeedbackOutbox } from '../cloud/feedbackTransport';
+import { FirebaseBackend } from '../cloud/FirebaseBackend';
+import { Leaderboards } from '../cloud/Leaderboards';
+import { CloudMetaStore } from '../cloud/meta';
+import { PrivacyStore } from '../cloud/privacy';
+import { IncidentLog, Telemetry } from '../cloud/Telemetry';
 import { DraftStore, createTransport, readFeedbackConfig } from '../services/feedback';
+import type { FeedbackTransport } from '../services/feedback';
 import type { FeedbackConfig, FeedbackPayload } from '../services/feedback';
 import { LocalIdentity, LocalLeaderboard, MemoryAnalytics, NullAnalytics } from '../services/seams';
 import type { Services } from '../services/seams';
@@ -47,7 +58,9 @@ import type { Settings } from '../storage/SaveStore';
 import { SaveStore, openBrowserStorage } from '../storage/SaveStore';
 import { MiniMap } from '../ui/MiniMap';
 import { TouchControls } from '../ui/TouchControls';
+import { CloudUI } from '../ui/CloudUI';
 import { FeedbackScreen } from '../ui/FeedbackScreen';
+import { Heatmap } from '../ui/Heatmap';
 import { AboutScreen, BriefingScreen } from '../ui/InfoScreens';
 import type {
   FinishExtra,
@@ -123,6 +136,21 @@ export class Game {
   readonly about: AboutScreen;
   readonly briefing: BriefingScreen;
   readonly analytics: NullAnalytics | MemoryAnalytics;
+  /** Optional online layer: guest/account sign-in, cloud saves, leaderboards. The game never waits for it. */
+  readonly cloud: CloudService;
+  readonly privacy: PrivacyStore;
+  readonly telemetry: Telemetry;
+  readonly leaderboards: Leaderboards;
+  readonly cloudUI: CloudUI;
+  private readonly heatmap: Heatmap;
+  private readonly incidentLog: IncidentLog;
+  private readonly feedbackDrafts: DraftStore;
+  private readonly feedbackSent: SentLog;
+  private readonly feedbackTransport: FeedbackTransport;
+  private readonly attempts = new Map<string, number>();
+  private stuckFor = 0;
+  private stuckCooldown = 0;
+  private fuelReported = false;
 
   private readonly levels = listLevels();
   private readonly vehicles = listVehicles();
@@ -249,6 +277,30 @@ export class Game {
       leaderboard: new LocalLeaderboard(() => this.store.data),
       analytics: this.analytics,
     };
+    const storage = openBrowserStorage();
+    const cloudConfig = readCloudConfig();
+    const params = new URLSearchParams(location.search);
+    // ?cloud=off switches every online feature off for this page load (used by the automated tests, never the live project).
+    const backend = cloudConfig.enabled && params.get('cloud') !== 'off' ? new FirebaseBackend(cloudConfig) : null;
+    this.cloud = new CloudService({ backend, store: this.store, meta: new CloudMetaStore(storage), appVersion: APP_VERSION });
+    this.privacy = new PrivacyStore(storage);
+    this.incidentLog = new IncidentLog(storage);
+    this.telemetry = new Telemetry({
+      privacy: this.privacy,
+      incidents: this.incidentLog,
+      backend: () => this.cloud.backendRef,
+      uid: () => this.cloud.uid,
+      context: () => ({
+        appVersion: APP_VERSION,
+        platform: platformOf(window),
+        qualityTier: this.store.settings.quality,
+        perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, this.store.settings.quality),
+      }),
+    });
+    this.leaderboards = new Leaderboards(this.cloud, this.store, storage, APP_VERSION);
+    this.feedbackDrafts = new DraftStore(storage);
+    this.feedbackSent = new SentLog(storage);
+    this.feedbackTransport = backend ? new FirestoreFeedbackTransport(this.cloud) : createTransport(this.feedbackConfig);
     this.ui = new UI(
       opts.uiHost,
       {
@@ -281,6 +333,7 @@ export class Game {
         requestService: (k) => this.requestService(k),
         openAbout: () => this.openAbout(),
         openFeedback: (o) => this.openFeedback(o),
+        openBoard: (id) => this.cloudUI.openBoard(id),
         click: (back) => this.audio.click(back),
       },
       opts.store.settings,
@@ -289,7 +342,7 @@ export class Game {
     const click = (back?: boolean): void => this.audio.click(back);
     this.about = new AboutScreen(
       { host: opts.uiHost, click, onClose: () => this.afterOverlay() },
-      { version: APP_VERSION, base, feedbackIsRemote: !!this.feedbackConfig.endpoint },
+      { version: APP_VERSION, base, feedbackIsRemote: !!this.feedbackConfig.endpoint || !!backend },
     );
     this.about.onFeedback(() => this.openFeedback('about'));
     this.briefing = new BriefingScreen({ host: opts.uiHost, click, onClose: () => undefined });
@@ -297,10 +350,30 @@ export class Game {
       host: opts.uiHost,
       appVersion: APP_VERSION,
       config: this.feedbackConfig,
-      transport: createTransport(this.feedbackConfig),
-      drafts: new DraftStore(openBrowserStorage()),
+      transport: this.feedbackTransport,
+      drafts: this.feedbackDrafts,
+      sent: this.feedbackSent,
+      onSent: (rating) => this.telemetry.track({ name: 'feedback_submitted', rating }),
       quality: () => this.store.settings.quality,
       click,
+      onClose: () => this.afterOverlay(),
+    });
+    this.heatmap = new Heatmap(opts.uiHost, this.incidentLog, () => this.afterOverlay());
+    this.cloudUI = new CloudUI({
+      host: opts.uiHost,
+      cloud: this.cloud,
+      leaderboards: this.leaderboards,
+      privacy: this.privacy,
+      store: this.store,
+      drafts: this.feedbackDrafts,
+      sent: this.feedbackSent,
+      levels: () => this.levels.map((l) => ({ id: l.id, name: l.name })),
+      vehicleName: (id) => getVehicle(id).name,
+      dev: params.has('dev'),
+      click,
+      onOpenFeedback: () => this.openFeedback('menu'),
+      onOpenHeatmap: () => this.heatmap.open(),
+      onOpenPrivacy: () => this.ui.openSettingsTab(this.flow.state === 'menu' ? 'menu' : 'pause', 'privacy'),
       onClose: () => this.afterOverlay(),
     });
     this.input = new InputManager(window);
@@ -362,6 +435,10 @@ export class Game {
     await (opts.splash ?? Promise.resolve());
     this.last = performance.now();
     this.showMenu();
+    // Connect after the menu is up and the page is idle: the online layer is an extra, never part of start-up.
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (idle) idle.call(window, () => this.startCloud(), { timeout: 3000 });
+    else window.setTimeout(() => this.startCloud(), 1500);
     if (this.store.migrated)
       ui.toast(
         'Progress from the previous version was carried over, with a few credits as thanks.',
@@ -369,6 +446,53 @@ export class Game {
         undefined,
         7000,
       );
+  }
+
+  /** Connects the optional online layer in the background. Failure leaves the offline game exactly as it was. */
+  private startCloud(): void {
+    this.cloudUI.mountPrivacy(this.ui.privacyPane);
+    this.cloudUI.renderMenuSlot(this.ui.menuCloudSlot);
+    this.cloud.onStatus((st) => {
+      if (this.flow.state === 'menu') this.cloudUI.renderMenuSlot(this.ui.menuCloudSlot);
+      if (st.sync === 'conflict' && this.flow.state === 'menu') this.cloudUI.maybeShowConflict();
+      if (st.user) void this.flushFeedback();
+    });
+    this.cloud.onNotice((text) => this.ui.toast(text, undefined, undefined, 5000));
+    this.cloud.onOnline(() => void this.flushFeedback());
+    this.privacy.onChange(() => this.cloudUI.renderMenuSlot(this.ui.menuCloudSlot));
+    this.cloud.start();
+    this.telemetry.track({
+      name: 'game_session_started',
+      platform: platformOf(window),
+      qualityTier: this.store.settings.quality,
+      perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, this.store.settings.quality),
+    });
+  }
+
+  /** Sends feedback that was written while offline. Safe to call at any time: it only acts on queued copies. */
+  private async flushFeedback(): Promise<void> {
+    if (!this.feedbackTransport.delivers || !this.feedbackDrafts.pending().length) return;
+    await flushFeedbackOutbox(this.feedbackDrafts, this.feedbackTransport, this.feedbackSent);
+  }
+
+  /** A driving incident for the on-device log and, with consent, the statistics summary. */
+  private incident(type: IncidentType, severity: Severity = 'low'): void {
+    if (!this.inRun || !this.rt) return;
+    this.telemetry.track({
+      name: 'incident',
+      type,
+      levelId: this.level.id,
+      at: routeFraction(this.rt.s, this.course.startS, this.course.finishS),
+      vehicleId: this.vehicleDef.id,
+      severity,
+    });
+  }
+
+  /** The player leaves a mission that is still being driven (quit, restart, change vehicle). */
+  private noteAbandon(): void {
+    if (!this.inRun || !this.rt || this.rt.session.phase !== 'running') return;
+    this.incident('abandoned', 'low');
+    this.telemetry.track({ name: 'mission_failed', levelId: this.level.id, vehicleId: this.vehicleDef.id, reason: 'abandoned', seconds: Math.round(this.rt.session.time) });
   }
 
   // ------------------------------------------------------------------ level / vehicle assets
@@ -559,6 +683,7 @@ export class Game {
     });
     e.on('issue', (issue) => this.onIssue(issue));
     e.on('hazard', ({ type, hazard }) => {
+      if (type === 'warn') this.incident('hazard', 'medium');
       if (type === 'warn') ui.flash('Look out!', hazard.def.label);
       else if (type === 'land') audio.rockfall();
       else if (type === 'appear') audio.yeti();
@@ -568,12 +693,14 @@ export class Game {
       audio.thunder();
     });
     e.on('impact', ({ speed }) => {
+      if (speed >= 4) this.incident('collision', severityFor(speed));
       audio.crash(speed);
       this.rig.kick(clamp(speed / 25, 0.05, 0.6));
       const p = this.rt.body.position;
       this.effects.impact(p.x, p.y - 0.4, p.z, speed);
     });
     e.on('recovered', () => {
+      this.incident('recovered', 'low');
       this.effects.reset();
       this.rig.snap();
       this.touch.reset();
@@ -598,6 +725,10 @@ export class Game {
         audio.warning();
         break;
       case 'outOfFuel':
+        if (!this.fuelReported) {
+          this.fuelReported = true;
+          this.incident('fuel_exhausted', 'high');
+        }
         ui.flash('Out of fuel!', 'Limp to a pit stop - the engine has almost no power');
         audio.stall();
         break;
@@ -673,6 +804,8 @@ export class Game {
   /** Escape closes the front-most overlay (feedback, then about, then the story card). Returns true if one was open. */
   private closeOverlay(): boolean {
     if (this.feedback.isOpen) this.feedback.close();
+    else if (this.heatmap.isOpen) this.heatmap.close();
+    else if (this.cloudUI.closeTop()) return true;
     else if (this.about.isOpen) this.about.close();
     else if (this.briefing.isOpen) this.briefing.skip();
     else return false;
@@ -687,7 +820,7 @@ export class Game {
     else if (this.ui.settingsOpen)
       (document.querySelector('#btn-settings-about') as HTMLElement | null)?.focus();
     else if (s === 'menu')
-      (document.querySelector('#screen-menu:not([hidden]) #btn-credit') as HTMLElement | null)?.focus();
+      (document.querySelector('#screen-menu:not([hidden]) #btn-menu-profile, #screen-menu:not([hidden]) #btn-credit') as HTMLElement | null)?.focus();
   }
 
   private openAbout(): void {
@@ -746,6 +879,8 @@ export class Game {
       if (s.musicVolume > 0) this.audio.startMusic();
       else this.audio.stopMusic();
     }
+    if (!initial && patch.quality !== undefined) this.telemetry.track({ name: 'setting_changed', key: 'quality', value: s.quality });
+    if (!initial && patch.hudMode !== undefined) this.telemetry.track({ name: 'setting_changed', key: 'hudMode', value: s.hudMode });
     this.touch.setSensitivity(s.touchSensitivity);
     this.touch.setLayout(s.touchSteer, s.touchMirror, s.touchLarge);
     this.ui.setHudMode(s.hudMode);
@@ -938,6 +1073,7 @@ export class Game {
   private async chooseLevel(id: string): Promise<void> {
     const def = this.levels.find((l) => l.id === id);
     if (!def || !isLevelUnlocked(def, this.progress())) return;
+    this.telemetry.track({ name: 'mission_selected', levelId: id });
     this.freeGarage = false;
     await this.loadLevel(def);
     const owned = this.store.garage.owned;
@@ -1000,6 +1136,8 @@ export class Game {
     if (!canBuyVehicle(v, this.progress(), this.store.garage.owned, this.store.credits)) return;
     if (!this.store.buyVehicle(id, v.price)) return;
     this.audio.unlockFanfare();
+    this.telemetry.track({ name: 'vehicle_purchased', vehicleId: id });
+    void this.cloud.flush();
     this.ui.toast(`${v.name} is yours!`, undefined, undefined, 3500);
     this.analytics.track({ name: 'vehicle_bought', vehicleId: id });
     this.pickVehicle(v);
@@ -1021,6 +1159,8 @@ export class Game {
       return;
     }
     this.audio.record();
+    this.telemetry.track({ name: 'upgrade_purchased', vehicleId, upgradeId, level: (levels[upgradeId] ?? 0) + 1 });
+    void this.cloud.flush();
     this.analytics.track({ name: 'upgrade_bought', vehicleId, upgradeId, level: levels[upgradeId] ?? 0 + 1 });
     // The upgraded vehicle is rebuilt so the effect is visible in the numbers and in the preview straight away.
     if (this.baseVehicle.id === vehicleId) this.pickVehicle(this.baseVehicle, this.loaner);
@@ -1148,6 +1288,7 @@ export class Game {
   }
 
   private openGarageFromRun(): void {
+    this.noteAbandon();
     this.leaveRun();
     this.freeGarage = false;
     this.openGarageScreen();
@@ -1182,6 +1323,12 @@ export class Game {
     this.store.noteMissionPlayed();
     const level = this.level;
     const c = level.conditions[this.conditionIndex];
+    const attempt = (this.attempts.get(level.id) ?? 0) + 1;
+    this.attempts.set(level.id, attempt);
+    this.fuelReported = false;
+    this.stuckFor = 0;
+    this.telemetry.track({ name: 'vehicle_selected', vehicleId: this.vehicleDef.id });
+    this.telemetry.track({ name: 'mission_started', levelId: level.id, vehicleId: this.vehicleDef.id, conditions: `${c.weather}-${c.time}`, attempt });
     this.analytics.track({
       name: 'mission_start',
       levelId: level.id,
@@ -1236,6 +1383,18 @@ export class Game {
         })
       : { newBest: false, newMedal: false, newScoreBest: false, previousBest: null };
     this.store.addCredits(reward.total);
+    {
+      const cnd = level.conditions[Math.min(this.conditionIndex, level.conditions.length - 1)];
+      if (done) {
+        this.telemetry.track({ name: 'mission_completed', levelId: level.id, vehicleId: r.vehicleId, seconds: r.time, medal: r.medal, attempts: this.attempts.get(level.id) ?? 1 });
+        // Posts to the online leaderboard (when signed in, as a guest or account) or queues it for when online.
+        this.leaderboards.submitRun({ levelId: level.id, vehicleId: r.vehicleId, time: r.time, medal: r.medal, comfort: r.comfort, conditions: `${cnd.weather}-${cnd.time}` });
+      } else {
+        this.telemetry.track({ name: 'mission_failed', levelId: level.id, vehicleId: r.vehicleId, reason: 'timeout', seconds: Math.round(r.time) });
+        this.incident('failed', 'high');
+      }
+      void this.cloud.flush(); // progress is already saved locally; this schedules the cloud copy
+    }
     this.analytics.track({
       name: 'mission_end',
       levelId: level.id,
@@ -1246,6 +1405,7 @@ export class Game {
     const unlocked = done
       ? newlyUnlocked(this.levels, this.vehicles, before, this.store.progress)
       : { levels: [], vehicles: [] };
+    for (const v of unlocked.vehicles) this.telemetry.track({ name: 'vehicle_unlocked', vehicleId: v.id });
     this.pendingCampaign = done && justCompletedCampaign(this.levels, before, this.store.progress);
     const i = this.levels.findIndex((l) => l.id === level.id);
     const next = this.levels.slice(i + 1).find((l) => isLevelUnlocked(l, this.store.progress));
@@ -1286,6 +1446,7 @@ export class Game {
       levels: Object.fromEntries(this.levels.map((l) => [l.id, l.name])),
       vehicles: Object.fromEntries(this.vehicles.map((v) => [v.id, v.name])),
     };
+    this.ui.setFinishLevel(level.id);
     this.ui.showFinish(level, r, extra, names);
   }
 
@@ -1309,11 +1470,13 @@ export class Game {
 
   private restart(): void {
     if (!this.flow.can('restart')) return;
+    this.noteAbandon();
     // A restart never shows the briefing again: straight back to the grid.
     this.beginRun();
   }
 
   private quitToMenu(): void {
+    this.noteAbandon();
     if (!this.flow.dispatch('quit')) return;
     this.leaveRun();
     this.showMenu();
@@ -1533,6 +1696,18 @@ export class Game {
       }
       ds.dt = dt;
       this.audio.update(ds);
+    }
+
+    if (state === 'playing' && rt.session.phase === 'running' && !this.autodriveOn) {
+      // Full throttle but going nowhere for a while: an incident (a wall, a rock, a ditch).
+      this.stuckCooldown = Math.max(0, this.stuckCooldown - dt);
+      if (this.cmd.throttle > 0.6 && Math.abs(speed) < 0.7 && !rt.status.outOfFuel) this.stuckFor += dt;
+      else this.stuckFor = 0;
+      if (this.stuckFor > 6 && this.stuckCooldown <= 0) {
+        this.incident('stuck', 'medium');
+        this.stuckCooldown = 30;
+        this.stuckFor = 0;
+      }
     }
 
     if (state === 'playing') {
@@ -1783,6 +1958,9 @@ export class Game {
           lights: this.world?.env.lightsOn ?? false,
           detailedModel: this.model?.detailed ?? false,
           audioMix: { ...this.audio.mix },
+          cloud: { connection: this.cloud.status.connection, sync: this.cloud.status.sync, uid: this.cloud.uid, name: this.cloud.status.displayName },
+          privacy: this.privacy.value,
+          incidents: this.incidentLog.list().length,
           particlesAlive: this.effects.particles.alive,
           scene: this.garageActive() ? 'garage' : 'world',
           garageVehicle: this.garage?.shownVehicleId ?? null,
@@ -1843,6 +2021,10 @@ export class Game {
     this.effects.dispose();
     this.snow.dispose();
     this.rain.dispose();
+    this.cloud.dispose();
+    this.telemetry.dispose();
+    this.cloudUI.dispose();
+    this.heatmap.dispose();
     this.feedback.dispose();
     this.about.dispose();
     this.briefing.dispose();

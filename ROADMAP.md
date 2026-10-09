@@ -7,6 +7,7 @@
 - Stage 3: five tourism missions; four vehicles; story briefings; mandatory stopped pickups and delivery; fuel, damage and free timed pit stops; selectable 4x4; wet/loose surfaces and ford; weather, dusk/night, headlights and rain; seeded hazards, city traffic and airport rival; credits, ownership, real upgrades and loaners; v3 save migrations; Novarah splash/About branding; optional local feedback and JSON/text export.
 - Stage 4: visual overhaul (warm colour pipeline, Blender-authored vehicles and environment kit loaded through a glTF pipeline with fallbacks, faceted mountains, textured terrain, new UI palette, game-logo menu); five new missions for ten in total (Punakha, Dochula storm, Trongsa gorge, Bumthang night, GMC plains) with terrain drop-offs; chapters on the mission map; campaign-complete screen; asset-loading and campaign tests.
 - Pass 4.5: instrument-cluster HUD with three modes, touch wheel/bar/left-handed/large layouts, tabbed settings, dedicated 3D garage with real upgrade before/after numbers, illustrated campaign map with list alternative, mixer-based audio with four engine voices and weather/surface/night layers, pooled exhaust/mud/spray/damage-smoke effects, roadside grass/fern/cairn/mani-wall dressing, screen transitions.
+- Stage 5 (local, emulator-verified): all ten missions about twice as long, dual headlight beams, Firebase foundation (lazy modular SDK, emulator config, deny-by-default rules with 24 rule tests), guest and e-mail accounts with guest upgrade, cloud saves with three-way conflict handling and a ledger-safe combine, beta leaderboards, real feedback delivery with an offline outbox, consent-gated statistics, a developer incident heatmap.
 - Integration tests exercise full-runtime completions across eligible combinations, careful-driving medals/fuel, services, feedback, rewards, hazards, traffic, weather, lighting and physical upgrades. DEVELOPMENT_LOG.md records browser/performance evidence.
 
 ## Remaining limitations
@@ -15,14 +16,14 @@
 - Automated drivers prove routes/rules. Human handling, comfort, difficulty and enjoyment require playtests.
 - Arcade wading/terrain/circular obstacles simplify contact geometry. Traffic follows lanes without overtaking; hazards follow seeded scripts. Broader varied-seed gameplay needs stress/playtesting.
 - Low quality reduces traffic count, so difficulty differs across quality tiers.
-- Clearing browser data loses local saves/drafts. No accounts, cloud saves, multiplayer, online leaderboard or connected feedback backend exists.
+- Clearing browser data loses local saves/drafts unless the player has an account. Online features are implemented and tested against the **emulators only**: the live rules have not been deployed, and nothing has been verified against the live project. Leaderboard times are unverified (no server-side validation). No multiplayer.
 - Empty tanks allow limp driving. Pit stops cost time rather than credits. Replays earn ordinary rewards; timeout consolation is intentional.
 - Sounds are synthesised and have **not been judged by a human listener**; follow the protocol in docs/AUDIO.md. Headlights and ford effects are stylised.
 - Pass 4.5 did not add dramatic terrain beyond Stage 4's drop-offs and mountain rings, and used no third-party assets (everything is original Blender/synthesised work).
 
 ## Deferred
 
-Firebase, ghost replay, online leaderboards, achievements, multiplayer, Story Mode, first-person exploration, recorded audio/voiceovers, richer tutorial and sophisticated traffic AI. None of these is implemented.
+Trusted leaderboard verification (Cloud Functions or similar, replaying recorded inputs), cross-player heatmap aggregation, App Check enforcement, an internal staff review tool with verified roles, friends lists, ghost replay, achievements, multiplayer, Story Mode, first-person exploration, recorded audio/voiceovers, richer tutorial and sophisticated traffic AI. None of these is implemented.
 
 ## Story Mode (next stage) considerations
 
