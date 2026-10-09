@@ -27,7 +27,7 @@ for (const [level, vehicle] of [
   ['gmc-plains', 'dragon-cruiser'],
 ]) {
   test(`full UI mission completion: ${level}/${vehicle}`, async ({ page }) => {
-    test.setTimeout(420_000);
+    test.setTimeout(900_000);
     await seedSave(
       page,
       makeSave({
@@ -39,7 +39,7 @@ for (const [level, vehicle] of [
     await startMission(page, level, vehicle);
     const before = (await storedSave(page)).progress.levels[level]?.completions ?? 0;
     await drive(page);
-    await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 360_000 });
+    await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 720_000 });
     const s = await state(page);
     expect(s.phase).toBe('finished');
     expect(s.onboard).toBe(s.party);

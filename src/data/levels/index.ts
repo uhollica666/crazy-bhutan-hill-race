@@ -1,18 +1,16 @@
 import type { LevelDef, VehicleDef } from '../types';
-import { airportDash } from './airport-dash';
-import { bumthangNight } from './bumthang-night';
-import { chelelaClimb } from './chelela-climb';
-import { dochulaStorm } from './dochula-storm';
-import { gmcPlains } from './gmc-plains';
-import { passRun } from './pass-run';
-import { punakhaValley } from './punakha-valley';
-import { remoteExpedition } from './remote-expedition';
-import { thimphuPickup } from './thimphu-pickup';
-import { trongsaGorge } from './trongsa-gorge';
+import { EXTENSIONS } from './extensions';
+import { extendLevel } from './extend';
+import { RAW_LEVELS } from './raw';
 
-/** Campaign order. Unlock rules live on each LevelDef; this list only fixes display order. */
+/** Campaign order. Unlock rules live on each LevelDef; this list only fixes display order. Every mission is the
+ * authored level with its `extensions.ts` stretch spliced in (Pass 5 doubled their length). */
 const registry = new Map<string, LevelDef>(
-  [passRun, thimphuPickup, airportDash, punakhaValley, dochulaStorm, chelelaClimb, trongsaGorge, bumthangNight, remoteExpedition, gmcPlains].map((l) => [l.id, l]),
+  RAW_LEVELS.map((l) => {
+    const st = EXTENSIONS[l.id];
+    const level = st ? extendLevel(l, st) : l;
+    return [level.id, level] as [string, LevelDef];
+  }),
 );
 
 export const getLevel = (id: string): LevelDef => {

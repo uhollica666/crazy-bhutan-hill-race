@@ -10,7 +10,7 @@ export const dragonCruiser: VehicleDef = {
   price: 2200,
   capacity: 6,
   drivetrain: { modes: ['4x2', '4x4'], default: '4x2', twoWheelAxle: 1 },
-  fuel: { rangeKm: 3.6, idle: 0.00028, fourByFourFactor: 1.22 },
+  fuel: { rangeKm: 6.8, idle: 0.00015, fourByFourFactor: 1.22 },
   durability: { health: 170, resistance: 0.25 },
   wading: 0.8,
   offroad: 0.95,

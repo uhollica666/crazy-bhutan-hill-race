@@ -43,7 +43,7 @@ test.describe('ten-level arcade campaign', () => {
   });
 
   test('every mission starts, shows its objective, party and conditions, and runs', async ({ page }) => {
-    test.setTimeout(420_000);
+    test.setTimeout(900_000);
     await seedSave(page, makeSave({ finished: ALL, owned: OWNED, credits: 0 }));
     const errors = await openGame(page, '&quality=low');
     const expected: Record<string, { party: number; time: string }> = {
@@ -75,7 +75,7 @@ test.describe('ten-level arcade campaign', () => {
   });
 
   test('finishing the last unfinished mission opens the campaign-complete screen once', async ({ page }) => {
-    test.setTimeout(420_000);
+    test.setTimeout(900_000);
     await seedSave(
       page,
       makeSave({ finished: ALL.filter((id) => id !== 'gmc-plains'), owned: OWNED, credits: 1000 }),
@@ -83,7 +83,7 @@ test.describe('ten-level arcade campaign', () => {
     const errors = await openGame(page, '&quality=low');
     await startMission(page, 'gmc-plains', 'druk-ranger');
     await drive(page, true);
-    await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 300_000 });
+    await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 720_000 });
     await expect(page.locator('#finish-title')).toContainText('Finish line');
     await expect(page.locator('#btn-next-label')).toContainText('Campaign complete');
     await page.locator('#btn-next').click();

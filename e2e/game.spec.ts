@@ -350,14 +350,14 @@ test.describe('delivery missions, fuel and pit stops', () => {
   });
 
   test('Pass Run with the autopilot: pickup, ordered checkpoints, delivery, rewards, persistence', async ({ page }) => {
-    test.setTimeout(420_000);
+    test.setTimeout(900_000);
     const errors = await openGame(page, '&quality=low');
     await startMission(page, 'pass-run', 'dzo-hatch');
     await drive(page, true);
     await expect.poll(async () => (await state(page)).onboard, { timeout: 60_000 }).toBe(2);
     await expect(page.locator('#flash')).toContainText('guests aboard');
     await expect(page.locator('#hud-obj')).toContainText('Checkpoint');
-    await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 360_000 });
+    await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 720_000 });
     await expect(page.locator('#finish-title')).toContainText('reached');
     await expect(page.locator('#finish-grid')).toContainText('Delivered');
     await expect(page.locator('#finish-grid')).toContainText('2/2');
@@ -577,11 +577,11 @@ test.describe('player feedback', () => {
   });
 
   test('from the results screen feedback is optional: the game never blocks on it', async ({ page }) => {
-    test.setTimeout(420_000);
+    test.setTimeout(900_000);
     await openGame(page, '&quality=low');
     await startMission(page, 'pass-run', 'dzo-hatch');
     await drive(page, true);
-    await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 360_000 });
+    await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 720_000 });
     await page.locator('#btn-finish-feedback').click();
     await expect(page.locator('#screen-feedback')).toBeVisible();
     await page.keyboard.press('Escape');

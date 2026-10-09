@@ -10,7 +10,7 @@ export const touristCoaster: VehicleDef = {
   price: 650,
   capacity: 10,
   drivetrain: { modes: ['4x2'], default: '4x2', twoWheelAxle: 1 },
-  fuel: { rangeKm: 2.4, idle: 0.00025, fourByFourFactor: 1 },
+  fuel: { rangeKm: 4.6, idle: 0.00013, fourByFourFactor: 1 },
   durability: { health: 140, resistance: 0.12 },
   wading: 0.35,
   offroad: 0.2,

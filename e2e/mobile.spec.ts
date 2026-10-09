@@ -261,12 +261,12 @@ for (const viewport of [
 test('mobile mission completes through real driving, rewards persist and results feedback exports', async ({
   page,
 }) => {
-  test.setTimeout(360_000);
+  test.setTimeout(900_000);
   await seedSave(page, makeSave());
   const errors = await openGame(page, '&quality=low');
   await startMission(page, 'pass-run');
   await drive(page);
-  await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 300_000 });
+  await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 720_000 });
   expect((await storedSave(page)).progress.levels['pass-run'].completions).toBe(1);
   await page.screenshot({ path: 'screenshots/mobile-results.png' });
   await page.locator('#btn-finish-feedback').tap();

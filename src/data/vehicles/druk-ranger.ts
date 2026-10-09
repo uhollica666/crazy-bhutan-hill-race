@@ -10,7 +10,7 @@ export const drukRanger: VehicleDef = {
   price: 900,
   capacity: 5,
   drivetrain: { modes: ['4x2', '4x4'], default: '4x2', twoWheelAxle: 1 },
-  fuel: { rangeKm: 3.0, idle: 0.0002, fourByFourFactor: 1.28 },
+  fuel: { rangeKm: 5.7, idle: 0.0001, fourByFourFactor: 1.28 },
   durability: { health: 110, resistance: 0.1 },
   wading: 0.5,
   offroad: 0.6,

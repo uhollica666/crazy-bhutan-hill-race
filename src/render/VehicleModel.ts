@@ -13,6 +13,7 @@ import {
   Vector3,
 } from 'three';
 import type { BufferGeometry, MeshStandardMaterial, Object3D } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { instantiate } from './assets';
 import type { VehicleAsset } from './assets';
 import type { VehicleDef } from '../data/types';
@@ -244,19 +245,29 @@ export class VehicleModel {
       }
     }
 
-    // Headlight beam: one additive cone fading to nothing ahead of the car. It costs a single transparent draw
+    // Headlight beams: TWO additive cones, one from each lamp, angled slightly outward so they overlap into a
+    // brighter pool ahead and part toward the verges. Both are merged into one geometry: a single transparent draw
     // call and no real light, which keeps night driving cheap. Hidden unless the conditions ask for lights.
     const beamLen = 20;
-    const beamGeo = new CylinderGeometry(3.4, 0.2, beamLen, 12, 1, true);
-    beamGeo.rotateX(-Math.PI / 2);
-    beamGeo.translate(0, 0, -(def.size.length / 2 + beamLen / 2));
-    const bp = beamGeo.getAttribute('position');
-    const bc = new Float32Array(bp.count * 4);
-    for (let i = 0; i < bp.count; i++) {
-      const far = Math.min(1, Math.max(0, (-bp.getZ(i) - def.size.length / 2) / beamLen));
-      bc.set([1, 0.95, 0.75, 0.42 * (1 - far) ** 1.4], i * 4);
+    const lampX = LIGHT_LAYOUT[def.visual].hx;
+    const cones: BufferGeometry[] = [];
+    for (const side of [-1, 1]) {
+      const cone = new CylinderGeometry(1.25, 0.1, beamLen, 12, 1, true);
+      cone.rotateX(-Math.PI / 2);
+      cone.translate(0, 0, -beamLen / 2);
+      cone.rotateY(-side * 0.07); // a few degrees outward so the two beams stay two beams
+      cone.translate(side * lampX, 0, -(def.size.length / 2));
+      const p = cone.getAttribute('position');
+      const col = new Float32Array(p.count * 4);
+      for (let i = 0; i < p.count; i++) {
+        const far = Math.min(1, Math.max(0, (-p.getZ(i) - def.size.length / 2) / beamLen));
+        col.set([1, 0.95, 0.75, 0.5 * (1 - far) ** 1.3], i * 4);
+      }
+      cone.setAttribute('color', new Float32BufferAttribute(col, 4));
+      cones.push(cone);
     }
-    beamGeo.setAttribute('color', new Float32BufferAttribute(bc, 4));
+    const beamGeo = mergeGeometries(cones, false) as BufferGeometry;
+    cones.forEach((c) => c.dispose());
     const beamMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false, side: DoubleSide });
     this.beam = new Mesh(beamGeo, beamMat);
     this.beam.position.y = LIGHT_LAYOUT[def.visual].y;

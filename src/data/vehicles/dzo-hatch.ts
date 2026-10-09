@@ -10,7 +10,7 @@ export const dzoHatch: VehicleDef = {
   price: 0,
   capacity: 3,
   drivetrain: { modes: ['4x2'], default: '4x2', twoWheelAxle: 1 },
-  fuel: { rangeKm: 2.6, idle: 0.0002, fourByFourFactor: 1 },
+  fuel: { rangeKm: 4.9, idle: 0.0001, fourByFourFactor: 1 },
   durability: { health: 100, resistance: 0.05 },
   wading: 0.2,
   offroad: 0.1,

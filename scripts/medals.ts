@@ -1,5 +1,6 @@
 // Medal calibration table: bun scripts/medals.ts [levelId ...]  (time and medal per autopilot driving style)
 import { listLevels } from '../src/data/levels';
+import { RAW_LEVELS } from '../src/data/levels/raw';
 import { simulate } from '../tests/helpers/sim';
 
 const STYLES = {
@@ -9,7 +10,8 @@ const STYLES = {
   careful: { cornerAccel: 4.2, maxBrake: 0.35, brakeDecel: 3.5 },
 };
 const ids = process.argv.slice(2);
-for (const l of listLevels()) {
+// RAW=1 calibrates the missions as originally authored (before the Pass 5 lengthening) for comparison.
+for (const l of process.env.RAW ? RAW_LEVELS : listLevels()) {
   if (ids.length && !ids.includes(l.id)) continue;
   console.log(`## ${l.id}  medals ${l.medals.gold}/${l.medals.silver}/${l.medals.bronze} limit ${l.timeLimit}`);
   for (const v of l.vehicles) {
