@@ -26,7 +26,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run build && npm run preview',
+    command: 'bun run build && bun run preview',
     url: 'http://localhost:4173',
     reuseExistingServer: true,
     timeout: 180_000,

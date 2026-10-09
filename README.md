@@ -10,23 +10,23 @@ TypeScript · Vite · Three.js · custom arcade vehicle physics · plain DOM/CSS
 
 ## Run it
 
-Requires Node 20.19+ (developed on Node 24).
+Requires [Bun](https://bun.sh) 1.3+ (Vite and Vitest run on Node 20.19+ under the hood; developed on Node 24).
 
 ```bash
-npm install
-npm run dev        # http://localhost:5273
+bun install
+bun run dev        # http://localhost:5273
 ```
 
 | Command                       | What it does                                                |
 | ----------------------------- | ----------------------------------------------------------- |
-| `npm run dev`                 | Dev server with hot reload                                  |
-| `npm run build`               | Type-check + production build into `dist/` (includes sw.js) |
-| `npm run preview`             | Serve `dist/` on :4173                                      |
-| `npm run typecheck`           | `tsc --noEmit`                                              |
-| `npm run lint`                | ESLint                                                      |
-| `npm run format`              | Prettier                                                    |
-| `npm test`                    | Vitest unit/simulation tests                                |
-| `npm run test:e2e`            | Playwright (uses your installed Chrome; builds and serves)  |
+| `bun run dev`                 | Dev server with hot reload                                  |
+| `bun run build`               | Type-check + production build into `dist/` (includes sw.js) |
+| `bun run preview`             | Serve `dist/` on :4173                                      |
+| `bun run typecheck`           | `tsc --noEmit`                                              |
+| `bun run lint`                | ESLint                                                      |
+| `bun run format`              | Prettier                                                    |
+| `bun run test`                | Vitest unit/simulation tests                                |
+| `bun run test:e2e`            | Playwright (uses your installed Chrome; builds and serves)  |
 | `node scripts/make-icons.mjs` | Regenerates favicon / PWA icons from the in-code logo       |
 
 Debug URL flags: `?debug=1` (FPS/draw-call overlay, `window.__cbhr` test API; `` ` `` toggles the overlay), `?autodrive=1` (bot drives), `?quality=low|medium|high`.
