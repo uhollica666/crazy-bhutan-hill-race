@@ -112,6 +112,22 @@ Flat-shaded, vertex-coloured low poly; static things are merged (`GeoBuilder`) a
 
 **Offline.** The service worker precaches the application shell and everything in `public/` (including the models, about 1 MB in total), so all ten levels, whose definitions are in the JavaScript bundle, work offline after the first online load. Level data is code, not downloads; there is no per-level asset fetch to wait for.
 
+## Pass 4.5: game feel and interface
+
+**HUD.** `ui/Hud.ts` renders an SVG instrument cluster from a `HudState` that `Game.afterFrame` fills; `gameplay/EngineSim.ts` is a pure presentation model (rpm, gear ladder derived from the vehicle's `gearTopSpeeds`, shifting, overrun, load) shared by the HUD and the audio, so the gauge and the sound cannot disagree. `hudMode` (standard, minimal, telemetry) is a persisted setting.
+
+**Garage.** `render/GarageScene.ts` owns its own `Scene`, lights, orbit camera and workshop props. `Game` creates it on first use, gives it a second `VehicleModel` of the selected (upgraded) vehicle posed on the turntable, and while the garage is open draws it with `GameRenderer.renderScene` instead of the world (the world, weather and effects are not updated). Input comes from `#garage-stage` (drag, wheel, pinch) and buttons through `UIActions.garageView`. `data/upgrades.ts#upgradePreview` reports before/after values from `applyUpgrades`, the single place upgrade numbers are applied.
+
+**Campaign map.** `data/mapLayout.ts` holds pin positions and the road path; `ui/CampaignMap.ts` renders pure markup (tested without a DOM): real buttons for Tab/arrow/gamepad (`MenuNav` already navigates real buttons), preview on focus, `#btn-map-go` to open the garage. The previous card list remains as the alternative view (`levelsView` setting).
+
+**Audio.** `audio/AudioEngine.ts`: six buses (engine, sfx, ui, ambience, weather, music) into a master gain and a `DynamicsCompressorNode` used as limiter; ambience passes through a fog low-pass; ducking driven by engine work and one-shot events; `audio/voices.ts` per-vehicle recipes. Continuous layers are created once; one-shots are capped and self-disconnecting. Details and listening protocol: `docs/AUDIO.md`.
+
+**Effects.** `render/effects.ts`: one pooled `Particles` buffer (320 sprites, per-particle gravity, drag and growth, scaled by the quality profile's density) fed by `VehicleEffects` (dust, tyre smoke, mud, spray, bow wave, exhaust, damage smoke) from wheel, surface and an `EffectsContext` the game supplies. Skid marks are a ring buffer of quads. Nothing allocates per particle.
+
+**Environment kit additions.** `cairn`, `mani_wall`, `grass_a`, `grass_b` and `fern` join the Blender kit; `Scenery` scatters grass and ferns near roads (density-scaled by quality, none on snow levels), places cairns along the route and a mani wall beside each chorten landmark. All are skipped when the kit cannot be loaded.
+
+**Settings.** Added `ambientVolume`, `touchSteer`, `touchMirror`, `touchLarge`, `levelsView` (older saves load with defaults). The settings screen is a tablist (arrow keys, ARIA roles).
+
 ## Planned extensibility
 
 More vehicles (taxi, bus, performance car) and missions through data; passenger/vehicle-condition systems build on `MotionSampler` and `consumeImpact`; traffic and rivals follow `Road` and reuse `AutoDriver`; ghost replay records the command stream (physics is deterministic given inputs); leaderboards replace the `SaveStore.recordCompletion` sink.

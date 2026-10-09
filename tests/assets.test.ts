@@ -85,3 +85,15 @@ describe('environment kit geometry', () => {
     expect(out.getAttribute('normal')).toBeTruthy();
   });
 });
+
+describe('shipped environment kit', () => {
+  it('contains every model the scenery asks for, including the Pass 4.5 roadside dressing', () => {
+    const buf = readFileSync('public/models/env/kit.glb');
+    const jsonLen = buf.readUInt32LE(12);
+    const json = JSON.parse(buf.subarray(20, 20 + jsonLen).toString('utf8')) as { nodes: { name?: string }[] };
+    const names = new Set(json.nodes.map((n) => n.name));
+    for (const n of ['pine_a', 'pine_b', 'spruce', 'cypress', 'rock_a', 'rock_b', 'rock_c', 'house_0', 'house_1', 'house_2', 'chorten', 'cairn', 'mani_wall', 'grass_a', 'grass_b', 'fern']) {
+      expect(names.has(n), n).toBe(true);
+    }
+  });
+});

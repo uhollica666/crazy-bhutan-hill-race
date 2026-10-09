@@ -77,6 +77,11 @@ await session('mobile-mirror-large', { w: 800, h: 360, touch: true, settings: { 
 await session('mobile-portrait-menu', { w: 390, h: 844, touch: true, settings: {} }, async (page) => {
   await page.screenshot({ path: `${out}/mobile-portrait-menu.png` });
 });
+for (const [w, h] of [[640, 360], [800, 360], [915, 412]]) {
+  await session('mobile-menu-' + w, { w, h, touch: true, settings: {} }, async (page) => {
+    await page.screenshot({ path: out + '/mobile-menu-' + w + 'x' + h + '.png' });
+  });
+}
 await session('settings', { w: 1280, h: 720, touch: false, settings: {} }, async (page) => {
   await page.evaluate(() => document.querySelector('#btn-menu-settings').click());
   await page.waitForSelector('#screen-settings:not([hidden])');

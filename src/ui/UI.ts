@@ -7,6 +7,7 @@ import type { VehicleStats } from '../data/vehicles';
 import { ICONS, KNOT, logoSvg, medalSvg } from './icons';
 import { Hud, hudMarkup } from './Hud';
 import type { HudMode, HudState } from './Hud';
+import { renderCampaignMap, renderMapPreview } from './CampaignMap';
 
 export interface UIActions {
   /** Main menu "Drive": open mission select. */
@@ -67,6 +68,8 @@ export interface LevelCardModel {
   recommended: string;
   /** Short plain-language hint at the main challenge, e.g. "Night, fuel". */
   challenge: string;
+  /** The next unfinished, unlocked mission in campaign order. */
+  isNext: boolean;
 }
 
 export interface CampaignSummary {
@@ -190,6 +193,9 @@ export class UI {
   private readonly hud: Hud;
   private toastTimer = 0;
   private garageModel: GarageModel | null = null;
+  private levelCardsModel: LevelCardModel[] = [];
+  private mapSelected: string | null = null;
+  private levelsView: 'map' | 'list' = 'map';
 
   readonly minimapCanvas: HTMLCanvasElement;
 
@@ -236,8 +242,10 @@ export class UI {
         <header class="sheet-head">
           <button class="icon-btn" id="btn-levels-back" data-back type="button" aria-label="Back to menu">${ICONS.left}</button>
           <div><h2 id="levels-title">Choose a mission</h2><div class="muted" id="levels-progress"></div></div>
+          <button class="btn ghost view-toggle" id="btn-levels-view" type="button" aria-pressed="false"><span>List view</span></button>
           <span class="wallet" id="levels-wallet" title="Driving credits"></span>
         </header>
+        <div class="level-map" id="level-map"></div>
         <div class="cards" id="level-cards" role="list"></div>
       </section>
 
@@ -430,6 +438,7 @@ export class UI {
     this.minimapCanvas = q<HTMLCanvasElement>(host, '#minimap-canvas');
     this.hud = new Hud(host);
     this.bind();
+    this.setLevelsView(settings.levelsView);
     this.syncSettings(settings);
   }
 
@@ -494,6 +503,33 @@ export class UI {
       this.actions.chooseLevel(card.dataset.level as string);
     });
 
+    // Mission map: pins preview on focus or tap; the preview card button opens the garage.
+    const mapEl = q(this.root, '#level-map');
+    mapEl.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      const pin = t.closest<HTMLElement>('[data-pin]');
+      const go = t.closest<HTMLElement>('[data-go]');
+      if (go && !go.hasAttribute('disabled')) {
+        this.actions.click();
+        this.actions.chooseLevel(go.dataset.go as string);
+      } else if (pin) {
+        this.actions.click();
+        this.previewMapPin(pin.dataset.pin ?? null);
+      }
+    });
+    mapEl.addEventListener('dblclick', (e) => {
+      const pin = (e.target as HTMLElement).closest<HTMLElement>('[data-pin]');
+      if (pin && pin.dataset.locked !== '1') this.actions.chooseLevel(pin.dataset.pin as string);
+    });
+    mapEl.addEventListener('focusin', (e) => {
+      const pin = (e.target as HTMLElement).closest<HTMLElement>('[data-pin]');
+      if (pin && pin.dataset.pin !== this.mapSelected) this.previewMapPin(pin.dataset.pin ?? null);
+    });
+    on('#btn-levels-view', () => {
+      const v = this.levelsView === 'map' ? 'list' : 'map';
+      this.setLevelsView(v);
+      this.actions.settingsChanged({ levelsView: v });
+    });
     // Garage camera: drag the empty stage, wheel to zoom, buttons for keyboard and touch users.
     const stage = q(this.root, '#garage-stage');
     const drag = { id: -1, x: 0, y: 0 };
@@ -643,6 +679,7 @@ export class UI {
         const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
         if (!d) return;
         e.preventDefault();
+        e.stopPropagation(); // the menu's spatial arrow navigation must not also move focus
         select(list[(i + d + list.length) % list.length], true);
       });
     });
@@ -749,11 +786,42 @@ export class UI {
         return `<section class="region" aria-label="${esc(r)}"><h3 class="region-title">${esc(r)} <span class="muted">${done}/${mine.length}</span></h3><div class="region-cards">${mine.map(card).join('')}</div></section>`;
       })
       .join('');
+    this.levelCardsModel = cards;
+    this.mapSelected =
+      cards.find((c) => c.selected)?.id ?? cards.find((c) => c.isNext)?.id ?? cards.find((c) => !c.locked)?.id ?? cards[0]?.id ?? null;
+    q(this.root, '#level-map').innerHTML = renderCampaignMap(cards, this.mapSelected);
+    this.previewMapPin(this.mapSelected);
+    this.applyLevelsView();
     this.showFlow('levels');
     this.focusFirst(
       this.screens.levels,
-      `button[data-level]${cards.some((c) => c.selected && !c.locked) ? '.selected' : ':not(.locked)'}`,
+      this.levelsView === 'map'
+        ? '.map-pin.selected'
+        : `button[data-level]${cards.some((c) => c.selected && !c.locked) ? '.selected' : ':not(.locked)'}`,
     );
+  }
+
+  /** Shows the preview card for a map pin (without leaving the map). */
+  private previewMapPin(id: string | null): void {
+    const c = this.levelCardsModel.find((x) => x.id === id);
+    if (!c) return;
+    this.mapSelected = c.id;
+    this.root.querySelectorAll<HTMLElement>('.map-pin').forEach((p) => p.classList.toggle('selected', p.dataset.pin === c.id));
+    q(this.root, '#map-preview').innerHTML = renderMapPreview(c, !c.locked);
+  }
+
+  private applyLevelsView(): void {
+    const map = this.levelsView === 'map';
+    q(this.root, '#level-map').hidden = !map;
+    q(this.root, '#level-cards').hidden = map;
+    const b = q(this.root, '#btn-levels-view');
+    b.setAttribute('aria-pressed', String(!map));
+    q(b, 'span').textContent = map ? 'List view' : 'Map view';
+  }
+
+  setLevelsView(v: 'map' | 'list'): void {
+    this.levelsView = v;
+    this.applyLevelsView();
   }
 
   showCampaignComplete(s: CampaignSummary): void {
@@ -820,7 +888,7 @@ export class UI {
       bar('Braking', v.stats.braking) +
       bar('Stability', v.stats.stability);
     q(this.root, '#veh-facts').innerHTML =
-      `<span><b>${v.capacity}</b> seats</span><span><b>${esc(v.drivetrain)}</b></span><span>Range <b>${Math.round(v.rangeKm)}</b> km</span>`;
+      `<span><b>${v.capacity}</b> seats</span><span><b>${esc(v.drivetrain)}</b></span><span>Range <b>${(v.rangeKm < 20 ? v.rangeKm.toFixed(1) : Math.round(v.rangeKm))}</b> km</span>`;
     const status = q(this.root, '#veh-status');
     const launch = q<HTMLButtonElement>(this.root, '#btn-launch');
     const buy = q(this.root, '#veh-buy');

@@ -150,3 +150,33 @@ Each quality used the same recommended vehicle at the same grid: Hatch for Pass/
 Physical Android/iOS/Safari/Firefox/gamepads, audible output, real GPUs, long-duration leak stress and varied-seed human gameplay remain unverified. Traffic/obstacle/wading physics are deliberately simplified; Low reduces traffic and changes difficulty. No feedback backend/Firebase/cloud save exists; feedback is local/export only and progression adapter wiring is deferred. Next: device profiling and human difficulty/onboarding playtests, then optional consent-aware cloud integration. No Stage 4 implementation was added.
 
 The root deletions `novarah-horizontal-dark@2x.png`, `novarah-horizontal-light@2x.png`, `novarah-symbol@2x.png` and unused untracked `cbhr-logo.png` remain outside this commit. The authoritative logo and derived brand assets are preserved. Build outputs, screenshots, traces and scratch/performance logs remain ignored.
+
+## Stage 4 — arcade campaign completion and visual renaissance
+
+Ten missions in five chapters (Pass Run, Thimphu Pickup, Airport Dash; Punakha Valley, Dochula Storm; Chelela Climb, Trongsa Gorge; Bumthang Night, Remote Expedition; GMC Plains), each with its own route, conditions, hazards and rewards; terrain drop-offs for gorge and valley roads; chapters on the mission map; a campaign-complete screen shown once.
+
+Art direction changed from a blue-tinted flat-shaded look to a warm, filmic one: ACES tone mapping, neutral hemisphere light, warm fog, textured altitude/slope-coloured terrain and faceted mountain ranges (see `docs/VISUAL_DIRECTION.md`). Vehicles and the environment kit are authored in Blender 5.2 (`assets-src/blender/`), optimised with gltf-transform and meshopt (`scripts/build-models.mjs`) and loaded through a never-rejecting `AssetLibrary` with procedural fallbacks. Vehicle reflections use a per-material environment map instead of `scene.environment`, because the latter lit the whole Lambert world and made night look like day.
+
+Bugs found while verifying: the splash's Space key-up activated the focused Drive button (swallowed for 700 ms); Dochula's road originally had a 6 m radius hairpin that the physics could not follow (re-routed with a leading straight, five switchbacks and a meander); circuit missions showed a guest chip and "Checkpoint" objective text although they carry no party. Tests were extended rather than loosened: ten-level campaign, tags, regions, asset fallback and GPU-resource lifecycle (a first-model upload adds about 19 geometries per vehicle; the test warms up before measuring).
+
+## Pass 4.5 — game feel, audiovisual polish and interface redesign
+
+Scope held to polish: no Story Mode, Firebase, multiplayer or new levels.
+
+**Checkpoints.** 4.5A baseline and UI audit; 4.5B HUD and controls; 4.5C garage and campaign map; 4.5D audio; 4.5E effects and environment; 4.5F stabilisation. Commits on branch `pass-4-5-game-feel-polish`.
+
+**HUD.** SVG instrument cluster (speed arc, needle, rev ring, gear from the shared `EngineSim`, fuel and condition, drive-mode chip, route bar), contextual alerts without duplicated checkpoint text, three persisted modes (standard, minimal, telemetry) and a compact phone layout. There are no fake gears: the ladder is derived from each vehicle's `gearTopSpeeds`.
+
+**Controls.** Slide bar or steering wheel (angle-based, springs back), sensitivity, left-handed mirroring and large controls. Settings became five tabs with a keyboard/touch/gamepad help tablist.
+
+**Garage.** Dedicated scene with its own camera, lights and workshop props; the world is not rendered behind it. Frustum culling is disabled for the garage so everything uploads on the first frame (orbiting caused geometry uploads that looked like a leak in the GPU-resource test). Upgrade rows show real before/after values from `applyUpgrades` (the range upgrade for a 3 km hatchback needed a decimal place or it rounded to "no change", which the new test caught).
+
+**Campaign map.** Illustrated SVG map with real-button pins, preview card, honest lock text and a list alternative; the existing e2e tests that clicked list cards now go through `showMissionList` (an intentional UI change, not a weakened assertion).
+
+**Audio.** `AudioEngine` rewritten around six buses, a limiter and ducking, with four engine recipes (`audio/voices.ts`) and surface/weather/night/river/forest layers. Unit tests prove structure (no leaks, bounded polyphony); **nobody has listened to it yet**. `docs/AUDIO.md` is the manual protocol.
+
+**Effects and environment.** Particle pool upgraded with per-particle gravity/drag/growth; exhaust, bonnet smoke, mud, spray and bow wave; roadside grass, ferns, cairns and mani walls added to the Blender kit (kit 133 → 146 KB).
+
+**Verification.** See the final handoff for run results; screenshots from `scripts/pass45-shots.mjs` were reviewed by eye (`screenshots/pass45/`).
+
+**Not done / partial.** Dramatic terrain refinements beyond Stage 4's drop-offs; no third-party assets were added; no real-device, real-GPU or human listening checks.

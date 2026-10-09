@@ -12,7 +12,7 @@ import { AutoDriver } from '../dev/AutoDriver';
 import { MissionDriver } from '../dev/MissionDriver';
 import { MissionRuntime } from '../gameplay/MissionRuntime';
 import type { RaceResult, RaceSession } from '../gameplay/RaceSession';
-import { campaignStatus, challengeTags, justCompletedCampaign } from '../gameplay/campaign';
+import { campaignStatus, challengeTags, justCompletedCampaign, nextUnplayed } from '../gameplay/campaign';
 import { EngineSim } from '../gameplay/EngineSim';
 import { STOP_RADIUS } from '../gameplay/Stops';
 import {
@@ -475,6 +475,7 @@ export class Game {
     this.rig.setVehicle(this.vehicleDef);
     this.audio.setVehicle(this.vehicleDef.audio, this.vehicleDef.id);
     this.engineSim.setVehicle(this.vehicleDef);
+    this.effects?.setVehicle(this.vehicleDef);
     this.driveSound.topSpeed = this.vehicleDef.engine.topSpeed;
     this.driveSound.gearTopSpeeds = this.vehicleDef.engine.gearTopSpeeds;
     if (this.garage) this.garage.setVehicle(this.vehicleDef, peekVehicleAsset(base.id));
@@ -773,6 +774,7 @@ export class Game {
   }
 
   private levelCards(): LevelCardModel[] {
+    const next = nextUnplayed(this.levels, this.progress())?.id ?? null;
     return this.levels.map((l) => {
       const rec = this.store.levelRecord(l.id);
       const locked = !isLevelUnlocked(l, this.progress());
@@ -796,6 +798,7 @@ export class Game {
         region: l.region,
         recommended: getVehicle(l.vehicles[0]).name,
         challenge: challengeTags(l).join(' · '),
+        isNext: l.id === next,
       };
     });
   }
@@ -1429,7 +1432,14 @@ export class Game {
     this.world.update(this.time, this.camPos, body.position, this.lastProgress);
     this.updateWeatherFx(dt, state);
     this.view?.update(this.time);
-    this.effects.update(dt, body, this.course, this.flow.state === 'playing');
+    const st = this.rt.status;
+    this.effects.update(dt, body, this.course, this.flow.state === 'playing', {
+      rpm: this.engineSim.state.rpm,
+      load: this.engineSim.state.load,
+      health: st.health,
+      waterDepth: st.waterDepth,
+      engineRunning: st.stalledFor <= 0 && !st.outOfFuel,
+    });
 
     this.renderer.render(this.rig.camera);
     this.afterFrame(dt, state);
@@ -1614,6 +1624,7 @@ export class Game {
           `draw calls ${st.calls}  tris ${(st.triangles / 1000).toFixed(1)}k  geo ${st.geometries}  tex ${st.textures}`,
           `quality ${this.renderer.level}  dpr ${this.renderer.renderer.getPixelRatio().toFixed(2)}  res x${this.renderer.resolutionScale.toFixed(2)}`,
           `pos ${p.x.toFixed(0)},${p.y.toFixed(1)},${p.z.toFixed(0)}  v ${speed.toFixed(1)}m/s  wheels ${b.groundedWheels}  fuel ${(rt.status.fuel * 100).toFixed(0)}%  hp ${rt.status.health.toFixed(0)}`,
+          `audio ${this.audio.available ? 'on' : 'off'}  voice ${this.vehicleDef.id}  eng ${this.audio.mix.engine.toFixed(2)} sfx ${this.audio.mix.sfx.toFixed(2)} amb ${this.audio.mix.ambience.toFixed(2)} wx ${this.audio.mix.weather.toFixed(2)} duck ${this.audio.mix.duck.toFixed(2)}`,
           `${this.level.id} / ${this.vehicleDef.id}  ${this.flow.state}${this.flow.state === 'menu' ? '' : '/' + rt.session.phase}${mem ? `  heap ${(mem.usedJSHeapSize / 1048576).toFixed(0)}MB` : ''}`,
         ].join('\n'),
       );
@@ -1771,6 +1782,8 @@ export class Game {
           loaner: this.loaner,
           lights: this.world?.env.lightsOn ?? false,
           detailedModel: this.model?.detailed ?? false,
+          audioMix: { ...this.audio.mix },
+          particlesAlive: this.effects.particles.alive,
           scene: this.garageActive() ? 'garage' : 'world',
           garageVehicle: this.garage?.shownVehicleId ?? null,
           garageView: this.garage?.view ?? null,

@@ -6,6 +6,7 @@
 - Stage 2: multiple vehicles/routes, comfort/scoring, unlocks, live garage preview, quality presets, adaptive resolution and effects.
 - Stage 3: five tourism missions; four vehicles; story briefings; mandatory stopped pickups and delivery; fuel, damage and free timed pit stops; selectable 4x4; wet/loose surfaces and ford; weather, dusk/night, headlights and rain; seeded hazards, city traffic and airport rival; credits, ownership, real upgrades and loaners; v3 save migrations; Novarah splash/About branding; optional local feedback and JSON/text export.
 - Stage 4: visual overhaul (warm colour pipeline, Blender-authored vehicles and environment kit loaded through a glTF pipeline with fallbacks, faceted mountains, textured terrain, new UI palette, game-logo menu); five new missions for ten in total (Punakha, Dochula storm, Trongsa gorge, Bumthang night, GMC plains) with terrain drop-offs; chapters on the mission map; campaign-complete screen; asset-loading and campaign tests.
+- Pass 4.5: instrument-cluster HUD with three modes, touch wheel/bar/left-handed/large layouts, tabbed settings, dedicated 3D garage with real upgrade before/after numbers, illustrated campaign map with list alternative, mixer-based audio with four engine voices and weather/surface/night layers, pooled exhaust/mud/spray/damage-smoke effects, roadside grass/fern/cairn/mani-wall dressing, screen transitions.
 - Integration tests exercise full-runtime completions across eligible combinations, careful-driving medals/fuel, services, feedback, rewards, hazards, traffic, weather, lighting and physical upgrades. DEVELOPMENT_LOG.md records browser/performance evidence.
 
 ## Remaining limitations
@@ -16,7 +17,8 @@
 - Low quality reduces traffic count, so difficulty differs across quality tiers.
 - Clearing browser data loses local saves/drafts. No accounts, cloud saves, multiplayer, online leaderboard or connected feedback backend exists.
 - Empty tanks allow limp driving. Pit stops cost time rather than credits. Replays earn ordinary rewards; timeout consolation is intentional.
-- Sounds are synthesised; headlights and ford effects are stylised.
+- Sounds are synthesised and have **not been judged by a human listener**; follow the protocol in docs/AUDIO.md. Headlights and ford effects are stylised.
+- Pass 4.5 did not add dramatic terrain beyond Stage 4's drop-offs and mountain rings, and used no third-party assets (everything is original Blender/synthesised work).
 
 ## Deferred
 

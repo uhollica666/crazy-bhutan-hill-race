@@ -400,9 +400,66 @@ export class Scenery {
     }
     varied(['rock_a', 'rock_b', 'rock_c'], rocks, rockGeometry, 0.1);
 
+    // ---- roadside dressing (kit only; skipped when the kit is missing): grass, ferns, cairns
+    if (kit) {
+      const snowy = level.weather === 'snow';
+      const grassA: Matrix4[] = [];
+      const grassB: Matrix4[] = [];
+      const ferns: Matrix4[] = [];
+      const cairns: Matrix4[] = [];
+      const cp = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
+      const grassWant = snowy ? 0 : Math.min(1400, Math.round(level.scenery.trees * 1.3));
+      for (let tries = 0; tries < grassWant * 6 && grassA.length + grassB.length < grassWant; tries++) {
+        const x = lerp(b.minX + margin, b.maxX - margin, rng());
+        const z = lerp(b.minZ + margin, b.maxZ - margin, rng());
+        const k = nodeIdx(x, z);
+        const d = terrain.roadDist[k];
+        if (d < road.wallOffset + 0.9 || d > 30) continue;
+        const h = terrain.heightAt(x, z);
+        if (h < terrain.waterLevel + 1.2 || h > treeLine || terrain.normals[k * 3 + 1] < 0.8) continue;
+        if (rng() > 1 - d / 38) continue; // thicker nearer the road
+        const sc = 0.8 + rng() * 0.9;
+        (rng() < 0.55 ? grassA : grassB).push(compose(x, h - 0.02, z, rng() * 6.28, sc, sc * (0.8 + rng() * 0.6), sc));
+      }
+      const fernWant = snowy ? 0 : Math.round(level.scenery.trees * 0.35);
+      for (let tries = 0; tries < fernWant * 10 && ferns.length < fernWant; tries++) {
+        const x = lerp(b.minX + margin, b.maxX - margin, rng());
+        const z = lerp(b.minZ + margin, b.maxZ - margin, rng());
+        const k = nodeIdx(x, z);
+        const d = terrain.roadDist[k];
+        if (d < road.wallOffset + 3 || d > 55) continue;
+        const h = terrain.heightAt(x, z);
+        if (h < terrain.waterLevel + 2 || h > treeLine - 10 || terrain.normals[k * 3 + 1] < 0.78) continue;
+        const forest = fbm2(x / 55, z / 55, level.scenery.seed, 3) * 0.5 + 0.5;
+        if (forest < 0.5 || rng() > 0.7) continue;
+        const sc = 0.9 + rng() * 0.8;
+        ferns.push(compose(x, h - 0.02, z, rng() * 6.28, sc));
+      }
+      // A cairn with prayer flags every few hundred metres, alternating sides.
+      for (let at = 140 + rng() * 80, i = 0; at < road.length - 80 && cairns.length < 14; at += 190 + rng() * 140, i++) {
+        road.at(at, cp);
+        const side = i % 2 ? 1 : -1;
+        const off = road.wallOffset + 1.3 + rng() * 1.6;
+        const x = cp.x + -cp.tz * side * off;
+        const z = cp.z + cp.tx * side * off;
+        const h = terrain.heightAt(x, z);
+        if (h < terrain.waterLevel + 1.5 || terrain.normals[nodeIdx(x, z) * 3 + 1] < 0.8) continue;
+        cairns.push(compose(x, h - 0.05, z, rng() * 6.28, 0.9 + rng() * 0.4));
+      }
+      const one = (name: string, list: Matrix4[], tint: number, scaled = true): void => {
+        const g = kit.geo(name);
+        if (g && list.length) this.registerInstanced(g, list, material, scaled, tint, rng);
+      };
+      one('grass_a', grassA, 0.2);
+      one('grass_b', grassB, 0.2);
+      one('fern', ferns, 0.15);
+      one('cairn', cairns, 0.06, false);
+    }
+
     // ---- landmarks
     const houses: Matrix4[] = [];
     const chortens: Matrix4[] = [];
+    const maniWalls: Matrix4[] = [];
     const yaks: Matrix4[] = [];
     const dzongs: Matrix4[] = [];
     const terminals: Matrix4[] = [];
@@ -451,6 +508,11 @@ export class Scenery {
           break;
         case 'chorten':
           chortens.push(compose(x, y, z, faceRoad, sc));
+          if (kit?.has('mani_wall')) {
+            const mx = x + pose.tx * 5.5 * sc;
+            const mz = z + pose.tz * 5.5 * sc;
+            maniWalls.push(compose(mx, terrain.heightAt(mx, mz), mz, Math.atan2(pose.tx, pose.tz) + Math.PI / 2, sc));
+          }
           break;
         case 'chortenGroup': {
           // A terraced field of small chortens, in the spirit of a memorial ridge of 108.
@@ -558,6 +620,7 @@ export class Scenery {
 
     varied(['house_0', 'house_1', 'house_2'], houses, houseGeometry, 0, false);
     varied(['chorten'], chortens, chortenGeometry, 0, false);
+    if (kit && maniWalls.length) this.registerInstanced(kit.geo('mani_wall') as BufferGeometry, maniWalls, material, false, 0.05, rng);
     this.registerInstanced(yakGeometry(), yaks, material, false);
     this.registerInstanced(dzongGeometry(), dzongs, material, false);
     this.registerInstanced(terminalGeometry(), terminals, material, false);

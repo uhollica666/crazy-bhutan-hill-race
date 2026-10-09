@@ -33,6 +33,11 @@ export interface GameState {
   loaner: boolean;
   lights: boolean;
   detailedModel: boolean;
+  scene: 'garage' | 'world';
+  garageVehicle: string | null;
+  garageView: { azimuth: number; polar: number; distance: number } | null;
+  audioMix: { master: number; engine: number; sfx: number; ambience: number; weather: number; duck: number };
+  particlesAlive: number;
 }
 
 type Api = {
@@ -64,6 +69,8 @@ export interface SaveOptions {
   /** Story briefings already read. Defaults to every mission so tests go straight to the road. */
   storySeen?: string[] | 'all';
   upgrades?: Record<string, Record<string, number>>;
+  /** Settings overrides (for example `{ hudMode: 'minimal' }`). */
+  settings?: Record<string, unknown>;
 }
 
 const ALL_LEVELS = ['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition'];
@@ -91,6 +98,8 @@ export function makeSave(o: SaveOptions = {}): string {
       touchControls: 'auto',
       touchSensitivity: 1,
       reducedMotion: false,
+      levelsView: 'list',
+      ...o.settings,
     },
     progress: { levels },
     selection: { levelId: null, vehicleId: null },
@@ -135,10 +144,17 @@ export async function waitForPhase(page: Page, phase: string, timeout = 30_000):
   await expect.poll(async () => (await state(page)).phase, { timeout }).toBe(phase);
 }
 
+/** Switches the mission screen to the plain list if it is showing the illustrated map. */
+export async function showMissionList(page: Page): Promise<void> {
+  await expect(page.locator('#screen-levels')).toBeVisible();
+  if (!(await page.locator('#level-cards').isVisible())) await page.locator('#btn-levels-view').click();
+  await expect(page.locator('#level-cards')).toBeVisible();
+}
+
 /** Goes Drive -> mission card -> (optional vehicle) -> garage, without launching. */
 export async function openGarage(page: Page, levelId: string, vehicleId?: string): Promise<void> {
   await page.locator('#btn-start').click();
-  await expect(page.locator('#screen-levels')).toBeVisible();
+  await showMissionList(page);
   await page.locator(`button[data-level="${levelId}"]`).click();
   await expect(page.locator('#screen-garage')).toBeVisible({ timeout: 30_000 });
   if (vehicleId) {

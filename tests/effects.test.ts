@@ -91,3 +91,61 @@ describe('VehicleEffects driven by real physics', () => {
     fx.dispose();
   });
 });
+
+describe('Pass 4.5 effects: exhaust, damage smoke, wading, pooling', () => {
+  const level = getLevel('pass-run');
+  const course = new Course(level);
+  const setup = (): { body: VehicleBody; fx: VehicleEffects; input: ReturnType<typeof createVehicleInput> } => {
+    const body = new VehicleBody(getVehicle('druk-ranger'));
+    const p = course.poseAt(course.startS);
+    body.place(course, p.x, p.z, p.tx, p.tz);
+    const fx = new VehicleEffects();
+    fx.setVehicle(getVehicle('druk-ranger'));
+    const input = createVehicleInput();
+    input.throttle = 1;
+    return { body, fx, input };
+  };
+  const run = (body: VehicleBody, fx: VehicleEffects, input: ReturnType<typeof createVehicleInput>, seconds: number, ctx?: Parameters<VehicleEffects['update']>[4]): void => {
+    for (let i = 0; i < 120 * seconds; i++) {
+      body.step(1 / 120, input, course);
+      if (i % 2 === 0) fx.update(1 / 60, body, course, true, ctx);
+    }
+  };
+
+  it('a running engine puffs exhaust; a stopped engine does not', () => {
+    const a = setup();
+    run(a.body, a.fx, a.input, 3, { rpm: 0.6, load: 0.9, health: 100, waterDepth: 0, engineRunning: true });
+    expect(a.fx.particles.alive).toBeGreaterThan(0);
+    const b = setup();
+    run(b.body, b.fx, b.input, 3, { rpm: 0.2, load: 0, health: 100, waterDepth: 0, engineRunning: false });
+    expect(b.fx.particles.alive).toBe(0);
+  });
+
+  it('a healthy car does not smoke from the bonnet, a wrecked one does', () => {
+    const ok = setup();
+    ok.input.throttle = 0;
+    run(ok.body, ok.fx, ok.input, 2, { rpm: 0.2, load: 0, health: 100, waterDepth: 0, engineRunning: true });
+    const okAlive = ok.fx.particles.alive;
+    const hurt = setup();
+    hurt.input.throttle = 0;
+    run(hurt.body, hurt.fx, hurt.input, 2, { rpm: 0.2, load: 0, health: 8, waterDepth: 0, engineRunning: true });
+    expect(hurt.fx.particles.alive).toBeGreaterThan(okAlive + 3);
+  });
+
+  it('wading sprays water, and the pool stays bounded however long it runs', () => {
+    const { body, fx, input } = setup();
+    run(body, fx, input, 8, { rpm: 0.7, load: 1, health: 100, waterDepth: 0.5, engineRunning: true });
+    expect(fx.particles.alive).toBeGreaterThan(5);
+    expect(fx.particles.alive).toBeLessThanOrEqual(320);
+  });
+
+  it('particle gravity makes chunks fall while smoke rises', () => {
+    const p = new Particles(8);
+    p.emit(0, 5, 0, 0, 0, 0, 1, 2, 1, 1, 1, 1, 9, 0.5, 0); // a falling chunk
+    p.emit(1, 5, 0, 0, 0, 0, 1, 2, 1, 1, 1, 1, -0.8, 1, 0); // a rising puff
+    p.update(0.5);
+    const pos = p.points.geometry.getAttribute('position');
+    expect(pos.getY(0)).toBeLessThan(5);
+    expect(pos.getY(1)).toBeGreaterThan(5);
+  });
+});

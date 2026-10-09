@@ -4,6 +4,7 @@ import {
   drive,
   makeSave,
   openGame,
+  showMissionList,
   seedSave,
   startMission,
   state,
@@ -39,6 +40,7 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
     const errors = await openGame(page);
     await page.screenshot({ path: 'screenshots/mobile-menu.png' });
     await page.locator('#btn-start').tap();
+    await showMissionList(page);
     await page.locator('button[data-level="pass-run"]').tap();
     await expect(page.locator('#screen-garage')).toBeVisible({ timeout: 30_000 });
     await page.locator('#btn-launch').tap();
@@ -71,7 +73,8 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
         brake: r('.pedal.brake'),
         steer: r('.steer-pad'),
         pause: r('#btn-pause'),
-        left: r('.hud-left'),
+        left: r('.hud-tl'),
+        gauge: r('#gauge'),
         vw: innerWidth,
         vh: innerHeight,
       };
@@ -83,6 +86,12 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
     expect(boxes.steer.right).toBeLessThan(boxes.brake.left);
     expect(boxes.pause.bottom).toBeLessThan(boxes.gas.top);
     expect(boxes.left.bottom).toBeLessThan(boxes.steer.top);
+    // The instrument cluster sits between the steering control and the pedals, overlapping neither.
+    const hit = (a: { left: number; right: number; top: number; bottom: number }, b: typeof a): boolean =>
+      a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    expect(hit(boxes.gauge, boxes.steer)).toBe(false);
+    expect(hit(boxes.gauge, boxes.brake)).toBe(false);
+    expect(hit(boxes.gauge, boxes.gas)).toBe(false);
 
     await page.locator('#btn-pause').tap();
     await expect(page.locator('#screen-pause')).toBeVisible();
@@ -216,6 +225,7 @@ for (const viewport of [
     await expect(page.locator('#screen-feedback')).toContainText('NOT been sent');
     await page.locator('#fb-done').tap();
     await page.locator('#btn-start').tap();
+    await showMissionList(page);
     await page.locator('button[data-level="pass-run"]').tap();
     await page.locator('#btn-launch').tap();
     await expect(page.locator('#screen-briefing')).toBeVisible();

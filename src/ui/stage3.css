@@ -888,3 +888,251 @@ body.reduce-motion *::after {
   font-size: 12.5px;
   margin: 6px 0;
 }
+
+/* ---- Pass 4.5: the illustrated campaign map */
+.view-toggle {
+  margin-left: auto;
+  margin-right: 10px;
+}
+.level-map[hidden],
+#level-cards[hidden] {
+  display: none;
+}
+.level-map {
+  width: min(1040px, 100%);
+  display: grid;
+  gap: 12px;
+}
+.map-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1000 / 620;
+  max-height: 62vh;
+  margin: 0 auto;
+  border-radius: 16px;
+  border: 2px solid var(--gold);
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  background: #cdbb98;
+}
+.map-art > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.map-road-ghost {
+  fill: none;
+  stroke: #6e5a42;
+  stroke-width: 5;
+  stroke-dasharray: 3 9;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+.map-road {
+  fill: none;
+  stroke: #7d2a21;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.map-region {
+  font-family: var(--serif);
+  font-size: 15px;
+  letter-spacing: 0.28em;
+  fill: #5a1a14;
+  opacity: 0.7;
+}
+.map-pins {
+  position: absolute;
+  inset: 0;
+}
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  background: none;
+  border: 0;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--cream);
+  font: inherit;
+}
+.pin-disc {
+  display: grid;
+  place-items: center;
+  width: clamp(30px, 5.2vw, 46px);
+  height: clamp(30px, 5.2vw, 46px);
+  border-radius: 50%;
+  background: #3b2a1c;
+  border: 3px solid var(--gold);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+  font-family: var(--serif);
+  font-size: clamp(13px, 2.2vw, 19px);
+  transition: transform 0.12s;
+}
+.map-pin.done .pin-disc {
+  border-color: var(--medal, var(--saffron));
+  background: #5a3a1f;
+}
+.map-pin.next .pin-disc {
+  animation: pin-pulse 1.8s ease-in-out infinite;
+  border-color: var(--saffron-light);
+}
+.map-pin.locked .pin-disc {
+  background: #4a4136;
+  border-color: #8a7d68;
+  color: #cbbd9f;
+}
+.pin-disc svg {
+  position: static;
+  display: block;
+  width: 56%;
+  height: 56%;
+}
+.map-pin.selected .pin-disc,
+.map-pin:hover .pin-disc,
+.map-pin:focus-visible .pin-disc {
+  transform: scale(1.18);
+  border-color: var(--saffron-light);
+}
+.map-pin:focus-visible {
+  outline: 2px solid var(--saffron-light);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+.pin-name {
+  font-size: clamp(10px, 1.5vw, 13px);
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: rgba(27, 20, 15, 0.78);
+  white-space: nowrap;
+}
+@keyframes pin-pulse {
+  50% {
+    box-shadow: 0 0 0 9px rgba(244, 193, 78, 0.28);
+  }
+}
+.map-preview {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px 24px;
+  align-items: center;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 2px solid var(--gold);
+  background: linear-gradient(180deg, rgba(62, 47, 34, 0.94), rgba(27, 20, 15, 0.94));
+}
+.map-preview h3 {
+  margin: 2px 0;
+  font-family: var(--serif);
+}
+.map-preview p {
+  margin: 2px 0;
+}
+.pv-side {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  text-align: right;
+}
+.pv-lock {
+  color: #e8b590;
+}
+.dots .off {
+  opacity: 0.3;
+}
+@media (max-width: 640px) {
+  .map-preview {
+    grid-template-columns: 1fr;
+  }
+  .pv-side {
+    justify-items: start;
+    text-align: left;
+  }
+  .map-art {
+    max-height: 46vh;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .map-art {
+    max-height: 56vh;
+  }
+  .level-map {
+    grid-template-columns: 1fr 260px;
+  }
+  .map-preview {
+    grid-template-columns: 1fr;
+    align-self: start;
+  }
+  .pv-side {
+    justify-items: start;
+    text-align: left;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-pin.next .pin-disc {
+    animation: none;
+  }
+}
+
+/* ---- Pass 4.5: screen transitions (switched off by "Reduce motion" and the OS setting) */
+.screen[data-screen]:not([hidden]):not(#hud) {
+  animation: screen-in 0.26s ease-out both;
+}
+.modal:not([hidden]) > .panel {
+  animation: panel-in 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+}
+
+/* ---- Pass 4.5: phones in landscape: the menu becomes two columns so nothing overflows or hides under the footer */
+@media (max-height: 520px) and (orientation: landscape) {
+  .menu-main {
+    width: min(860px, 96vw);
+    grid-template-columns: minmax(120px, 36%) 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 22px;
+    row-gap: 8px;
+    align-content: center;
+  }
+  .menu-main .brand {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+    justify-content: center;
+  }
+  .menu-main .brand .game-logo {
+    width: clamp(110px, 52vh, 230px);
+  }
+  .menu-main .tagline {
+    display: none;
+  }
+  .menu-main .level-card {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 8px 12px;
+  }
+  .menu-main .level-card .best {
+    display: none;
+  }
+  .menu-main .menu-actions {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .menu-foot .muted {
+    display: none;
+  }
+}

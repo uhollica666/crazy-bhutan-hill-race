@@ -67,7 +67,12 @@ export class World3D {
       const mesh = o as Mesh;
       if (mesh.geometry) mesh.geometry.dispose();
       const m = mesh.material as MeshLambertMaterial | MeshLambertMaterial[] | undefined;
-      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => x.dispose());
+      if (m)
+        (Array.isArray(m) ? m : [m]).forEach((x) => {
+          // Terrain detail and road textures are created per world: release them with it.
+          x.map?.dispose();
+          x.dispose();
+        });
     });
     this.scenery.dispose();
     this.gates.dispose();

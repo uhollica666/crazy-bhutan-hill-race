@@ -3,6 +3,7 @@ import {
   drive,
   makeSave,
   openGame,
+  showMissionList,
   openGarage,
   seedSave,
   startMission,
@@ -29,6 +30,7 @@ test.describe('ten-level arcade campaign', () => {
   test('the mission map lists ten missions in five chapters, with tags, rewards and honest locks', async ({ page }) => {
     const errors = await openGame(page);
     await page.locator('#btn-start').click();
+    await showMissionList(page);
     await expect(page.locator('button[data-level]')).toHaveCount(10);
     await expect(page.locator('.region')).toHaveCount(5);
     await expect(page.locator('#levels-progress')).toContainText('0 of 10 missions complete');
@@ -139,11 +141,14 @@ test.describe('3D assets: loading, fallback and lifecycle', () => {
       await page.waitForTimeout(300);
       return { g: s.stats.geometries, t: s.stats.textures };
     };
-    const first = await base('pass-run');
-    await base('thimphu-pickup');
+    // The first garage visit builds the garage scene, so measure from a warm start.
+    // Every visit below loads a different level than the one before, so each measurement sees the same state
+    // (a repeated visit to the already-loaded level would not have to rebuild its world).
+    await base('pass-run');
+    const first = await base('thimphu-pickup');
     await base('punakha-valley');
     await base('gmc-plains');
-    const again = await base('pass-run');
+    const again = await base('thimphu-pickup');
     // The same level after a round trip holds (about) the same amount of GPU memory.
     expect(Math.abs(again.g - first.g)).toBeLessThanOrEqual(12);
     expect(Math.abs(again.t - first.t)).toBeLessThanOrEqual(3);

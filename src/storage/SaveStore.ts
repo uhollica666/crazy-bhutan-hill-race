@@ -25,6 +25,8 @@ export interface Settings {
   hudMode: 'standard' | 'minimal' | 'telemetry';
   /** Touch steering: a slide bar or a steering wheel. */
   touchSteer: 'bar' | 'wheel';
+  /** Mission select: the illustrated map or a plain list. */
+  levelsView: 'map' | 'list';
   /** Mirror the touch layout (steering on the right) for left-handed play. */
   touchMirror: boolean;
   /** Larger touch controls. */
@@ -121,6 +123,7 @@ export const defaultSettings = (quality: QualityLevel = 'medium'): Settings => (
   reducedMotion: false,
   hudMode: 'standard',
   touchSteer: 'bar',
+  levelsView: 'map',
   touchMirror: false,
   touchLarge: false,
 });
@@ -160,6 +163,7 @@ export function parseSettings(raw: unknown, fallback: Settings): Settings {
     reducedMotion: typeof o.reducedMotion === 'boolean' ? o.reducedMotion : fallback.reducedMotion,
     hudMode: o.hudMode === 'minimal' || o.hudMode === 'telemetry' || o.hudMode === 'standard' ? o.hudMode : fallback.hudMode,
     touchSteer: o.touchSteer === 'wheel' || o.touchSteer === 'bar' ? o.touchSteer : fallback.touchSteer,
+    levelsView: o.levelsView === 'list' || o.levelsView === 'map' ? o.levelsView : fallback.levelsView,
     touchMirror: typeof o.touchMirror === 'boolean' ? o.touchMirror : fallback.touchMirror,
     touchLarge: typeof o.touchLarge === 'boolean' ? o.touchLarge : fallback.touchLarge,
   };

@@ -160,6 +160,8 @@ export function upgradePreview(base: VehicleDef, levels: UpgradeLevels, id: Upgr
   if (nextUpgradeCost(base, levels, id) === null) return null;
   const now = applyUpgrades(base, levels);
   const next = applyUpgrades(base, { ...levels, [id]: (levels[id] ?? 0) + 1 });
+  // Short-range vehicles need a decimal or the upgrade would round to no change.
+  const km = (v: number): string => `${v < 20 ? v.toFixed(1) : Math.round(v)} km`;
   const rel = (x: number, y: number, ref: number): { before: string; after: string } => ({
     before: `${Math.round((x / ref) * 100)}%`,
     after: `${Math.round((y / ref) * 100)}%`,
@@ -184,7 +186,7 @@ export function upgradePreview(base: VehicleDef, levels: UpgradeLevels, id: Upgr
       return [{ label: 'Braking force', ...rel(now.engine.brakeForce, next.engine.brakeForce, base.engine.brakeForce) }];
     case 'tank':
     case 'efficiency':
-      return [{ label: 'Range', before: `${Math.round(now.fuel.rangeKm)} km`, after: `${Math.round(next.fuel.rangeKm)} km` }];
+      return [{ label: 'Range', before: km(now.fuel.rangeKm), after: km(next.fuel.rangeKm) }];
     case 'armor':
       return [
         { label: 'Condition', before: `${Math.round(now.durability.health)}`, after: `${Math.round(next.durability.health)}` },

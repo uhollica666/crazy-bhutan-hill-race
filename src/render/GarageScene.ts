@@ -13,6 +13,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  Object3D,
   PerspectiveCamera,
   PlaneGeometry,
   PointLight,
@@ -88,6 +89,7 @@ export class GarageScene {
     this.lantern.position.set(-3.6, 2.4, -2.2);
     this.scene.add(hemi, amb, this.key, this.key.target, rim, this.lantern);
     this.build();
+    this.noCulling(this.scene);
     this.resize(this.width, this.height);
     this.applyCamera(true);
   }
@@ -226,6 +228,7 @@ export class GarageScene {
     m.root.traverse((o) => {
       if ((o as Mesh).isMesh) (o as Mesh).castShadow = true;
     });
+    this.noCulling(m.root);
     this.turntable.add(m.root);
     this.model = m;
     this.vehicleId = def.id;
@@ -238,6 +241,16 @@ export class GarageScene {
     this.lookY = def.size.height * 0.45;
     this.look.set(0, this.lookY, 0);
     this.idle = 0;
+  }
+
+  /**
+   * The scene is small and always in view, so nothing is frustum-culled: every mesh is uploaded to the GPU on the
+   * first frame instead of as the camera turns (which would cause hitches while orbiting).
+   */
+  private noCulling(root: Object3D): void {
+    root.traverse((o) => {
+      o.frustumCulled = false;
+    });
   }
 
   get shownVehicleId(): string {

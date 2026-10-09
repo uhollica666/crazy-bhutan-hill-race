@@ -232,6 +232,70 @@ def chorten(seed=3):
     return v.to_object()
 
 
+def cairn(seed=21):
+    """A stack of flat river stones with a small prayer-flag pole: a roadside offering."""
+    v = VC("cairn", seed)
+    z = 0.0
+    r = 0.42
+    for i in range(6):
+        h = 0.14 + v.rng.random() * 0.08
+        w = r * (1.0 - i * 0.12) * (0.9 + v.rng.random() * 0.25)
+        v.box((v.rng.uniform(-0.04, 0.04), v.rng.uniform(-0.04, 0.04), z + h / 2), (w * 2.0, w * 1.7, h), mix(STONE, STONE_DARK, v.rng.random()), rot_z=v.rng.uniform(0, 3.1), top=shade(STONE, 1.12))
+        z += h * 0.92
+    v.box((0.0, 0.0, z + 0.55), (0.04, 0.04, 1.1), TIMBER_DARK)
+    for i, c in enumerate([0x3a62a8, 0xefe7d3, 0xc2352b, 0x3f8f4e, 0xe0a82d]):
+        v.box((0.12 + 0.0, 0.0, z + 1.0 - i * 0.12), (0.22, 0.015, 0.1), c)
+    return v.to_object()
+
+
+def mani_wall(seed=22):
+    """A low whitewashed mani wall with carved slate tablets and a maroon-painted coping."""
+    v = VC("mani_wall", seed)
+    L = 4.0
+    v.box((0, 0, 0.55), (L, 0.7, 1.1), WHITE, top=MAROON)
+    v.box((0, 0, 0.04), (L + 0.2, 0.9, 0.08), STONE_DARK)
+    for i in range(5):
+        x = -L / 2 + 0.45 + i * 0.78
+        v.box((x, -0.36, 0.62), (0.5, 0.05, 0.62), 0x4b4a46 if i % 2 else 0x5a5651)
+        v.box((x, -0.38, 0.62), (0.26, 0.02, 0.3), OCHRE)
+    return v.to_object()
+
+
+def grass_tuft(seed=23, tall=0.5, col_a=0x667f3a, col_b=0xa9bd5e):
+    """A little fan of crossed blades: cheap vegetation for roadsides."""
+    v = VC("grass_tuft", seed)
+    n = 9
+    for i in range(n):
+        a = 2 * math.pi * i / n + v.rng.uniform(-0.3, 0.3)
+        r0 = v.rng.uniform(0.02, 0.14)
+        h = tall * v.rng.uniform(0.6, 1.2)
+        lean = v.rng.uniform(0.1, 0.35)
+        bx, by = r0 * math.cos(a), r0 * math.sin(a)
+        tx, ty = bx + lean * math.cos(a), by + lean * math.sin(a)
+        w = 0.05
+        nx, ny = -math.sin(a) * w, math.cos(a) * w
+        v.face([Vector((bx - nx, by - ny, 0)), Vector((bx + nx, by + ny, 0)), Vector((tx, ty, h))], mix(col_a, col_b, v.rng.random()))
+        v.face([Vector((tx, ty, h)), Vector((bx + nx, by + ny, 0)), Vector((bx - nx, by - ny, 0))], mix(col_a, col_b, v.rng.random()))
+    return v.to_object()
+
+
+def fern(seed=24):
+    v = VC("fern", seed)
+    n = 7
+    for i in range(n):
+        a = 2 * math.pi * i / n + v.rng.uniform(-0.2, 0.2)
+        L = v.rng.uniform(0.55, 0.85)
+        p0 = Vector((0, 0, 0.04))
+        p1 = Vector((0.5 * L * math.cos(a), 0.5 * L * math.sin(a), 0.38))
+        p2 = Vector((L * math.cos(a), L * math.sin(a), 0.2))
+        w = 0.16
+        nx, ny = -math.sin(a) * w, math.cos(a) * w
+        c = mix(0x3f6b32, 0x7cae48, v.rng.random())
+        v.face([p0, p1 + Vector((nx, ny, 0)), p2, p1 - Vector((nx, ny, 0))], c)
+        v.face([p1 - Vector((nx, ny, 0)), p2, p1 + Vector((nx, ny, 0)), p0], c)
+    return v.to_object()
+
+
 def build():
     E.reset()
     objs = []
@@ -260,6 +324,16 @@ def build():
         objs[-1].name = f"house_{i}"
     objs.append(chorten())
     objs[-1].name = "chorten"
+    objs.append(cairn())
+    objs[-1].name = "cairn"
+    objs.append(mani_wall())
+    objs[-1].name = "mani_wall"
+    objs.append(grass_tuft(23))
+    objs[-1].name = "grass_a"
+    objs.append(grass_tuft(25, tall=0.75, col_a=0x7a8a3e, col_b=0xc7c36a))
+    objs[-1].name = "grass_b"
+    objs.append(fern())
+    objs[-1].name = "fern"
     os.makedirs(OUT, exist_ok=True)
     E.export(objs, os.path.join(OUT, "kit.glb"))
     print("EXPORTED env kit", [o.name for o in objs])

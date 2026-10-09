@@ -6,6 +6,7 @@ import {
   grantCredits,
   makeSave,
   openGame,
+  showMissionList,
   openGarage,
   seedSave,
   setFuel,
@@ -73,10 +74,15 @@ test.describe('startup, settings and navigation', () => {
     await page.locator('#btn-menu-settings').click();
     await expect(page.locator('#screen-settings')).toBeVisible();
     await page.screenshot({ path: 'screenshots/desktop-settings.png' });
+    // Settings are organised in tabs: Audio, Graphics, Controls, Gameplay, Accessibility.
+    await expect(page.locator('[role=tab][data-tab]')).toHaveCount(5);
     await page.locator('#set-master').fill('35');
-    await page.locator('#set-sens').fill('130');
-    await page.locator('#set-quality').selectOption('low');
     await page.locator('#set-mute').check();
+    await page.locator('#tab-graphics').click();
+    await page.locator('#set-quality').selectOption('low');
+    await page.locator('#tab-controls').click();
+    await page.locator('#set-sens').fill('130');
+    await page.locator('#tab-access').click();
     await page.locator('#set-motion').check();
     await page.locator('#btn-settings-back').click();
 
@@ -84,9 +90,12 @@ test.describe('startup, settings and navigation', () => {
     await page.waitForFunction(() => !!(window as unknown as { __cbhr?: unknown }).__cbhr);
     await page.locator('#btn-menu-settings').click();
     await expect(page.locator('#set-master')).toHaveValue('35');
-    await expect(page.locator('#set-sens')).toHaveValue('130');
-    await expect(page.locator('#set-quality')).toHaveValue('low');
     await expect(page.locator('#set-mute')).toBeChecked();
+    await page.locator('#tab-graphics').click();
+    await expect(page.locator('#set-quality')).toHaveValue('low');
+    await page.locator('#tab-controls').click();
+    await expect(page.locator('#set-sens')).toHaveValue('130');
+    await page.locator('#tab-access').click();
     await expect(page.locator('#set-motion')).toBeChecked();
     expect((await state(page)).quality).toBe('low');
     expect(errors).toEqual([]);
@@ -95,6 +104,11 @@ test.describe('startup, settings and navigation', () => {
   test('a fresh save: only Pass Run and the starter hatchback; locks explain how to unlock', async ({ page }) => {
     const errors = await openGame(page);
     await page.locator('#btn-start').click();
+    // The illustrated map is the default view; the list carries the full lock text.
+    await expect(page.locator('#level-map')).toBeVisible();
+    await expect(page.locator('.map-pin')).toHaveCount(10);
+    await page.screenshot({ path: 'screenshots/desktop-mission-map-illustrated.png' });
+    await showMissionList(page);
     await expect(page.locator('button[data-level="pass-run"]')).not.toHaveClass(/locked/);
     await expect(page.locator('button[data-level="thimphu-pickup"]')).toHaveClass(/locked/);
     await expect(page.locator('button[data-level="airport-dash"]')).toContainText('Finish Pass Run');
@@ -164,6 +178,7 @@ test.describe('startup, settings and navigation', () => {
     expect((await state(page)).quality).toBe('low');
     expect((await state(page)).credits).toBe(150);
     await page.locator('#btn-start').click();
+    await showMissionList(page);
     await expect(page.locator('button[data-level="pass-run"]')).toContainText('1:17.70');
     await expect(page.locator('button[data-level="airport-dash"]')).not.toHaveClass(/locked/);
     await expect(page.locator('button[data-level="thimphu-pickup"]')).not.toHaveClass(/locked/);
@@ -196,6 +211,7 @@ test.describe('startup, settings and navigation', () => {
     });
     const errors = await openGame(page);
     await page.locator('#btn-start').click();
+    await showMissionList(page);
     await expect(page.locator('button[data-level="pass-run"]')).toContainText('1:10.00');
     await page.locator('button[data-level="pass-run"]').click();
     await expect(page.locator('#veh-name')).toHaveText('Druk Ranger'); // the saved vehicle is still owned and selected
@@ -219,10 +235,15 @@ test.describe('driving and flow', () => {
     await expect.poll(async () => (await state(page)).speed, { timeout: 15_000 }).toBeGreaterThan(8);
     const before = (await state(page)).position;
     await page.keyboard.down('KeyD');
-    await page.waitForTimeout(1500);
+    // Software rendering runs the sim in slow motion, so wait for the distance rather than for a fixed time.
+    await expect
+      .poll(async () => {
+        const p = (await state(page)).position;
+        return Math.hypot(p[0] - before[0], p[2] - before[2]);
+      }, { timeout: 15_000 })
+      .toBeGreaterThan(5);
     await page.keyboard.up('KeyD');
     const mid = await state(page);
-    expect(Math.hypot(mid.position[0] - before[0], mid.position[2] - before[2])).toBeGreaterThan(5);
     expect(mid.grounded).toBeGreaterThanOrEqual(3);
     await expect(page.locator('#hud-speed')).not.toHaveText('0');
     await page.screenshot({ path: 'screenshots/desktop-driving.png' });

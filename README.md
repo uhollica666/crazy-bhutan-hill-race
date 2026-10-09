@@ -43,10 +43,19 @@ Debug URL flags: `?debug=1` (overlay with fps, CPU ms/frame, physics ms, draw ca
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Keyboard | W/↑ gas · S/↓ brake, then reverse · A/D or ←/→ steer · F switch 4x2/4x4 (supported vehicles) · E service · R recover · Shift+R restart · Esc/P pause |
 | Menus    | Arrow keys move between cards and buttons, Enter selects, Esc goes back                                                                              |
-| Touch    | Slide the steering bar (analog, adjustable sensitivity), hold GAS / BRAKE with the other thumb; pause and recover buttons on screen                  |
+| Touch    | Slide the steering bar or turn the on-screen wheel (Settings), hold GAS / BRAKE with the other thumb; left-handed and large layouts; pause and recover buttons on screen |
 | Gamepad  | Left stick steer · RT gas · LT brake · Start pause · Y recover · D-pad/A/B in menus                                                                  |
 
-Touch controls appear on first touch (or if the primary pointer is coarse), hide when you use the keyboard, and can be forced on/off in Settings. Losing focus or a cancelled touch releases every control.
+Settings are grouped in tabs (Audio, Graphics, Controls, Gameplay, Accessibility); the Controls tab has keyboard, touch and gamepad help. Touch controls appear on first touch (or if the primary pointer is coarse), hide when you use the keyboard, and can be forced on/off in Settings. Losing focus or a cancelled touch releases every control.
+
+## Game feel and interface (Pass 4.5)
+
+- **Instrument cluster HUD**: speedometer arc and needle, a rev ring and gear read from the same `EngineSim` that drives the engine sound (no fake gears), fuel and condition bars, drive-mode chip, short contextual alerts and a route bar with pickup and pit-stop marks. Three modes (Settings → Gameplay): Standard, Minimal (speed, timer, alerts) and Telemetry (rpm, load, gear, surface, slip). A compact layout for phones in landscape.
+- **Touch controls**: slide bar or steering wheel, sensitivity, left-handed mirroring and a large-controls option.
+- **3D garage**: a dedicated workshop scene (turntable, prayer flags, lantern, crates) with the real in-game model, an orbit camera (drag, wheel, pinch or buttons) and honest before/after numbers for every upgrade, read from the same function the physics uses. The world is not drawn behind it.
+- **Illustrated campaign map**: ten pins on a painted sketch of the kingdom, a road through unlocked missions, medals, locks that say why, a preview card, and a list view alternative (keyboard, gamepad and touch).
+- **Audio**: a mixer with engine, effects, UI, environment, weather and music buses into a limiter; distinct engine voices for the four vehicles; surface, weather, night and river layers; ducking. See [docs/AUDIO.md](docs/AUDIO.md) for the design and the manual listening protocol (automated tests cannot judge how it sounds).
+- **Effects and scenery**: pooled exhaust, bonnet smoke on damaged vehicles, flung mud, spray and a bow wave when wading; roadside grass, ferns, cairns with prayer flags and mani walls.
 
 ## What's in the game (Stage 4)
 
