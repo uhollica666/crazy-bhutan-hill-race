@@ -8,6 +8,8 @@ const SESSION_KEY = 'cbhr.splash.seen';
 export interface SplashOptions {
   /** Do not show at all (tests, ?nosplash). */
   skip?: boolean;
+  /** Stay until a key or tap (used by tests that need to inspect the splash). */
+  hold?: boolean;
 }
 
 function seenThisSession(): boolean {
@@ -53,6 +55,14 @@ export function showSplash(host: HTMLElement, base: string, opts: SplashOptions 
       done = true;
       markSeen();
       window.removeEventListener('keydown', finish);
+      // The key that skipped the splash must not also press whatever button the menu focuses next (Space/Enter
+      // activate a focused button on key release).
+      const swallow = (e: KeyboardEvent): void => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      };
+      window.addEventListener('keyup', swallow, true);
+      window.setTimeout(() => window.removeEventListener('keyup', swallow, true), 700);
       el.removeEventListener('pointerdown', finish);
       el.classList.add('out');
       window.setTimeout(() => {
@@ -62,6 +72,6 @@ export function showSplash(host: HTMLElement, base: string, opts: SplashOptions 
     };
     window.addEventListener('keydown', finish);
     el.addEventListener('pointerdown', finish);
-    window.setTimeout(finish, short ? 1100 : 3000);
+    if (!opts.hold) window.setTimeout(finish, short ? 1100 : 3000);
   });
 }

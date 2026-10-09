@@ -13,6 +13,7 @@ export const bumthangNight: LevelDef = {
     'A hiking party missed the last shuttle and is stranded at a mountain lodge. The forest road home is unlit, the tank is low, and something large keeps crossing the track.',
   objective: 'Collect the hikers at the lodge, refuel on the way, and bring them back to the valley lodge before midnight.',
   difficulty: 4,
+  region: 'Central & Eastern Bhutan',
   mission: {
     kind: 'night',
     party: 2,

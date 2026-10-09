@@ -1,19 +1,37 @@
 import { test, expect } from '@playwright/test';
 import { drive, makeSave, openGame, seedSave, startMission, state, storedSave } from './helpers';
 
+const ALL_LEVELS = [
+  'pass-run',
+  'thimphu-pickup',
+  'airport-dash',
+  'punakha-valley',
+  'dochula-storm',
+  'chelela-climb',
+  'trongsa-gorge',
+  'bumthang-night',
+  'remote-expedition',
+  'gmc-plains',
+];
+
 for (const [level, vehicle] of [
   ['pass-run', 'dzo-hatch'],
   ['thimphu-pickup', 'dzo-hatch'],
   ['airport-dash', 'tourist-coaster'],
   ['chelela-climb', 'druk-ranger'],
   ['remote-expedition', 'dragon-cruiser'],
+  ['punakha-valley', 'dzo-hatch'],
+  ['dochula-storm', 'druk-ranger'],
+  ['trongsa-gorge', 'dzo-hatch'],
+  ['bumthang-night', 'tourist-coaster'],
+  ['gmc-plains', 'dragon-cruiser'],
 ]) {
   test(`full UI mission completion: ${level}/${vehicle}`, async ({ page }) => {
     test.setTimeout(420_000);
     await seedSave(
       page,
       makeSave({
-        finished: ['pass-run', 'airport-dash', 'chelela-climb'],
+        finished: ALL_LEVELS,
         owned: ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser'],
       }),
     );

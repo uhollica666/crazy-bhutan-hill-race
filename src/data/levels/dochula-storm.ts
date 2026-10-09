@@ -14,6 +14,7 @@ export const dochulaStorm: LevelDef = {
   objective:
     'Collect the guests at the chorten ring, then bring them down the pass to the hotel without sliding off, and without alarming them.',
   difficulty: 3,
+  region: 'Punakha Valley',
   mission: {
     kind: 'descent',
     party: 3,

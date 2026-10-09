@@ -45,6 +45,7 @@ await page.goto('http://localhost:4173/?debug=1&nosplash=1');
 await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
 await page.waitForSelector('#btn-start', { state: 'visible' });
 await page.waitForTimeout(1500);
+if (!process.env.DEBUGUI) await page.keyboard.press('Backquote');
 await page.screenshot({ path: `${out}/menu.png` });
 
 const state = () => page.evaluate(() => window.__cbhr.state());

@@ -13,6 +13,7 @@ export const chelelaClimb: LevelDef = {
     'A steep, narrow ascent through snow-dusted rhododendron forest. Every hairpin is tight, and every second counts.',
   objective: 'Climb all nine hairpins to the pass summit as fast as you can.',
   difficulty: 4,
+  region: 'Mountain Passes',
   mission: {
     kind: 'hillclimb',
     party: 3,

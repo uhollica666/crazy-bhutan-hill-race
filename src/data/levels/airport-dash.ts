@@ -12,6 +12,7 @@ export const airportDash: LevelDef = {
     'A tour group is running late for their flight. Cross the valley fast, but a smooth ride keeps the passengers (and the tips) happy.',
   objective: 'Reach the airport before the flight departs, and keep your passengers comfortable.',
   difficulty: 3,
+  region: 'Paro & Thimphu',
   mission: {
     kind: 'airport',
     party: 4,

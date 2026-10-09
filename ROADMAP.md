@@ -1,10 +1,11 @@
 # Roadmap
 
-## Implemented through Stage 3
+## Implemented through Stage 4
 
 - Stage 1: arcade physics, mountain route, camera, input, HUD, menus, audio, local saves and offline PWA.
 - Stage 2: multiple vehicles/routes, comfort/scoring, unlocks, live garage preview, quality presets, adaptive resolution and effects.
 - Stage 3: five tourism missions; four vehicles; story briefings; mandatory stopped pickups and delivery; fuel, damage and free timed pit stops; selectable 4x4; wet/loose surfaces and ford; weather, dusk/night, headlights and rain; seeded hazards, city traffic and airport rival; credits, ownership, real upgrades and loaners; v3 save migrations; Novarah splash/About branding; optional local feedback and JSON/text export.
+- Stage 4: visual overhaul (warm colour pipeline, Blender-authored vehicles and environment kit loaded through a glTF pipeline with fallbacks, faceted mountains, textured terrain, new UI palette, game-logo menu); five new missions for ten in total (Punakha, Dochula storm, Trongsa gorge, Bumthang night, GMC plains) with terrain drop-offs; chapters on the mission map; campaign-complete screen; asset-loading and campaign tests.
 - Integration tests exercise full-runtime completions across eligible combinations, careful-driving medals/fuel, services, feedback, rewards, hazards, traffic, weather, lighting and physical upgrades. DEVELOPMENT_LOG.md records browser/performance evidence.
 
 ## Remaining limitations
@@ -19,9 +20,13 @@
 
 ## Deferred
 
-Firebase, ghost replay, online leaderboards, achievements, multiplayer, additional content, recorded audio/voiceovers, richer tutorial and sophisticated traffic AI. These are not Stage 3 capabilities.
+Firebase, ghost replay, online leaderboards, achievements, multiplayer, Story Mode, first-person exploration, recorded audio/voiceovers, richer tutorial and sophisticated traffic AI. None of these is implemented.
 
-## Recommended Stage 4 priorities
+## Story Mode (next stage) considerations
+
+The arcade campaign stays separately selectable. Story Mode can reuse `MissionRuntime`, the story book (`data/story`), cast portraits, stops and the asset pipeline; the new pieces it will need are a chapter/route graph across regions, persistent party state (luggage, mood), camp and food-stop interactions and first-person scenes. None of that exists yet and nothing in the game depends on it.
+
+## Earlier recommendations (still open)
 
 1. Run docs/DEVICE_TESTING.md on physical devices, including offline updates and touch cancellation. Profile real GPUs before promising frame rates.
 2. Conduct fresh-profile human playtests of all missions, especially starter handling, airport deadline and expedition fuel/medals. Adjust from observed play.

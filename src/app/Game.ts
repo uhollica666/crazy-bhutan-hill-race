@@ -12,6 +12,8 @@ import { AutoDriver } from '../dev/AutoDriver';
 import { MissionDriver } from '../dev/MissionDriver';
 import { MissionRuntime } from '../gameplay/MissionRuntime';
 import type { RaceResult, RaceSession } from '../gameplay/RaceSession';
+import { campaignStatus, challengeTags, justCompletedCampaign } from '../gameplay/campaign';
+import { EngineSim } from '../gameplay/EngineSim';
 import { STOP_RADIUS } from '../gameplay/Stops';
 import {
   availableVehicles,
@@ -50,6 +52,7 @@ import type {
   FinishExtra,
   GarageModel,
   HudState,
+  CampaignSummary,
   LevelCardModel,
   UpgradeRow,
   VehicleCardModel,
@@ -149,6 +152,8 @@ export class Game {
   private freeGarage = false;
   private previewId = '';
   private inRun = false;
+  /** Set when the run that just ended finished the last unfinished mission: the next Continue shows the campaign screen. */
+  private pendingCampaign = false;
 
   private readonly cmd = createVehicleInput();
   private readonly head = { x: 0, z: -1 };
@@ -175,7 +180,17 @@ export class Game {
     prompt: '',
     rival: null,
     headlights: false,
+    scaleMaxKmh: 120,
+    rpm: 0.18,
+    load: 0,
+    shifting: false,
+    engineWarn: false,
+    alerts: [],
+    telemetry: { fps: 60, surface: '', grade: 0, slip: 0, wet: 0, gear: 0 },
   };
+  private readonly engineSim = new EngineSim({ engine: { gearTopSpeeds: [12, 20, 30], topSpeed: 30 } as VehicleDef['engine'] });
+  private readonly roadPose = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
+  private readonly roadPose2 = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
   private readonly comfortHud = {
     value: 100,
     quality: 'smooth' as 'smooth' | 'firm' | 'rough',
@@ -240,6 +255,7 @@ export class Game {
         quit: () => this.quitToMenu(),
         openGarage: () => this.openGarageFromRun(),
         nextMission: () => void this.nextMission(),
+        campaignContinue: () => this.openLevels(),
         pause: () => this.pause(),
         recover: () => this.recover(),
         settingsChanged: (p) => this.applySettings(p),
@@ -443,6 +459,7 @@ export class Game {
     this.model.setBlobVisible(!this.renderer.profile.shadows);
     this.rig.setVehicle(this.vehicleDef);
     this.audio.setVehicle(this.vehicleDef.audio);
+    this.engineSim.setVehicle(this.vehicleDef);
     this.driveSound.topSpeed = this.vehicleDef.engine.topSpeed;
     this.driveSound.gearTopSpeeds = this.vehicleDef.engine.gearTopSpeeds;
     this.buildPreview();
@@ -707,6 +724,7 @@ export class Game {
       else this.audio.stopMusic();
     }
     this.touch.setSensitivity(s.touchSensitivity);
+    this.ui.setHudMode(s.hudMode);
     document.body.classList.toggle('reduce-motion', this.reducedMotion);
     this.updateTouch();
     this.ui.syncSettings(s);
@@ -752,6 +770,9 @@ export class Game {
         vehicleNames: l.vehicles.map((id) => getVehicle(id).name),
         selected: l.id === this.level.id,
         reward: l.reward,
+        region: l.region,
+        recommended: getVehicle(l.vehicles[0]).name,
+        challenge: challengeTags(l).join(' · '),
       };
     });
   }
@@ -875,7 +896,7 @@ export class Game {
   private openLevels(): void {
     this.menuScreen = 'levels';
     this.freeGarage = false;
-    this.ui.showLevels(this.levelCards(), this.store.credits);
+    this.showLevelsScreen();
     this.audio.whoosh();
   }
 
@@ -1041,14 +1062,44 @@ export class Game {
         this.menuScreen = 'levels';
         this.rig.setShowcase(false);
         this.rig.orbit = true;
-        this.ui.showLevels(this.levelCards(), this.store.credits);
+        this.showLevelsScreen();
       }
     } else if (this.menuScreen === 'levels') {
       this.showMenu();
     }
   }
 
+  private showLevelsScreen(): void {
+    const s = campaignStatus(this.levels, this.progress());
+    this.ui.showLevels(this.levelCards(), this.store.credits, { completed: s.completed, total: s.total, ...s.medals });
+  }
+
+  private campaignSummary(): CampaignSummary {
+    const s = campaignStatus(this.levels, this.progress());
+    const best = this.levels.map((l) => {
+      const rec = this.store.levelRecord(l.id);
+      let time: number | null = null;
+      for (const v of Object.values(rec.vehicles)) if (v.bestTime !== null && (time === null || v.bestTime < time)) time = v.bestTime;
+      return { name: l.name, medal: rec.medal, time };
+    });
+    return {
+      missions: s.completed,
+      total: s.total,
+      ...s.medals,
+      credits: this.store.data.stats.creditsEarned,
+      totalTime: best.reduce((n, b) => n + (b.time ?? 0), 0),
+      best,
+    };
+  }
+
   private async nextMission(): Promise<void> {
+    if (this.pendingCampaign) {
+      this.pendingCampaign = false;
+      this.leaveRun();
+      this.store.markCampaignCelebrated();
+      this.ui.showCampaignComplete(this.campaignSummary());
+      return;
+    }
     const i = this.levels.findIndex((l) => l.id === this.level.id);
     const next = this.levels.slice(i + 1).find((l) => isLevelUnlocked(l, this.progress()));
     this.leaveRun();
@@ -1107,7 +1158,9 @@ export class Game {
       comfort: level.mission.comfort,
       timerLabel: level.mission.timerLabel,
       canToggleDrive: this.vehicleDef.drivetrain.modes.length > 1,
+      mode: this.store.settings.hudMode,
     });
+    this.engineSim.reset();
     this.ui.setCountdown(String(Math.ceil(this.rt.session.countdown)));
     this.world?.gates.setNext(0);
     this.touch.reset();
@@ -1153,6 +1206,7 @@ export class Game {
     const unlocked = done
       ? newlyUnlocked(this.levels, this.vehicles, before, this.store.progress)
       : { levels: [], vehicles: [] };
+    this.pendingCampaign = done && justCompletedCampaign(this.levels, before, this.store.progress);
     const i = this.levels.findIndex((l) => l.id === level.id);
     const next = this.levels.slice(i + 1).find((l) => isLevelUnlocked(l, this.store.progress));
     const times = levelTimes(level, paceFor(level, this.vehicleDef));
@@ -1162,7 +1216,7 @@ export class Game {
       best: this.store.vehicleRecord(level.id, r.vehicleId).bestTime,
       unlockedLevels: unlocked.levels.map((l) => l.id),
       unlockedVehicles: unlocked.vehicles.map((v) => v.id),
-      nextMissionName: done && next ? next.name : null,
+      nextMissionName: done && this.pendingCampaign ? 'Campaign complete' : done && next ? next.name : null,
       medals: times,
       reward,
       optional,
@@ -1434,6 +1488,12 @@ export class Game {
         1,
       );
       h.speedKmh = Math.abs(speed) * 3.6;
+      const eng = this.engineSim.update(dt, speed, this.cmd.throttle, b.groundedWheels > 0);
+      h.scaleMaxKmh = Math.max(60, Math.ceil((this.vehicleDef.engine.topSpeed * 3.6 * 1.04) / 20) * 20);
+      h.rpm = eng.rpm;
+      h.load = eng.load;
+      h.shifting = eng.shifting;
+      h.engineWarn = rt.status.stalledFor > 0 || rt.status.health < 25 || rt.status.outOfFuel;
       h.timerText = formatClock(deadline ? s.timeLeft : s.time);
       h.timerLabel = this.level.mission.timerLabel;
       h.lowTime = s.phase === 'running' && s.timeLeft < 15;
@@ -1442,7 +1502,7 @@ export class Game {
       h.objectiveKind = o.kind;
       h.objective =
         o.kind === 'checkpoint'
-          ? `Checkpoint ${s.nextCheckpoint + 1}/${s.totalCheckpoints}: ${o.label}`
+          ? o.label
           : o.kind === 'unload'
             ? `Stop in the zone to drop off: ${this.level.finishLabel}`
             : o.label;
@@ -1457,6 +1517,7 @@ export class Game {
       h.conditions = conditionsLabel(rt.conditions);
       h.headlights = this.world?.env.lightsOn ?? false;
       this.hudContext(h, Math.abs(speed));
+      this.hudAlerts(h, b.wheels.find((w) => w.inContact)?.surface.name ?? '');
       const rv = rt.rival;
       if (rv && s.phase === 'running' && rv.state.started) {
         const gap = (rv.state.s - rt.s) / Math.max(8, Math.abs(speed));
@@ -1506,6 +1567,40 @@ export class Game {
         ].join('\n'),
       );
     }
+  }
+
+  /** Short, contextual chips: only what the player can act on right now (at most two). */
+  private hudAlerts(h: HudState, surfaceName: string): void {
+    const rt = this.rt;
+    const b = rt.body;
+    const out: HudState['alerts'] = [];
+    if (rt.status.outOfFuel) out.push({ text: 'Out of fuel', tone: 'bad' });
+    else if (h.fuel < 0.2) out.push({ text: 'Low fuel', tone: 'warn' });
+    if (h.health < 25) out.push({ text: 'Critical damage', tone: 'bad' });
+    else if (h.health < 50) out.push({ text: 'Damaged', tone: 'warn' });
+    const wheel = b.wheels.find((w) => w.inContact);
+    const loose = wheel ? wheel.surface.looseness : 0;
+    const wetRoad = rt.weather.wetness > 0.55;
+    const speed = Math.abs(b.speed);
+    if (
+      h.canToggleDrive &&
+      h.driveMode === '4x2' &&
+      speed > 3 &&
+      ((loose > 0.45 && wheel?.surface.id !== 'asphalt') || (b.slip > 2.5 && wetRoad))
+    ) {
+      out.push({ text: '4x4 recommended', tone: 'info' });
+    }
+    if (wetRoad && speed > 14 && out.length < 2) out.push({ text: 'Wet road', tone: 'info' });
+    h.alerts = out.slice(0, 2);
+    const road = rt.course.road;
+    road.at(rt.s, this.roadPose);
+    road.at(rt.s + 8, this.roadPose2);
+    h.telemetry.fps = this.fpsEma;
+    h.telemetry.surface = surfaceName || '-';
+    h.telemetry.grade = (this.roadPose2.y - this.roadPose.y) / 8;
+    h.telemetry.slip = b.slip;
+    h.telemetry.wet = rt.weather.wetness;
+    h.telemetry.gear = this.engineSim.state.gear;
   }
 
   /** Pit-stop prompt, boarding progress and approach hints for the HUD. */
@@ -1624,6 +1719,7 @@ export class Game {
           time_of_day: rt.conditions.time,
           loaner: this.loaner,
           lights: this.world?.env.lightsOn ?? false,
+          detailedModel: this.model?.detailed ?? false,
         };
       },
       /** Teleport onto the road at a distance (for tests). It does not change what the mission requires. */
@@ -1655,6 +1751,8 @@ export class Game {
         this.store.addCredits(n);
         this.refreshGarage();
       },
+      /** Test-only helper: opens the campaign-complete screen with the current progress. */
+      showCampaign: () => this.ui.showCampaignComplete(this.campaignSummary()),
       analytics: () => (this.analytics instanceof MemoryAnalytics ? [...this.analytics.events] : []),
     };
   }

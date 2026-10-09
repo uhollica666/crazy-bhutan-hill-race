@@ -13,6 +13,7 @@ export const trongsaGorge: LevelDef = {
     'A mountain clinic needs a doctor and her equipment by early afternoon. The road hugs the gorge wall for two kilometres, it is barely wider than a lorry, and half of it is not there.',
   objective: 'Collect the doctor at the roadside clinic and get her to the far-side health post without touching the walls.',
   difficulty: 4,
+  region: 'Mountain Passes',
   mission: {
     kind: 'gorge',
     party: 2,

@@ -5,6 +5,8 @@ import type { OptionalOutcome, Reward } from '../gameplay/rewards';
 import type { QualityLevel, Settings, TouchMode } from '../storage/SaveStore';
 import type { VehicleStats } from '../data/vehicles';
 import { ICONS, KNOT, logoSvg, medalSvg } from './icons';
+import { Hud, hudMarkup } from './Hud';
+import type { HudMode, HudState } from './Hud';
 
 export interface UIActions {
   /** Main menu "Drive": open mission select. */
@@ -35,41 +37,14 @@ export interface UIActions {
   toggleDrive(): void;
   requestService(kind: ServiceKind): void;
   openAbout(): void;
+  /** Campaign-complete screen: go back to the mission map. */
+  campaignContinue(): void;
   openFeedback(origin: 'menu' | 'settings' | 'results' | 'about'): void;
   /** UI feedback sound hook. */
   click(back?: boolean): void;
 }
 
-export interface HudState {
-  speedKmh: number;
-  /** Text for the headline timer (elapsed or time-left, depending on the mission). */
-  timerText: string;
-  timerLabel: string;
-  lowTime: boolean;
-  checkpointsDone: number;
-  /** What the player should be doing right now. */
-  objective: string;
-  objectiveKind: 'pickup' | 'service' | 'checkpoint' | 'finish' | 'unload';
-  /** Metres to the objective along the road (null when unknown). */
-  distance: number | null;
-  /** 0..1 progress along the playable route. */
-  progress: number;
-  /** Passenger comfort, or null when the mission does not track it. */
-  comfort: { value: number; quality: 'smooth' | 'firm' | 'rough'; cause: string | null } | null;
-  fuel: number;
-  health: number;
-  driveMode: '4x2' | '4x4';
-  canToggleDrive: boolean;
-  onboard: number;
-  party: number;
-  conditions: string;
-  /** Pit-stop on offer where the car is stopped, or the one in progress. */
-  service: { kinds: ServiceKind[]; active: ServiceKind | null; progress: number } | null;
-  /** Context line (e.g. "Stop in the yellow zone"), or ''. */
-  prompt: string;
-  rival: { gap: number; label: string } | null;
-  headlights: boolean;
-}
+export type { HudState, HudAlert, HudMode } from './Hud';
 
 export interface LevelCardModel {
   id: string;
@@ -85,6 +60,22 @@ export interface LevelCardModel {
   vehicleNames: string[];
   selected: boolean;
   reward: number;
+  region: string;
+  /** The vehicle the mission is built around (first listed). */
+  recommended: string;
+  /** Short plain-language hint at the main challenge, e.g. "Night, fuel". */
+  challenge: string;
+}
+
+export interface CampaignSummary {
+  missions: number;
+  total: number;
+  gold: number;
+  silver: number;
+  bronze: number;
+  credits: number;
+  totalTime: number;
+  best: { name: string; medal: Medal; time: number | null }[];
 }
 
 export interface UpgradeRow {
@@ -181,27 +172,19 @@ const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt
 
 const LOCK_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true" class="lock"><rect x="5" y="11" width="14" height="9" rx="2" fill="currentColor"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>';
-const PASSENGER_ICON =
-  '<svg viewBox="0 0 24 24" aria-hidden="true" class="pax"><circle cx="9" cy="8" r="3.2" fill="currentColor"/><path d="M3 20c0-3.6 2.7-6 6-6s6 2.4 6 6z" fill="currentColor"/><circle cx="17" cy="9" r="2.4" fill="currentColor" opacity=".7"/><path d="M15.5 14.4c3 0 5.5 1.9 5.5 5.6h-4.2" fill="currentColor" opacity=".7"/></svg>';
 const COIN =
   '<svg viewBox="0 0 24 24" aria-hidden="true" class="coin"><circle cx="12" cy="12" r="10" fill="#f6c452" stroke="#b8861a" stroke-width="2"/><path d="M12 6l5 6-5 6-5-6z" fill="none" stroke="#b8861a" stroke-width="2"/></svg>';
-const FUEL_ICON =
-  '<svg viewBox="0 0 24 24" aria-hidden="true" class="gi"><path d="M5 20V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15zM15 9h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 1-3 0v-3h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7.5 6h5v4h-5z" fill="currentColor"/></svg>';
-const WRENCH_ICON =
-  '<svg viewBox="0 0 24 24" aria-hidden="true" class="gi"><path d="M14.5 4a5 5 0 0 0-4.6 6.9L3.5 17.3a1.9 1.9 0 0 0 2.7 2.7l6.4-6.4A5 5 0 0 0 19.5 9l-3 3-2.8-.7L13 8.5l3-3A5 5 0 0 0 14.5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
 
 type ScreenName =
-  'loading' | 'menu' | 'levels' | 'garage' | 'hud' | 'pause' | 'finish' | 'settings' | 'error';
+  'loading' | 'menu' | 'levels' | 'garage' | 'hud' | 'pause' | 'finish' | 'settings' | 'error' | 'campaign';
 
 /** All DOM screens. Plain DOM + CSS: no framework; every control here does real work. */
 export class UI {
   private readonly root: HTMLElement;
   private readonly screens: Record<ScreenName, HTMLElement>;
   private settingsReturn: 'menu' | 'pause' = 'menu';
-  private readonly cache = new Map<string, string>();
-  private flashTimer = 0;
+  private readonly hud: Hud;
   private toastTimer = 0;
-  private hintTimer = 0;
   private garageModel: GarageModel | null = null;
 
   readonly minimapCanvas: HTMLCanvasElement;
@@ -226,8 +209,8 @@ export class UI {
       <section class="screen" id="screen-menu" data-screen hidden aria-labelledby="menu-title">
         <div class="menu-main">
           <div class="brand">
-            ${logoSvg('mn')}
-            <h1 id="menu-title"><span class="l1">Crazy Bhutan</span><span class="l2">Hill Race</span></h1>
+            <img class="game-logo" src="${brandBase}brand/cbhr-logo.webp" alt="" width="360" height="360" decoding="async" />
+            <h1 id="menu-title" class="sr-only">Crazy Bhutan Hill Race</h1>
           </div>
           <p class="tagline">Deliver your guests. Beat the mist.</p>
           <div class="level-card" id="menu-summary"></div>
@@ -248,7 +231,7 @@ export class UI {
       <section class="screen sheet" id="screen-levels" data-screen hidden aria-labelledby="levels-title">
         <header class="sheet-head">
           <button class="icon-btn" id="btn-levels-back" data-back type="button" aria-label="Back to menu">${ICONS.left}</button>
-          <h2 id="levels-title">Choose a mission</h2>
+          <div><h2 id="levels-title">Choose a mission</h2><div class="muted" id="levels-progress"></div></div>
           <span class="wallet" id="levels-wallet" title="Driving credits"></span>
         </header>
         <div class="cards" id="level-cards" role="list"></div>
@@ -281,52 +264,7 @@ export class UI {
         </div>
       </section>
 
-      <section id="hud" hidden aria-label="Driving HUD">
-        <div class="hud-left">
-          <div class="hud-card hud-speed"><b id="hud-speed">0</b><small>km/h</small></div>
-          <div class="hud-card hud-vitals" id="hud-vitals">
-            <div class="vital" id="vital-fuel" title="Fuel">${FUEL_ICON}<div class="vbar"><i id="fuel-fill"></i></div><b id="fuel-pct">100%</b></div>
-            <div class="vital" id="vital-health" title="Vehicle condition">${WRENCH_ICON}<div class="vbar"><i id="health-fill"></i></div><b id="health-pct">100%</b></div>
-            <div class="vital-row"><span class="pax-count" id="hud-pax" title="Guests on board">${PASSENGER_ICON}<b id="pax-count">0/0</b></span>
-              <button class="chip-btn" id="btn-drive" type="button" title="Toggle 4x2 / 4x4 (F)" aria-label="Drive mode"><b id="drive-mode">4x2</b></button></div>
-          </div>
-          <div class="hud-card hud-comfort" id="hud-comfort" hidden>
-            ${PASSENGER_ICON}
-            <div class="comfort-body">
-              <div class="comfort-row"><span class="hud-label">Passengers</span><b id="comfort-pct">100%</b></div>
-              <div class="comfort-bar"><i id="comfort-fill"></i></div>
-              <div class="comfort-msg" id="comfort-msg">Smooth ride</div>
-            </div>
-          </div>
-        </div>
-        <div class="hud-card hud-center">
-          <div class="hud-label" id="hud-timer-label">Time</div>
-          <div class="hud-time" id="hud-time" aria-live="off">0:00.00</div>
-          <div class="hud-obj" id="hud-obj" aria-live="polite"></div>
-          <div class="hud-dist" id="hud-dist"></div>
-          <div class="route" id="hud-route"><i class="fill" id="hud-fill"></i></div>
-        </div>
-        <div class="hud-right">
-          <div class="btns">
-            <button class="icon-btn" id="btn-recover" type="button" title="Recover to last checkpoint (R)" aria-label="Recover to last checkpoint">${ICONS.recover}</button>
-            <button class="icon-btn" id="btn-pause" type="button" title="Pause (Esc)" aria-label="Pause">${ICONS.pause}</button>
-          </div>
-          <div class="hud-card" id="minimap"><canvas id="minimap-canvas" aria-label="Route map" role="img"></canvas></div>
-          <div class="hud-card hud-cond" id="hud-cond"></div>
-          <div class="hud-card hud-rival" id="hud-rival" hidden></div>
-        </div>
-        <div class="center-msg" id="countdown" aria-live="assertive"></div>
-        <div class="center-msg" id="flash" aria-live="polite"></div>
-        <div class="hud-card hud-prompt" id="hud-prompt" hidden>
-          <span id="prompt-text"></span>
-          <span class="prompt-btns">
-            <button class="btn" id="btn-refuel" type="button" hidden>${FUEL_ICON}<span>Refuel (E)</span></button>
-            <button class="btn" id="btn-repair" type="button" hidden>${WRENCH_ICON}<span>Repair (E)</span></button>
-          </span>
-          <div class="svc-bar" id="svc-bar" hidden><i id="svc-fill"></i></div>
-        </div>
-        <div class="hud-card hud-hint" id="hud-hint"><kbd>W</kbd><kbd>S</kbd> gas / brake &middot; <kbd>A</kbd><kbd>D</kbd> steer &middot; <kbd>F</kbd> 4x4 &middot; <kbd>E</kbd> service &middot; <kbd>R</kbd> recover &middot; <kbd>Esc</kbd> pause</div>
-      </section>
+      ${hudMarkup()}
 
       <div class="modal" id="screen-pause" data-screen hidden role="dialog" aria-modal="true" aria-labelledby="pause-title">
         <div class="panel">${KNOT}<h2 id="pause-title">Paused</h2>
@@ -361,6 +299,22 @@ export class UI {
         </div>
       </div>
 
+      <div class="modal" id="screen-campaign" data-screen hidden role="dialog" aria-modal="true" aria-labelledby="campaign-title">
+        <div class="panel wide campaign">${KNOT}<h2 id="campaign-title">Arcade campaign complete</h2>
+          <p class="result-sub" id="campaign-sub"></p>
+          <div class="result-grid" id="campaign-grid"></div>
+          <ul class="campaign-list" id="campaign-list"></ul>
+          <p class="muted campaign-note">A longer story campaign is planned for a future update. It is not available yet; nothing in this game depends on it.</p>
+          <p class="invite">Enjoyed the ride? Tell us what you think!</p>
+          <div class="stack">
+            <button class="btn primary" id="btn-camp-levels" type="button">${ICONS.play}<span>Replay a mission</span></button>
+            <button class="btn" id="btn-camp-feedback" type="button"><span>Share feedback</span></button>
+            <button class="btn ghost" id="btn-camp-menu" type="button">${ICONS.home}<span>Main menu</span></button>
+          </div>
+          <div class="studio-mark"><img src="${brandBase}brand/novarah-symbol.webp" alt="" width="16" height="16" decoding="async" /><span>A Novarah Interactives game</span></div>
+        </div>
+      </div>
+
       <div class="modal" id="screen-settings" data-screen hidden role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div class="panel wide">${KNOT}<h2 id="settings-title">Settings</h2>
           <h3>Sound</h3>
@@ -373,6 +327,8 @@ export class UI {
             <select id="set-quality"><option value="low">Low (best for phones)</option><option value="medium">Medium</option><option value="high">High</option></select></div>
           <p class="hint-text">Low drops shadows and thins the scenery, terrain, rain and effects, and lowers the render resolution. Anti-aliasing applies on the next launch.</p>
           <div class="field"><label for="set-motion">Reduce motion (less camera shake, calmer menus)</label><input id="set-motion" type="checkbox" /></div>
+          <div class="field"><label for="set-hud">Driving HUD</label>
+            <select id="set-hud"><option value="standard">Standard</option><option value="minimal">Minimal</option><option value="telemetry">With telemetry</option></select></div>
           <h3>Controls</h3>
           <div class="field"><label for="set-touch">On-screen touch controls</label>
             <select id="set-touch"><option value="auto">Automatic</option><option value="on">Always show</option><option value="off">Hide</option></select></div>
@@ -418,8 +374,10 @@ export class UI {
       finish: q(host, '#screen-finish'),
       settings: q(host, '#screen-settings'),
       error: q(host, '#screen-error'),
+      campaign: q(host, '#screen-campaign'),
     };
     this.minimapCanvas = q<HTMLCanvasElement>(host, '#minimap-canvas');
+    this.hud = new Hud(host);
     this.bind();
     this.syncSettings(settings);
   }
@@ -461,6 +419,15 @@ export class UI {
     on('#btn-settings-feedback', () => this.actions.openFeedback('settings'));
     on('#btn-settings-about', () => this.actions.openAbout());
     on('#btn-reload', () => location.reload());
+    on('#btn-camp-levels', () => {
+      this.hideCampaign();
+      this.actions.campaignContinue();
+    });
+    on('#btn-camp-feedback', () => this.actions.openFeedback('results'));
+    on('#btn-camp-menu', () => {
+      this.hideCampaign();
+      this.actions.quit();
+    }, true);
     q(this.root, '#rotate-close').addEventListener('click', () =>
       q(this.root, '#rotate-hint').classList.remove('on'),
     );
@@ -512,6 +479,9 @@ export class UI {
     q<HTMLSelectElement>(this.root, '#set-quality').addEventListener('change', (e) =>
       this.actions.settingsChanged({ quality: (e.target as HTMLSelectElement).value as QualityLevel }),
     );
+    q<HTMLSelectElement>(this.root, '#set-hud').addEventListener('change', (e) =>
+      this.actions.settingsChanged({ hudMode: (e.target as HTMLSelectElement).value as HudMode }),
+    );
     q<HTMLSelectElement>(this.root, '#set-touch').addEventListener('change', (e) =>
       this.actions.settingsChanged({ touchControls: (e.target as HTMLSelectElement).value as TouchMode }),
     );
@@ -546,6 +516,7 @@ export class UI {
     q<HTMLInputElement>(this.root, '#set-mute').checked = s.muted;
     q<HTMLInputElement>(this.root, '#set-motion').checked = s.reducedMotion;
     q<HTMLSelectElement>(this.root, '#set-quality').value = s.quality;
+    q<HTMLSelectElement>(this.root, '#set-hud').value = s.hudMode;
     q<HTMLSelectElement>(this.root, '#set-touch').value = s.touchControls;
   }
 
@@ -566,36 +537,6 @@ export class UI {
     this.screens.menu.hidden = which !== 'menu';
     this.screens.levels.hidden = which !== 'levels';
     this.screens.garage.hidden = which !== 'garage';
-  }
-
-  /** Sets text only when it changed: the HUD updates every frame. */
-  private setText(id: string, value: string): void {
-    if (this.cache.get(id) === value) return;
-    this.cache.set(id, value);
-    q(this.root, id).textContent = value;
-  }
-
-  private setStyle(id: string, prop: 'width', value: string): void {
-    const key = `${id}|${prop}`;
-    if (this.cache.get(key) === value) return;
-    this.cache.set(key, value);
-    q(this.root, id).style[prop] = value;
-  }
-
-  private setClass(id: string, cls: string, on: boolean): void {
-    const key = `${id}.${cls}`;
-    const v = on ? '1' : '0';
-    if (this.cache.get(key) === v) return;
-    this.cache.set(key, v);
-    q(this.root, id).classList.toggle(cls, on);
-  }
-
-  private setHidden(id: string, hidden: boolean): void {
-    const key = `${id}.hidden`;
-    const v = hidden ? '1' : '0';
-    if (this.cache.get(key) === v) return;
-    this.cache.set(key, v);
-    q(this.root, id).hidden = hidden;
   }
 
   // ------------------------------------------------------------------ screens
@@ -623,30 +564,40 @@ export class UI {
     this.showFlow(null);
   }
 
-  showLevels(cards: LevelCardModel[], credits: number): void {
+  showLevels(cards: LevelCardModel[], credits: number, status?: { completed: number; total: number; gold: number; silver: number; bronze: number }): void {
     q(this.root, '#levels-wallet').innerHTML = `${COIN}${credits.toLocaleString('en-US')}`;
-    const el = q(this.root, '#level-cards');
-    el.innerHTML = cards
-      .map((c) => {
-        const status = c.locked
-          ? `<div class="card-lock">${LOCK_ICON}<span>${esc(c.lockText)}</span></div>`
-          : `<div class="card-best">${
-              c.bestTime !== null
-                ? `${medalSvg(c.medal).replace('class="medal"', 'class="medal sm"')}<span>Best ${formatTime(c.bestTime)}</span>`
-                : '<span class="muted">Not driven yet</span>'
-            }</div>`;
-        return `<button class="mission-card${c.locked ? ' locked' : ''}${c.selected ? ' selected' : ''}" role="listitem" type="button"
-            data-level="${esc(c.id)}" data-locked="${c.locked ? 1 : 0}" ${c.locked ? 'aria-disabled="true"' : ''}
-            aria-label="${esc(c.name)}${c.locked ? ', locked: ' + esc(c.lockText) : ''}">
-          ${c.isNew && !c.locked ? '<span class="new-tag">NEW</span>' : ''}
-          <span class="mission-kind">${esc(c.missionLabel)}</span>
-          <h3>${esc(c.name)}</h3>
-          <p>${esc(c.subtitle)}</p>
-          <span class="dots" title="Difficulty ${c.difficulty} of 5">${dots(c.difficulty)}</span>
-          ${status}
-          <span class="card-veh">${c.vehicleNames.map(esc).join(' &middot; ')}</span>
-          ${c.locked ? '' : `<span class="card-reward">${COIN}up to ${c.reward}+</span>`}
-        </button>`;
+    q(this.root, '#levels-progress').textContent = status
+      ? `${status.completed} of ${status.total} missions complete · ${status.gold} gold · ${status.silver} silver · ${status.bronze} bronze`
+      : '';
+    const card = (c: LevelCardModel): string => {
+      const state = c.locked
+        ? `<div class="card-lock">${LOCK_ICON}<span>${esc(c.lockText)}</span></div>`
+        : `<div class="card-best">${
+            c.bestTime !== null
+              ? `${medalSvg(c.medal).replace('class="medal"', 'class="medal sm"')}<span>Best ${formatTime(c.bestTime)}</span>`
+              : '<span class="muted">Not driven yet</span>'
+          }</div>`;
+      return `<button class="mission-card${c.locked ? ' locked' : ''}${c.selected ? ' selected' : ''}" role="listitem" type="button"
+          data-level="${esc(c.id)}" data-locked="${c.locked ? 1 : 0}" ${c.locked ? 'aria-disabled="true"' : ''}
+          aria-label="${esc(c.name)}${c.locked ? ', locked: ' + esc(c.lockText) : ''}">
+        ${c.isNew && !c.locked ? '<span class="new-tag">NEW</span>' : ''}
+        <span class="mission-kind">${esc(c.missionLabel)}</span>
+        <h3>${esc(c.name)}</h3>
+        <p>${esc(c.subtitle)}</p>
+        <span class="dots" title="Difficulty ${c.difficulty} of 5">${dots(c.difficulty)}</span>
+        <span class="tags">${c.challenge ? c.challenge.split(' · ').map((t) => `<i>${esc(t)}</i>`).join('') : ''}</span>
+        ${state}
+        <span class="card-veh">Best with: ${esc(c.recommended)}</span>
+        ${c.locked ? '' : `<span class="card-reward">${COIN}up to ${c.reward}+</span>`}
+      </button>`;
+    };
+    const regions: string[] = [];
+    for (const c of cards) if (!regions.includes(c.region)) regions.push(c.region);
+    q(this.root, '#level-cards').innerHTML = regions
+      .map((r) => {
+        const mine = cards.filter((c) => c.region === r);
+        const done = mine.filter((c) => c.bestTime !== null).length;
+        return `<section class="region" aria-label="${esc(r)}"><h3 class="region-title">${esc(r)} <span class="muted">${done}/${mine.length}</span></h3><div class="region-cards">${mine.map(card).join('')}</div></section>`;
       })
       .join('');
     this.showFlow('levels');
@@ -654,6 +605,23 @@ export class UI {
       this.screens.levels,
       `button[data-level]${cards.some((c) => c.selected && !c.locked) ? '.selected' : ':not(.locked)'}`,
     );
+  }
+
+  showCampaignComplete(s: CampaignSummary): void {
+    q(this.root, '#campaign-sub').textContent = `All ${s.total} missions finished: ${s.gold} gold, ${s.silver} silver, ${s.bronze} bronze.`;
+    const cell = (label: string, value: string): string =>
+      `<div class="rg"><span class="hud-label">${label}</span><b>${value}</b></div>`;
+    q(this.root, '#campaign-grid').innerHTML =
+      cell('Missions', `${s.missions}/${s.total}`) + cell('Credits earned', s.credits.toLocaleString('en-US')) + cell('Best times total', formatTime(s.totalTime));
+    q(this.root, '#campaign-list').innerHTML = s.best
+      .map((b) => `<li><span>${esc(b.name)}</span><span class="mini-medal ${b.medal}">${medalName(b.medal)}</span><b>${b.time !== null ? formatTime(b.time) : '-'}</b></li>`)
+      .join('');
+    this.screens.campaign.hidden = false;
+    this.focusFirst(this.screens.campaign, '#btn-camp-levels');
+  }
+
+  hideCampaign(): void {
+    this.screens.campaign.hidden = true;
   }
 
   showGarage(model: GarageModel): void {
@@ -781,138 +749,33 @@ export class UI {
     return this.garageModel?.index ?? 0;
   }
 
-  showHud(opts: { comfort: boolean; timerLabel: string; canToggleDrive: boolean }): void {
-    this.screens.hud.hidden = false;
-    this.cache.clear();
-    q(this.root, '#hud-comfort').hidden = !opts.comfort;
-    q(this.root, '#hud-timer-label').textContent = opts.timerLabel;
-    q(this.root, '#btn-drive').hidden = !opts.canToggleDrive;
-    const hint = q(this.root, '#hud-hint');
-    hint.classList.remove('fade');
-    window.clearTimeout(this.hintTimer);
-    this.hintTimer = window.setTimeout(() => hint.classList.add('fade'), 9000);
+  showHud(opts: { comfort: boolean; timerLabel: string; canToggleDrive: boolean; mode: HudMode }): void {
+    this.hud.show(opts);
   }
 
   hideHud(): void {
-    this.screens.hud.hidden = true;
-    this.setCountdown(null);
+    this.hud.hide();
+  }
+
+  setHudMode(mode: HudMode): void {
+    this.hud.setMode(mode);
   }
 
   /** Builds the checkpoint pips (and pickup / pit-stop marks) along the route bar. */
   setRoute(checkpointFractions: number[], stops: { at: number; kind: 'pickup' | 'service' }[] = []): void {
-    const route = q(this.root, '#hud-route');
-    route.querySelectorAll('.pip, .stop-pip').forEach((n) => n.remove());
-    [...checkpointFractions, 1].forEach((f, i, all) => {
-      const pip = document.createElement('i');
-      pip.className = 'pip' + (i === all.length - 1 ? ' flag' : '');
-      pip.style.left = `${f * 100}%`;
-      route.appendChild(pip);
-    });
-    for (const s of stops) {
-      const pip = document.createElement('i');
-      pip.className = `stop-pip ${s.kind}`;
-      pip.style.left = `${s.at * 100}%`;
-      route.appendChild(pip);
-    }
+    this.hud.setRoute(checkpointFractions, stops);
   }
 
   updateHud(h: HudState): void {
-    this.setText('#hud-speed', String(Math.round(h.speedKmh)));
-    this.setText('#hud-time', h.timerText);
-    this.setText('#hud-timer-label', h.timerLabel);
-    this.setClass('#hud-time', 'low', h.lowTime);
-    this.setText('#hud-obj', h.objective);
-    this.setClass('#hud-obj', 'pickup', h.objectiveKind === 'pickup');
-    this.setText(
-      '#hud-dist',
-      h.distance === null
-        ? ''
-        : h.distance < -20
-          ? 'You drove past it: turn back'
-          : h.distance < 1000
-            ? `${Math.max(0, Math.round(h.distance / 5) * 5)} m ahead`
-            : `${(h.distance / 1000).toFixed(1)} km ahead`,
-    );
-    const cpKey = String(h.checkpointsDone);
-    if (this.cache.get('cp') !== cpKey) {
-      this.cache.set('cp', cpKey);
-      q(this.root, '#hud-route')
-        .querySelectorAll<HTMLElement>('.pip')
-        .forEach((p, i) => p.classList.toggle('done', i < h.checkpointsDone));
-    }
-    this.setStyle('#hud-fill', 'width', `${(h.progress * 100).toFixed(1)}%`);
-
-    // Vitals.
-    const fuel = Math.round(h.fuel * 100);
-    this.setText('#fuel-pct', `${fuel}%`);
-    this.setStyle('#fuel-fill', 'width', `${fuel}%`);
-    this.setClass('#vital-fuel', 'low', h.fuel < 0.2);
-    const hp = Math.round(h.health);
-    this.setText('#health-pct', `${hp}%`);
-    this.setStyle('#health-fill', 'width', `${hp}%`);
-    this.setClass('#vital-health', 'low', h.health < 35);
-    this.setText('#pax-count', `${h.onboard}/${h.party}`);
-    this.setText('#drive-mode', h.driveMode);
-    this.setClass('#btn-drive', 'on', h.driveMode === '4x4');
-    this.setText('#hud-cond', h.conditions);
-    this.setClass('#hud-cond', 'lights', h.headlights);
-
-    // Pit stop / context prompt.
-    const showPrompt = !!h.prompt || !!h.service;
-    this.setHidden('#hud-prompt', !showPrompt);
-    this.setText('#prompt-text', h.prompt);
-    const kinds = h.service?.kinds ?? [];
-    this.setHidden('#btn-refuel', !kinds.includes('refuel'));
-    this.setHidden('#btn-repair', !kinds.includes('repair'));
-    this.setHidden('#svc-bar', !h.service?.active);
-    this.setStyle('#svc-fill', 'width', `${Math.round((h.service?.progress ?? 0) * 100)}%`);
-
-    if (h.rival) {
-      this.setHidden('#hud-rival', false);
-      this.setText('#hud-rival', h.rival.label);
-    } else this.setHidden('#hud-rival', true);
-
-    if (h.comfort) {
-      const pct = Math.round(h.comfort.value);
-      this.setText('#comfort-pct', `${pct}%`);
-      this.setStyle('#comfort-fill', 'width', `${pct}%`);
-      if (this.cache.get('comfort-q') !== h.comfort.quality) {
-        this.cache.set('comfort-q', h.comfort.quality);
-        q(this.root, '#hud-comfort').dataset.quality = h.comfort.quality;
-      }
-      const msg = h.comfort.cause
-        ? ({
-            corner: 'Easy on the corners!',
-            brake: 'Brake more gently!',
-            accel: 'Too jerky, ease the throttle',
-            bump: 'Ouch! Mind the road',
-          }[h.comfort.cause] ?? 'Smooth ride')
-        : h.comfort.quality === 'smooth'
-          ? 'Smooth ride'
-          : h.comfort.quality === 'firm'
-            ? 'A bit bumpy'
-            : 'Rough ride';
-      this.setText('#comfort-msg', msg);
-      this.setClass('#hud-comfort', 'warn', h.comfort.cause !== null);
-    }
+    this.hud.update(h);
   }
 
   setCountdown(text: string | null): void {
-    const el = q(this.root, '#countdown');
-    el.textContent = text ?? '';
-    el.classList.remove('pop');
-    if (text) {
-      void el.offsetWidth;
-      el.classList.add('pop');
-    }
+    this.hud.setCountdown(text);
   }
 
   flash(title: string, sub = ''): void {
-    const el = q(this.root, '#flash');
-    el.innerHTML = `${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ''}`;
-    el.classList.add('show');
-    window.clearTimeout(this.flashTimer);
-    this.flashTimer = window.setTimeout(() => el.classList.remove('show'), 1900);
+    this.hud.flash(title, sub);
   }
 
   showPause(): void {
@@ -1076,6 +939,7 @@ export class UI {
       this.screens.pause,
       this.screens.finish,
       this.screens.settings,
+      this.screens.campaign,
       ...Array.from(
         this.root.querySelectorAll<HTMLElement>('.modal.about, .modal.feedback, .modal.briefing'),
       ),

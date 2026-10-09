@@ -23,7 +23,7 @@ test.describe('studio branding and credits', () => {
     const errors = await openGame(page, '&splash=1');
     // openGame waits for the menu; the splash may already be gone, so check the DOM contract on a fresh load.
     await page.evaluate(() => sessionStorage.clear());
-    await page.goto('/?debug=1');
+    await page.goto('/?debug=1&splashhold=1');
     const splash = page.locator('#splash');
     await expect(splash).toBeVisible();
     await expect(splash.locator('.splash-logo')).toBeVisible();
@@ -205,8 +205,9 @@ test.describe('startup, settings and navigation', () => {
 
 test.describe('driving and flow', () => {
   test('keyboard driving: countdown, accelerate, steer, brake, reverse, pause/resume, recover', async ({ page }) => {
+    await seedSave(page, makeSave({ finished: ['pass-run'], owned: ['dzo-hatch', 'druk-ranger'], storySeen: [] }));
     const errors = await openGame(page, '&quality=medium');
-    await openGarage(page, 'pass-run', 'dzo-hatch');
+    await openGarage(page, 'pass-run', 'druk-ranger');
     await page.locator('#btn-launch').click();
     await page.locator('#brief-skip').click();
     await expect(page.locator('#hud')).toBeVisible();
@@ -347,7 +348,7 @@ test.describe('delivery missions, fuel and pit stops', () => {
     await expect(page.locator('#btn-replay')).toBeVisible();
     await expect(page.locator('#btn-finish-feedback')).toBeVisible();
     await expect(page.locator('#btn-finish-menu')).toContainText('End game');
-    await expect(page.locator('.studio-mark')).toContainText('Novarah Interactives');
+    await expect(page.locator('#screen-finish .studio-mark')).toContainText('Novarah Interactives');
     await page.screenshot({ path: 'screenshots/desktop-complete-pass-run.png' });
 
     const credits = (await state(page)).credits;
@@ -555,7 +556,8 @@ test.describe('player feedback', () => {
   });
 
   test('from the results screen feedback is optional: the game never blocks on it', async ({ page }) => {
-    await openGame(page);
+    test.setTimeout(420_000);
+    await openGame(page, '&quality=low');
     await startMission(page, 'pass-run', 'dzo-hatch');
     await drive(page, true);
     await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 360_000 });

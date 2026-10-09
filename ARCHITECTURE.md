@@ -23,6 +23,7 @@ physics/   VehicleBody (rigid body, raycast suspension, tyres, assists), types
 gameplay/  RaceSession, Comfort (ComfortMeter), scoring, progression (unlock rules), MotionSampler
 input/     InputManager (keyboard + gamepad + touch merge), keyboardMap (pure), MenuNav (arrows / gamepad in menus)
 render/    GameRenderer, World3D, WorldMesh, Scenery + landmarks, Gates, Environment, VehicleModel,
+           assets (glTF library), envKit, mountains, MissionView + Rain,
            CameraRig, effects (Snow, Particles, SkidMarks, VehicleEffects), adaptive, quality, geo, palette
 audio/     AudioEngine
 ui/        UI (all DOM screens), TouchControls, MiniMap, icons/logo, styles.css + stage2.css
@@ -94,6 +95,22 @@ Flat-shaded, vertex-coloured low poly; static things are merged (`GeoBuilder`) a
 `services/feedback.ts` validates a versioned payload (rating 1–5, optional text/contact/research answers, device block only with consent). `DraftStore` bounds local drafts to 20; JSON download and readable text export preserve the payload. The default `NoRemoteTransport` returns `not-sent`. An optional HTTPS transport seam exists but no endpoint or Firebase is connected. Only a successful HTTP response is called delivery. Storage failures retain a temporary in-memory copy and the UI says so.
 
 `services/seams.ts` defines progress storage, identity, personal leaderboard and analytics interfaces. Current identity is anonymous, the board uses local records and analytics sends nothing off-device (debug events are bounded in memory). A future Firebase integration can implement `FeedbackTransport` behind a validated, rate-limited server endpoint and adapt `ProgressStorage` for cloud saves with explicit conflict/migration policy. `SaveStore` currently uses localStorage directly, so connecting that adapter still requires integration work. Do not embed privileged Firebase credentials or treat a local write as cloud delivery. Consent, auth, abuse protection and migration tests belong to that later work.
+
+## Stage 4: asset pipeline, environment kit and look
+
+**Authoring.** Models are built with Blender 5.2 scripts in `assets-src/blender/` (`cbhr_lib.py` mesh and material kit, `cbhr_vehicle.py` + `build_vehicles.py` + `vehicles_more.py` vehicles, `env_lib.py` + `build_env.py` the vertex-coloured nature/architecture kit). `scripts/vehicle-params.ts` exports the real `VehicleDef` dimensions to `assets-src/vehicle-params.json` so every model matches the physics (axle positions, track, wheel size, ride height). Blender is only needed to regenerate the sources; the game and CI never need it. `scripts/build-models.mjs` runs gltf-transform (dedup, weld, quantise, prune) and meshopt compression, writing `public/models/`. The vehicle GLBs total about 325 KB and the environment kit about 135 KB.
+
+**Runtime.** `render/assets.ts` is an `AssetLibrary`: a URL-keyed cache around GLTFLoader with the meshopt decoder. A load never rejects: a missing or corrupt file resolves to `null`, is remembered and not retried, and the caller falls back to the procedural geometry. `instantiate()` clones a model branch with private materials, applies the livery to the materials named `paint`, `accent` and `trim`, and returns the lamp materials so brake lights and headlights can be driven. Vehicles are separated into physics (the `VehicleBody` box and ray wheels, unchanged), a visual body (one glTF node), wheel visuals (one node cloned per wheel and spun by the physics state) and decoration. `render/envKit.ts` dequantises the kit's meshes into float geometries (positions, vertex colours) that feed the existing instanced scenery with a single Lambert vertex-colour material, with several variants per species.
+
+**Reflections.** Vehicles use MeshStandardMaterial with a small RoomEnvironment map assigned per material (not `scene.environment`, which also lights the Lambert world and ruins night). Reflection strength follows `Environment.brightness`.
+
+**Colour pipeline.** ACES filmic tone mapping (exposure 1.05); neutral warm hemisphere fill and warm sun; fog matched to the horizon; per-level looks in `data/levels/*`; time-of-day and weather tints in `data/weather.ts` (night is near-neutral, not navy). `render/mountains.ts` builds three layers of faceted ridged-noise ranges (forest, rock, snow above a per-level line) in one unlit draw. `WorldMesh` colours terrain by altitude and slope, darkens it under the same noise that places forests, adds dry and bare patches and fine grain, and applies a tiling grain texture in world space.
+
+**Terrain drop-offs.** `LevelDef.terrain.drop` lowers the ground away from the road (optionally one side) after the road bed is blended, which gives river-valley benches and gorge edges; `Road.farLateral` finds the side of far-field nodes by brute force at build time.
+
+**Campaign.** `data/levels/index.ts` registers ten levels; each has a `region` (chapter). `gameplay/campaign.ts` provides chapter grouping, challenge tags, progress, next-unplayed and the "just completed the campaign" test used to show the end screen once (`stats.campaignCompleted` in the v3 save, defaulting to false on older saves). The unlock graph is a tree rooted at Pass Run (checked by tests). A player who owns only the starter hatchback can drive six missions; the others lend an eligible vehicle.
+
+**Offline.** The service worker precaches the application shell and everything in `public/` (including the models, about 1 MB in total), so all ten levels, whose definitions are in the JavaScript bundle, work offline after the first online load. Level data is code, not downloads; there is no per-level asset fetch to wait for.
 
 ## Planned extensibility
 

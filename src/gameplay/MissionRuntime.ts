@@ -321,6 +321,7 @@ export class MissionRuntime {
         : null;
     const o = this.stops.objective(this.s, this.level.finishLabel, this.course.finishS, next);
     if (o.kind === 'finish' && this.level.mission.finishMode === 'stop') o.kind = 'unload';
+    if (o.kind === 'finish' && this.level.mission.party === 0) o.label = `Cross the finish: ${this.level.finishLabel}`;
     return o;
   }
 

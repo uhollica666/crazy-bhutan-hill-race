@@ -1,6 +1,7 @@
 import './ui/styles.css';
 import './ui/stage2.css';
 import './ui/stage3.css';
+import './ui/hud.css';
 import { Game } from './app/Game';
 import { registerServiceWorker } from './pwa/register';
 import { isWebGLAvailable } from './render/GameRenderer';
@@ -20,7 +21,7 @@ async function boot(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const base = import.meta.env.BASE_URL;
   // The studio splash starts straight away, on top of everything; the game loads behind it.
-  const splash = showSplash(document.body, base, { skip: params.has('nosplash') });
+  const splash = showSplash(document.body, base, { skip: params.has('nosplash'), hold: params.has('splashhold') });
 
   if (!isWebGLAvailable()) {
     fatal(

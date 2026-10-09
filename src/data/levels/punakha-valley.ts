@@ -14,6 +14,7 @@ export const punakhaValley: LevelDef = {
   objective:
     'Pick up the guests at the guesthouse, the rice terraces and the riverside stall, then bring them to the dzong viewpoint with a smooth ride.',
   difficulty: 2,
+  region: 'Punakha Valley',
   mission: {
     kind: 'tour',
     party: 3,

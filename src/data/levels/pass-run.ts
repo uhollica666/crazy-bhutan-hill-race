@@ -12,6 +12,7 @@ export const passRun: LevelDef = {
     'Your guests have a flight to catch from the hill-top viewpoint. Climb through four hairpins as the mist rolls in.',
   objective: 'Reach the summit viewpoint through every checkpoint before time runs out.',
   difficulty: 2,
+  region: 'Paro & Thimphu',
   mission: { kind: 'climb', party: 2, finishMode: 'cross', timerStyle: 'elapsed', timerLabel: 'Time', comfort: false },
   vehicles: ['dzo-hatch', 'druk-ranger', 'tourist-coaster', 'dragon-cruiser'],
   conditions: [

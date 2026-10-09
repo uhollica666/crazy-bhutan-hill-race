@@ -795,3 +795,96 @@ body.reduce-motion *::after {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------ stage 4: logo, mission map, campaign */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.brand .game-logo {
+  width: clamp(150px, 34vh, 330px);
+  height: auto;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+}
+.menu-main {
+  width: min(480px, 92vw);
+}
+#level-cards.cards {
+  display: block;
+}
+.region {
+  margin-bottom: 18px;
+}
+.region-title {
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-size: clamp(15px, 2.4vmin, 19px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cream);
+  border-bottom: 1px solid rgba(220, 167, 44, 0.45);
+  padding-bottom: 4px;
+}
+.region-title .muted {
+  font-size: 0.8em;
+  letter-spacing: 0.04em;
+  margin-left: 8px;
+}
+.region-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+}
+.mission-card {
+  min-height: 0;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tags i {
+  font-style: normal;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: rgba(220, 167, 44, 0.16);
+  border: 1px solid rgba(220, 167, 44, 0.4);
+  color: #ecd9a4;
+}
+.campaign-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  font-size: 13.5px;
+  max-height: 34vh;
+  overflow: auto;
+}
+.campaign-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 2px 4px;
+  border-bottom: 1px solid rgba(125, 42, 33, 0.16);
+}
+.campaign-list b {
+  font-variant-numeric: tabular-nums;
+  min-width: 62px;
+  text-align: right;
+}
+.campaign-note {
+  color: #6f5a4a;
+  font-size: 12.5px;
+  margin: 6px 0;
+}

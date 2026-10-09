@@ -64,6 +64,7 @@ export const thimphuPickup: LevelDef = {
     'Your guide has lost his group across town. Collect three solo travellers (a backpacker, a shopper and an archery fan) and deliver them all to Clock Tower Square before dinner.',
   objective: 'Pick up all three tourists, then pull up in Clock Tower Square.',
   difficulty: 3,
+  region: 'Paro & Thimphu',
   mission: {
     kind: 'city',
     party: 3,

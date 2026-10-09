@@ -32,6 +32,7 @@ export interface GameState {
   time_of_day: string;
   loaner: boolean;
   lights: boolean;
+  detailedModel: boolean;
 }
 
 type Api = {

@@ -19,6 +19,8 @@ export interface Settings {
   touchSensitivity: number;
   /** Less camera shake and no decorative motion. Also on automatically when the OS asks for reduced motion. */
   reducedMotion: boolean;
+  /** Driving HUD detail: everything, only the essentials, or extra telemetry. */
+  hudMode: 'standard' | 'minimal' | 'telemetry';
 }
 
 export interface VehicleRecord {
@@ -76,7 +78,7 @@ export interface SaveData {
   garage: Garage;
   /** Story briefings already read (so restarts and replays skip straight to the road). */
   story: { seen: string[] };
-  stats: { missionsPlayed: number; creditsEarned: number };
+  stats: { missionsPlayed: number; creditsEarned: number; campaignCompleted: boolean };
 }
 
 /** The Stage 2 document, kept only so it can be migrated. */
@@ -108,6 +110,7 @@ export const defaultSettings = (quality: QualityLevel = 'medium'): Settings => (
   touchControls: 'auto',
   touchSensitivity: 1,
   reducedMotion: false,
+  hudMode: 'standard',
 });
 
 export const emptySave = (quality: QualityLevel = 'medium'): SaveData => ({
@@ -119,7 +122,7 @@ export const emptySave = (quality: QualityLevel = 'medium'): SaveData => ({
   wallet: { credits: 0 },
   garage: { owned: [STARTER_VEHICLE], upgrades: {} },
   story: { seen: [] },
-  stats: { missionsPlayed: 0, creditsEarned: 0 },
+  stats: { missionsPlayed: 0, creditsEarned: 0, campaignCompleted: false },
 });
 
 const isQuality = (v: unknown): v is QualityLevel => v === 'low' || v === 'medium' || v === 'high';
@@ -142,6 +145,7 @@ export function parseSettings(raw: unknown, fallback: Settings): Settings {
     touchControls: isTouch(o.touchControls) ? o.touchControls : fallback.touchControls,
     touchSensitivity: num(o.touchSensitivity, fallback.touchSensitivity, 0.6, 1.6),
     reducedMotion: typeof o.reducedMotion === 'boolean' ? o.reducedMotion : fallback.reducedMotion,
+    hudMode: o.hudMode === 'minimal' || o.hudMode === 'telemetry' || o.hudMode === 'standard' ? o.hudMode : fallback.hudMode,
   };
 }
 
@@ -261,6 +265,7 @@ export function parseSave(raw: unknown, fallbackQuality: QualityLevel): SaveData
     stats: {
       missionsPlayed: Math.floor(num(stats.missionsPlayed, 0, 0, 1e9)),
       creditsEarned: Math.floor(num(stats.creditsEarned, 0, 0, 1e12)),
+      campaignCompleted: stats.campaignCompleted === true,
     },
   };
 }
@@ -287,7 +292,7 @@ export function migrateV2(old: SaveDataV2): SaveData {
     wallet: { credits: completed * MIGRATION_CREDITS_PER_MISSION },
     garage: { owned: [...owned], upgrades: {} },
     story: { seen: [] },
-    stats: { missionsPlayed: old.history.length, creditsEarned: 0 },
+    stats: { missionsPlayed: old.history.length, creditsEarned: 0, campaignCompleted: false },
   };
 }
 
@@ -465,6 +470,18 @@ export class SaveStore {
   markStorySeen(levelId: string): void {
     if (this.hasSeenStory(levelId)) return;
     this.data.story.seen.push(levelId);
+    this.persist();
+  }
+
+  /** True once every mission has been finished at least once. */
+  isCampaignComplete(levelIds: readonly string[]): boolean {
+    return levelIds.length > 0 && levelIds.every((id) => (this.data.progress.levels[id]?.completions ?? 0) > 0);
+  }
+
+  /** Remembers that the end-of-campaign moment has been shown. */
+  markCampaignCelebrated(): void {
+    if (this.data.stats.campaignCompleted) return;
+    this.data.stats.campaignCompleted = true;
     this.persist();
   }
 

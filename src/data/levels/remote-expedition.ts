@@ -13,6 +13,7 @@ export const remoteExpedition: LevelDef = {
   objective:
     'Collect the film crew at base camp and get them to the festival ground through the mud and the ford.',
   difficulty: 5,
+  region: 'Central & Eastern Bhutan',
   mission: {
     kind: 'expedition',
     party: 2,

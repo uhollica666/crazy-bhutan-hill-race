@@ -25,6 +25,7 @@ export const gmcPlains: LevelDef = {
     'A fictional mindful-city showcase on the southern plains hosts an invitational event for the tourism fleet: a closed circuit, marshals at every corner, and a rival driver who thinks the wide tarmac is a racetrack. It is, for one day.',
   objective: 'Complete the closed course through every checkpoint gate, faster than the rival driver if you can.',
   difficulty: 5,
+  region: 'Southern Plains',
   mission: {
     kind: 'circuit',
     party: 0,

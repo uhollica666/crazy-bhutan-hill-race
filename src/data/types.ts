@@ -326,6 +326,8 @@ export interface LevelDef {
   description: string;
   objective: string;
   difficulty: 1 | 2 | 3 | 4 | 5;
+  /** Campaign chapter the mission is listed under on the mission map. */
+  region: string;
   mission: MissionDef;
   /** Vehicles allowed on this level; the first is the recommended one. */
   vehicles: string[];
