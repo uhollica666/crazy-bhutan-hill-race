@@ -255,7 +255,7 @@ const strList = (v: unknown): string[] =>
     ? [...new Set(v.filter((x): x is string => typeof x === 'string' && x.length < 64))].slice(0, 64)
     : [];
 
-function parseGarage(raw: unknown): Garage {
+export function parseGarage(raw: unknown): Garage {
   const o = rec(raw);
   const owned = strList(o.owned);
   if (!owned.includes(STARTER_VEHICLE)) owned.unshift(STARTER_VEHICLE);
@@ -334,6 +334,9 @@ export interface RunOutcome {
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
+/** Why the save changed: a local action (play, purchase, setting) or data arriving from the cloud. */
+export type ChangeReason = 'local' | 'cloud';
+
 /**
  * Versioned localStorage save. Never throws (private mode, quota, blocked storage): it keeps working
  * from memory. Reads the v2 document, otherwise migrates Stage 1 keys without deleting them.
@@ -343,6 +346,7 @@ export class SaveStore {
   /** True if the data was loaded by migrating a Stage 1 save (shown once in logs/tests). */
   migrated = false;
   private readonly memory = new Map<string, string>();
+  private readonly listeners = new Set<(reason: ChangeReason) => void>();
 
   constructor(
     private readonly storage: StorageLike | null,
@@ -401,7 +405,7 @@ export class SaveStore {
     return save;
   }
 
-  private persist(data: SaveData = this.data): void {
+  private persist(data: SaveData = this.data, reason: ChangeReason = 'local'): void {
     const text = JSON.stringify(data);
     this.memory.set(SAVE_KEY, text);
     try {
@@ -409,6 +413,32 @@ export class SaveStore {
     } catch {
       /* storage unavailable: keep the in-memory copy */
     }
+    for (const l of this.listeners) {
+      try {
+        l(reason);
+      } catch {
+        /* a listener must never break saving */
+      }
+    }
+  }
+
+  /** Called after every save (progress, purchases, settings). Returns an unsubscribe function. */
+  onChange(listener: (reason: ChangeReason) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /** Replaces the whole document (used when cloud data is chosen). The data is re-validated first. */
+  replaceData(next: SaveData, reason: ChangeReason = 'cloud'): void {
+    const checked = parseSave(JSON.parse(JSON.stringify(next)), this.defaultQuality);
+    if (!checked) throw new Error('Refusing to load an invalid save');
+    this.data = checked;
+    this.persist(this.data, reason);
+  }
+
+  /** A deep copy of the current document (backups, comparisons). */
+  snapshot(): SaveData {
+    return structuredClone(this.data);
   }
 
   updateSettings(patch: Partial<Settings>): Settings {
