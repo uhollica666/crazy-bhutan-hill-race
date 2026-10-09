@@ -201,3 +201,21 @@ Found while doing this: the longer missions made terrain and scenery the dominan
 **Verification (10 October 2026).** Typecheck, lint, 430 unit tests, 38 emulator tests (rules and integration), 13 cloud browser tests against the emulators, and the regular browser suite (desktop and Pixel 7 emulation) on a build with the online layer switched off.
 
 **Not verified.** Anything against the live Firebase project (nothing was deployed, created or written there: browser tests use a cloud-off build, scripts pass `?cloud=off`, emulator tests use a `demo-` project id). Real devices, real GPUs, a human listening pass, real e-mail delivery (the emulator prints the links), App Check, and production rules.
+
+## Pass 5.5 — brand alignment, cinematic presentation and story polish (branch `pass-5-5-brand-cinematic-polish`)
+
+**Product feedback that drove it:** the brown/yellow/parchment interface did not match the supplied `cbhr-logo.png` or the Novarah brand, the menu was weak, the story was text-heavy, and the game should feel like a release.
+
+**Colour system.** Tokens remapped in one place (`:root` in `styles.css`: charcoal surfaces, off-white text, Novarah magenta for focus and selection, CBHR orange for primary actions and rewards, steel blue as a quiet secondary, green/red for status only) so every existing screen followed; then every hard-coded warm colour in the CSS and in the drawn UI (about 60 hex/rgba values across five stylesheets, the mission map, icons, portraits' backdrop, garage lighting and materials) was mapped by role. A new `brand.css` loads last and owns the set pieces. A unit test fails if the old palette returns. Details and rules: `docs/BRAND.md`.
+
+**Main menu.** CBHR logo as the hero with a soft orange glow, a slanted tagline, a compact "journey" card, one dominant orange Drive button over Garage and Settings and a slim feedback button; a magenta/orange speed line behind; the menu builds in once per launch (reduced-motion safe). The Novarah symbol sits in a small credit pill so the studio never competes with the game. The online status chip stays top-right.
+
+**Start-up.** `Splash.ts` is now two cards: Novarah Interactives, then the CBHR title with a streak sweep. First launch about 4.1 s; later launches the title only (about 1.7 s); a reload in the same session about 0.9 s; any key/click/tap skips; reduced motion gives still cards. A soft brand sting plays as the menu appears when audio is already unlocked. Tools and AI assistants are credited in About as text, never as splash logos (rationale in BRAND.md).
+
+**Story.** The briefing is a reusable dispatch card: hero strip, who is aboard, three one-line cards (problem, job, challenge, written for all ten missions and length-checked by a test), the full text behind "Read the full story". In the mission a dispatch card shows the headline and the job during the countdown and fades after GO; the countdown and callouts were restyled; the results screen opens with a MISSION COMPLETE/FAILED stamp and a one-line ending per mission.
+
+**Also.** Mission map redrawn as a dark topographic map with an orange route and blue river; the garage showroom rebuilt in charcoal with a magenta rim light and trim; outline icons in buttons now follow the text colour (they had been drawing black); phone-landscape map hides pin labels except the selected one.
+
+**Verification.** See the pass report; screenshots from `scripts/pass55-shots.mjs`, `pass55-intro.mjs` and `pass55-finish.mjs` were reviewed by eye on desktop (1280x720), phone landscape (844x390) and phone portrait (390x844). The earlier stopped Stage 5 regression run had one failure (the fuel/pit-stop test, 3.5 min) that passes alone in 1.0 min: it was starved of CPU by other work.
+
+**Not done / limits.** No real-device, real-GPU or human listening checks; the brand sting has never been heard by a person; Bahnschrift is a Windows font, other platforms fall back to Arial Narrow or the system sans (looks slightly different, same layout); the two logos have no combined lock-up; Stage 6 (website, Releases, Tauri, installers) is only described in `docs/BRAND.md`.

@@ -1,4 +1,8 @@
-# Visual direction (Stage 4)
+# Visual direction (Stage 4; interface superseded by Pass 5.5)
+
+> **Pass 5.5 replaced the interface palette** described under "UI" below (umber, parchment, saffron and madder red) with the
+> charcoal, magenta and orange brand system in [`BRAND.md`](BRAND.md). Everything here about the 3D world (light,
+> terrain, mountains, vehicles, nature kit, architecture) still stands.
 
 ## The problem we were fixing
 
@@ -37,8 +41,8 @@ where Bhutan actually has it (prayer flags, painted window frames, gilded roofs,
 - **Architecture.** Whitewashed rammed-earth walls on a stone plinth, a timber upper storey with painted lintels, a
   projecting balcony, a broad shingle roof with battens and weighting stones, a flag mast and stacked firewood; a
   stepped chorten with a bell, harmika and gilded rings.
-- **UI.** Warm umber and parchment, saffron and madder red, gold linework: a game-like thangka palette instead of a
-  dashboard. The supplied painted logo is the menu centrepiece. HUD cards are small and only show what matters while
+- **UI (Stage 4, replaced in Pass 5.5).** Warm umber and parchment, saffron and madder red, gold linework: a game-like
+  thangka palette instead of a dashboard. The supplied painted logo is the menu centrepiece. HUD cards are small and only show what matters while
   driving.
 
 ## What is deliberately not done

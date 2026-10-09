@@ -32,6 +32,7 @@ bun run dev        # http://localhost:5273 (localhost only)
 | `node scripts/make-icons.mjs` | Regenerates favicon / PWA icons from the in-code logo                                            |
 | `node scripts/build-models.mjs` | Optimises the Blender exports in `assets-src/out/` into `public/models/` (meshopt)             |
 | `node scripts/stage4-shots.mjs <dir> [quality]` | Visual-regression screenshots: menu, all four vehicles, every level and condition |
+| `node scripts/pass55-shots.mjs <dir> [url] [desktop\|mobile\|portrait\|all]` | Pass 5.5 review set: start-up, menu, mission map, garage, briefing, countdown dispatch, pause, About (serve a build first; `pass55-intro.mjs` captures both intro cards, `pass55-finish.mjs` the results screen) |
 | `node scripts/ui-shots.mjs <dir> [w h]` | Menu, mission map and campaign-complete screenshots at any size                         |
 | `bun run emulators` / `bun run test:emulator` / `bun run test:e2e:cloud` | Firebase emulators; rules and integration tests; online-feature browser tests (docs/FIREBASE.md)                      |
 | `bun scripts/survey.ts [level…]` | Full autopilot mission per vehicle in three driving styles, for calibration                 |

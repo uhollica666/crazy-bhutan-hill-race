@@ -1,19 +1,24 @@
 /* Visual language: thangka pigments (indigo, madder red, saffron, lime-wash white) on parchment, gold linework. */
 :root {
-  --indigo: #33261b;
-  --indigo-deep: #1b140f;
-  --maroon: #7d2a21;
-  --maroon-dark: #5a1a14;
-  --saffron: #e8a317;
-  --saffron-light: #f6c452;
-  --gold: #dca72c;
-  --parchment: #f6ecd2;
-  --parchment-dark: #e6d5ab;
-  --ink: #3a1d15;
-  --cream: #fbf1d8;
-  --green: #2e9c4f;
-  --blue: #2f6fd0;
-  --red: #d6322b;
+  /* Brand system: charcoal surfaces, off-white text, Novarah magenta + CBHR orange. The old names are kept so every
+     screen picks up the new palette; their meaning is noted here. */
+  --indigo: #141722; /* raised surface */
+  --indigo-deep: #0b0d13; /* page / deepest surface */
+  --maroon: #d12c88; /* primary accent (Novarah magenta) */
+  --maroon-dark: #8f1a5e;
+  --saffron: #ff8a2a; /* energy accent (CBHR orange) */
+  --saffron-light: #ffc247;
+  --gold: #ff9f3a; /* highlight lines */
+  --parchment: #151926; /* panel glass */
+  --parchment-dark: #232938; /* inset wells */
+  --ink: #eef0f7; /* text on panels */
+  --cream: #f6f7fb; /* text on dark */
+  --muted-ink: #9aa3b8;
+  --steel: #5b8def; /* controlled cool secondary */
+  --green: #2fd37a;
+  --blue: #5b8def;
+  --red: #ff4d6a;
+  --display: 'Bahnschrift', 'Arial Narrow', 'Segoe UI', Roboto, 'Helvetica Neue', system-ui, sans-serif;
   --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
   --sans: ui-rounded, 'SF Pro Rounded', 'Segoe UI', Roboto, 'Helvetica Neue', system-ui, sans-serif;
   --sat: env(safe-area-inset-top, 0px);
@@ -89,7 +94,7 @@ button {
   box-shadow:
     0 0 0 3px var(--maroon),
     0 0 0 5px var(--gold),
-    0 18px 50px rgba(12, 8, 5, 0.55);
+    0 18px 50px rgba(3, 4, 8, 0.55);
 }
 
 .panel h2 {
@@ -146,7 +151,7 @@ button {
   font-size: clamp(18px, 3vmin, 24px);
 }
 .btn.ghost {
-  background: rgba(51, 38, 27, 0.78);
+  background: rgba(22, 26, 38, 0.78);
 }
 .btn svg {
   width: 1.25em;
@@ -164,7 +169,7 @@ button {
   height: 52px;
   border-radius: 50%;
   border: 2px solid var(--gold);
-  background: rgba(27, 20, 15, 0.78);
+  background: rgba(11, 13, 19, 0.78);
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -196,7 +201,7 @@ button {
 
 #screen-loading,
 #screen-error {
-  background: radial-gradient(ellipse at 50% 30%, #54402c 0%, var(--indigo-deep) 70%);
+  background: radial-gradient(ellipse at 50% 30%, #2b2140 0%, var(--indigo-deep) 70%);
   z-index: 50;
 }
 
@@ -224,7 +229,7 @@ button {
 }
 .loader p {
   margin: 8px 0;
-  color: #ddd2bc;
+  color: #c3c8d8;
 }
 .bar {
   height: 10px;
@@ -232,7 +237,7 @@ button {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid rgba(220, 167, 44, 0.6);
+  border: 1px solid rgba(255, 138, 42, 0.6);
 }
 .bar > i {
   display: block;
@@ -262,8 +267,8 @@ button {
 #screen-menu {
   place-items: stretch;
   background:
-    linear-gradient(90deg, rgba(27, 20, 15, 0.88) 0%, rgba(27, 20, 15, 0.55) 38%, rgba(27, 20, 15, 0) 70%),
-    linear-gradient(0deg, rgba(27, 20, 15, 0.55), rgba(27, 20, 15, 0) 35%);
+    linear-gradient(90deg, rgba(11, 13, 19, 0.88) 0%, rgba(11, 13, 19, 0.55) 38%, rgba(11, 13, 19, 0) 70%),
+    linear-gradient(0deg, rgba(11, 13, 19, 0.55), rgba(11, 13, 19, 0) 35%);
 }
 .menu-main {
   align-self: center;
@@ -314,7 +319,7 @@ button {
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 .level-card {
-  background: rgba(27, 20, 15, 0.72);
+  background: rgba(11, 13, 19, 0.72);
   border: 2px solid var(--gold);
   border-radius: 12px;
   padding: 12px 16px;
@@ -335,7 +340,7 @@ button {
 .level-card p {
   margin: 4px 0 0;
   font-size: clamp(12px, 2.1vmin, 14px);
-  color: #e6dcc8;
+  color: #c3c8d8;
   line-height: 1.35;
 }
 .dots {
@@ -352,7 +357,7 @@ button {
   display: flex;
   gap: 8px;
   align-items: center;
-  color: #e6dcc8;
+  color: #c3c8d8;
 }
 .menu-actions {
   display: grid;
@@ -383,7 +388,7 @@ button {
   pointer-events: auto;
 }
 .hud-card {
-  background: rgba(27, 20, 15, 0.72);
+  background: rgba(11, 13, 19, 0.72);
   border: 1.5px solid var(--gold);
   border-radius: 12px;
   backdrop-filter: blur(4px);
@@ -433,7 +438,7 @@ button {
   line-height: 1.1;
 }
 .hud-time.low {
-  color: #ff8d7a;
+  color: #ff7a95;
   animation: pulse 0.8s infinite;
 }
 @keyframes pulse {
@@ -588,7 +593,7 @@ button {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(14, 10, 7, 0.62);
+  background: rgba(6, 7, 11, 0.62);
   backdrop-filter: blur(3px);
   padding: calc(var(--sat) + 16px) calc(var(--sar) + 16px) calc(var(--sab) + 16px) calc(var(--sal) + 16px);
   z-index: 20;
@@ -671,7 +676,7 @@ button {
   padding: 8px 10px;
   border-radius: 8px;
   border: 2px solid var(--maroon);
-  background: #fff9e8;
+  background: #0f121a;
   color: var(--ink);
   min-height: 42px;
 }
@@ -682,7 +687,7 @@ button {
 }
 .hint-text {
   font-size: 12.5px;
-  color: #6b4a3a;
+  color: #9aa3b8;
   margin: -4px 0 8px;
 }
 .controls-grid {
@@ -695,7 +700,7 @@ button {
 .controls-grid kbd {
   padding: 1px 7px;
   border-radius: 5px;
-  background: #fff9e8;
+  background: #0f121a;
   border: 1px solid var(--maroon);
   font: 700 12px var(--sans);
   margin-right: 3px;
@@ -779,8 +784,8 @@ body.touch #rotate-hint.on {
   width: clamp(190px, 38vw, 330px);
   height: clamp(84px, 22vmin, 120px);
   border-radius: 999px;
-  background: rgba(27, 20, 15, 0.55);
-  border: 2px solid rgba(220, 167, 44, 0.85);
+  background: rgba(11, 13, 19, 0.55);
+  border: 2px solid rgba(255, 138, 42, 0.85);
   backdrop-filter: blur(3px);
 }
 .steer-pad .track {
@@ -816,7 +821,7 @@ body.touch #rotate-hint.on {
   height: clamp(56px, 15vmin, 80px);
   margin: calc(clamp(56px, 15vmin, 80px) / -2) 0 0 calc(clamp(56px, 15vmin, 80px) / -2);
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, var(--saffron-light), var(--saffron) 60%, #b87a0c);
+  background: radial-gradient(circle at 35% 30%, var(--saffron-light), var(--saffron) 60%, #d4580a);
   border: 3px solid var(--maroon-dark);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
 }
@@ -830,7 +835,7 @@ body.touch #rotate-hint.on {
   font-family: var(--serif);
   font-weight: 800;
   letter-spacing: 0.06em;
-  background: rgba(27, 20, 15, 0.6);
+  background: rgba(11, 13, 19, 0.6);
   backdrop-filter: blur(3px);
   user-select: none;
   cursor: pointer;
@@ -854,7 +859,7 @@ body.touch #rotate-hint.on {
   width: clamp(72px, 18vmin, 100px);
   height: clamp(72px, 18vmin, 100px);
   font-size: clamp(13px, 2.6vmin, 17px);
-  border-color: #e47a6c;
+  border-color: #ff6b8a;
 }
 
 @media (max-height: 460px) {
@@ -887,7 +892,7 @@ body.touch #rotate-hint.on {
   inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at 50% 30%, #54402c 0%, var(--indigo-deep) 70%);
+  background: radial-gradient(ellipse at 50% 30%, #2b2140 0%, var(--indigo-deep) 70%);
   font-family: var(--serif);
   letter-spacing: 0.12em;
   color: var(--saffron-light);
@@ -905,7 +910,7 @@ body.touch #rotate-hint.on {
   width: clamp(120px, 34vmin, 190px);
   height: clamp(120px, 34vmin, 190px);
   border-radius: 50%;
-  background: rgba(27, 20, 15, 0.38);
+  background: rgba(11, 13, 19, 0.38);
   transition: transform 0.12s ease-out;
 }
 .steer-wheel svg {
@@ -915,21 +920,21 @@ body.touch #rotate-hint.on {
 }
 .steer-wheel .rim {
   fill: none;
-  stroke: rgba(220, 167, 44, 0.92);
+  stroke: rgba(255, 138, 42, 0.92);
   stroke-width: 9;
 }
 .steer-wheel .spoke {
-  stroke: rgba(220, 167, 44, 0.8);
+  stroke: rgba(255, 138, 42, 0.8);
   stroke-width: 6;
   stroke-linecap: round;
 }
 .steer-wheel .hub {
-  fill: #3b2a1c;
-  stroke: rgba(220, 167, 44, 0.9);
+  fill: #1b2030;
+  stroke: rgba(255, 138, 42, 0.9);
   stroke-width: 3;
 }
 .steer-wheel .mark {
-  stroke: #e47a6c;
+  stroke: #ff6b8a;
   stroke-width: 6;
   stroke-linecap: round;
 }
@@ -977,7 +982,7 @@ body.touch #rotate-hint.on {
   gap: 6px;
   flex-wrap: wrap;
   margin: 4px 0 14px;
-  border-bottom: 1px solid rgba(220, 167, 44, 0.35);
+  border-bottom: 1px solid rgba(255, 138, 42, 0.35);
 }
 .tabs button {
   background: none;

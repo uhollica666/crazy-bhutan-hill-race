@@ -76,6 +76,8 @@ export const EN: StoryBook = {
     'punakha-valley': {
       headline: 'Five Stars or Nothing',
       stamp: 'Scenic tour',
+      quick: { problem: 'Three parties, three ideas of the perfect day.', goal: 'Collect all three guests and deliver them to the dzong viewpoint.', challenge: 'Smooth driving: passengers score the whole ride.' },
+      ending: { done: 'Three happy guests and one very good review.', failed: 'The guests are still at the viewpoint. The review will be candid.' },
       text: [
         'The guesthouse review page is a battlefield. Three parties of guests, three different ideas of the perfect day, and one of them has written "must see the dzong at golden hour" on a postcard and mailed it to themselves.',
         'Collect the guests one stop at a time, take your time through the rice terraces, and deliver everyone to the dzong viewpoint with a smile. The river will keep you company.',
@@ -94,6 +96,8 @@ export const EN: StoryBook = {
     'dochula-storm': {
       headline: 'The Storm Came Early',
       stamp: 'Storm descent',
+      quick: { problem: 'A storm came early and the photographers are stranded.', goal: 'Pick them up and descend to the valley hotel.', challenge: 'Slick hairpins and a rockfall in the middle.' },
+      ending: { done: 'The photographers got their dramatic light, and got down alive.', failed: 'The storm won the descent. The photographers got a dramatic night.' },
       text: [
         'The 108 chortens look haunting in the mist and miserable in a thunderstorm. Three photographers have been standing there for an hour insisting the light is about to get "dramatic".',
         'It is dramatic. Collect them, then take the hairpins down the pass in the rain. Wet tarmac does not forgive a late brake, and a rockfall is waiting somewhere in the middle.',
@@ -113,6 +117,8 @@ export const EN: StoryBook = {
     'trongsa-gorge': {
       headline: 'The Road With The Drop',
       stamp: 'Cliff road',
+      quick: { problem: 'The only doctor is on the wrong side of the gorge.', goal: 'Get Dr Lhamo to the far-side health post.', challenge: 'A narrow cliff road with no room to scrape.' },
+      ending: { done: 'Dr Lhamo reached the health post. The valley will hear about this.', failed: 'The clinic is still waiting across the gorge. Try again, gently.' },
       text: [
         'Dr Lhamo is the only doctor for fifty kilometres, and her clinic is on the wrong side of a gorge. Her message reads: "bring the car that fits." The road is as wide as a promise and twice as fragile.',
         'Collect her at the roadside clinic, keep your wheels on the road, and get her to the far-side health post. The wall will not move for you.',
@@ -132,6 +138,8 @@ export const EN: StoryBook = {
     'bumthang-night': {
       headline: 'The Last Shuttle Left Without Them',
       stamp: 'Night expedition',
+      quick: { problem: 'The shuttle left without them and it is dark.', goal: 'Fetch the hikers, refuel, and reach the valley lodge.', challenge: 'Night driving, low fuel, and a yeti.' },
+      ending: { done: 'A warm lodge, a hot meal and two very grateful hikers.', failed: 'The night is long and the lodge is far. Learn the road and go again.' },
       text: [
         'Two hikers came down from the ridge after dark to find the shuttle gone, the lodge lights low and the nearest hot meal forty minutes away by a forest road with no street lamps.',
         'Your tank is nearly dry, your headlights are very good, and something large and polite is crossing the track. Pick them up, find the village pump, and bring them home.',
@@ -151,6 +159,8 @@ export const EN: StoryBook = {
     'gmc-plains': {
       headline: 'One Day Only: The Invitational',
       stamp: 'Closed-course event',
+      quick: { problem: 'The fleet is invited to a one-day closed-course event.', goal: 'Hit every gate and beat the Gelephu Gazelle.', challenge: 'Long braking zones: flat out, then brake early.' },
+      ending: { done: 'Chequered flag! The goats are mildly impressed.', failed: 'The Gazelle takes the day. Brake later and exit faster.' },
       text: [
         'The mindful-city showcase has closed its brand-new tarmac for a single afternoon, and the tourism fleet has been invited to find out what it can do. Marshals line the course, there is a rival, and the crowd, such as it is, is mostly goats.',
         'This is the only road in the game where flat out is the right answer. Brake hard at the end of each straight, hit every gate, and beat the Gelephu Gazelle.',
@@ -170,6 +180,8 @@ export const EN: StoryBook = {
     'pass-run': {
       headline: 'The Sunrise Will Not Wait',
       stamp: 'Mountain run',
+      quick: { problem: 'They slept through every alarm.', goal: 'Reach the summit viewpoint before the sunrise ends.', challenge: 'Four hairpins and mist near the top.' },
+      ending: { done: 'They caught the sunrise. Wesley has forgiven the rooster.', failed: 'The sun came up without them. An earlier alarm, perhaps.' },
       text: [
         'Ingrid and Wesley booked the sunrise tour. Then they slept through three alarms, two wake-up calls and a very persistent rooster.',
         'The sunrise at the pass lasts about eleven minutes. Collect them from the Hotel Tashi lay-by, climb through four hairpins, and get them to the summit while the sky is still doing something interesting.',
@@ -185,6 +197,8 @@ export const EN: StoryBook = {
     'thimphu-pickup': {
       headline: 'The Group Chat Has Gone Quiet',
       stamp: 'City pickup',
+      quick: { problem: 'The tour group has scattered across town.', goal: 'Collect all three and reach Clock Tower Square.', challenge: 'Busy town traffic and a blocked lane.' },
+      ending: { done: 'Everyone made it to Clock Tower Square and dinner is still hot.', failed: 'The group is still scattered across town. Find a faster line.' },
       text: [
         'Dorji the tour guide has lost his group. Not lost lost: just spread across town, each person certain they were meant to wait somewhere else.',
         'Fiona is at the cafe, Hassan is at the craft market buying something large, and Priya is still at the archery ground cheering for people she has never met. Gather all three and deliver them to Clock Tower Square before dinner.',
@@ -204,6 +218,8 @@ export const EN: StoryBook = {
     'airport-dash': {
       headline: 'The Very Famous Mountain',
       stamp: 'Airport transfer',
+      quick: { problem: 'The flight leaves soon and nothing is packed.', goal: 'Collect four photographers and reach Paro Departures in time.', challenge: 'Half a tank and a rival coach on the same road.' },
+      ending: { done: 'Checked in with minutes to spare, and the mountain waves goodbye.', failed: 'The plane left without them. Find a faster line.' },
       text: [
         'Four tourists have spent three hours photographing the same mountain. It has not changed. They are thrilled.',
         'Their flight leaves soon, and they have only just remembered that their luggage is at the hotel, their tickets are in someone\'s other jacket, and the tour company\'s car is running on half a tank. The Zangmo Express, a rival tour coach, left an hour ago with far calmer passengers.',
@@ -224,6 +240,8 @@ export const EN: StoryBook = {
     'chelela-climb': {
       headline: 'The Cheese Emergency',
       stamp: 'Hill climb',
+      quick: { problem: 'A very delicate cheese needs to reach the pass.', goal: 'Collect the trekkers and climb to the top.', challenge: 'Nine hairpins, snow, rockfall and a shy yeti.' },
+      ending: { done: 'The cheese survived. Mostly.', failed: 'The cheese is at a delicate stage and so is the schedule.' },
       text: [
         'Anil has carried twelve kilos of very serious cheese halfway around the world for a picnic at the Chelela pass. The cheese is, in his words, "at a delicate stage".',
         'Brigitta and Mei have already made it clear that this is the last time they will trek with a cheese. You need a proper 4x4, a steady nerve and a reasonable explanation for the snow, the rockfall, and whatever the locals say lives near the top.',
@@ -243,6 +261,8 @@ export const EN: StoryBook = {
     'remote-expedition': {
       headline: 'Forty Cases of Camera Gear',
       stamp: 'Expedition',
+      quick: { problem: 'Forty cases of gear and a festival at noon.', goal: 'Reach the festival ground before the dances begin.', challenge: 'Mud, a ford, and a tractor in the way.' },
+      ending: { done: 'Forty cases of gear and not one dance missed.', failed: 'The masks waited for nobody. Back to base camp.' },
       text: [
         'Leo and Dolma are filming the festival masks, and the masks wait for nobody. They have forty cases of gear, a thermos of tea, and an unshakable belief that the road "is probably fine".',
         'It is not fine. The rains came early, the track is mud, a tractor has made itself at home in the middle of it, and the river has opinions. The festival starts at noon.',

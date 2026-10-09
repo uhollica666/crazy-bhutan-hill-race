@@ -139,6 +139,7 @@ export function hudMarkup(): string {
 
     <div class="center-msg" id="countdown" aria-live="assertive"></div>
     <div class="center-msg" id="flash" aria-live="polite"></div>
+    <div id="dispatch" aria-live="polite"></div>
     <div class="hud-prompt" id="hud-prompt" hidden>
       <span id="prompt-text"></span>
       <span class="prompt-btns">
@@ -157,6 +158,7 @@ export class Hud {
   private readonly cache = new Map<string, string>();
   private hintTimer = 0;
   private flashTimer = 0;
+  private dispatchTimer = 0;
   private scaleMax = 0;
   private mode: HudMode = 'standard';
   private revLit = -1;
@@ -390,6 +392,24 @@ export class Hud {
       void el.offsetWidth;
       el.classList.add('pop');
     }
+  }
+
+  /** The mission's one-line setup, shown over the road while the lights count down and for a moment after GO. */
+  setDispatch(d: { title: string; goal: string } | null): void {
+    const el = q(this.root, '#dispatch');
+    window.clearTimeout(this.dispatchTimer);
+    if (!d) {
+      el.classList.remove('show');
+      return;
+    }
+    el.innerHTML = `<span class="d-tag">Dispatch</span><span class="d-title">${esc(d.title)}</span><span class="d-goal">${esc(d.goal)}</span>`;
+    el.classList.add('show');
+  }
+
+  /** Fades the dispatch card out after `ms`. */
+  clearDispatchSoon(ms: number): void {
+    window.clearTimeout(this.dispatchTimer);
+    this.dispatchTimer = window.setTimeout(() => q(this.root, '#dispatch').classList.remove('show'), ms);
   }
 
   flash(title: string, sub = ''): void {

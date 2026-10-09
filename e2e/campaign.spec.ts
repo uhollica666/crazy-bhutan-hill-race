@@ -40,6 +40,8 @@ for (const [level, vehicle] of [
     const before = (await storedSave(page)).progress.levels[level]?.completions ?? 0;
     await drive(page);
     await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 720_000 });
+    await expect(page.locator('#finish-stamp')).toHaveText('Mission complete');
+    await expect(page.locator('#finish-story')).not.toBeEmpty();
     const s = await state(page);
     expect(s.phase).toBe('finished');
     expect(s.onboard).toBe(s.party);

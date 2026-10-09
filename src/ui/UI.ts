@@ -4,7 +4,8 @@ import { formatTime } from '../gameplay/RaceSession';
 import type { OptionalOutcome, Reward } from '../gameplay/rewards';
 import type { QualityLevel, Settings, TouchMode } from '../storage/SaveStore';
 import type { VehicleStats } from '../data/vehicles';
-import { ICONS, KNOT, logoSvg, medalSvg } from './icons';
+import { getStory } from '../data/story';
+import { ICONS, KNOT, medalSvg } from './icons';
 import { Hud, hudMarkup } from './Hud';
 import type { HudMode, HudState } from './Hud';
 import { renderCampaignMap, renderMapPreview } from './CampaignMap';
@@ -213,14 +214,15 @@ export class UI {
     host.innerHTML = `
       <section class="screen" id="screen-loading" aria-live="polite">
         <div class="loader">
-          ${logoSvg('ld')}
-          <h1>CRAZY BHUTAN HILL RACE</h1>
+          <img class="loader-logo" src="${brandBase}brand/cbhr-logo.webp" alt="" width="360" height="360" decoding="async" />
+          <h1>Crazy Bhutan Hill Race</h1>
           <p id="loading-text">Loading...</p>
           <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><i id="loading-bar"></i></div>
         </div>
       </section>
 
       <section class="screen" id="screen-menu" data-screen hidden aria-labelledby="menu-title">
+        <div class="menu-fx" aria-hidden="true"></div>
         <div class="menu-main">
           <div class="brand">
             <img class="game-logo" src="${brandBase}brand/cbhr-logo.webp" alt="" width="360" height="360" decoding="async" />
@@ -304,10 +306,11 @@ export class UI {
       </div>
 
       <div class="modal" id="screen-finish" data-screen hidden role="dialog" aria-modal="true" aria-labelledby="finish-title">
-        <div class="panel wide">${KNOT}<h2 id="finish-title"></h2>
+        <div class="panel wide"><div class="result-stamp" id="finish-stamp"></div><h2 id="finish-title"></h2>
           <div id="finish-medal"></div>
           <div class="result-time" id="finish-time"></div>
           <div class="result-sub" id="finish-sub"></div>
+          <p class="finish-story" id="finish-story" hidden></p>
           <div class="result-grid" id="finish-grid"></div>
           <div class="chips" id="finish-chips"></div>
           <div class="rewards" id="finish-rewards"></div>
@@ -754,9 +757,16 @@ export class UI {
     q(this.root, '#menu-summary').innerHTML =
       `<div class="row"><h3>Your journey</h3><span class="dots">${esc(summary.medals)}</span></div>
       <p>${esc(summary.missions)}</p><div class="best"><span>${esc(summary.lastPlayed)}</span><span class="wallet" title="Driving credits">${COIN}${summary.credits.toLocaleString('en-US')}</span></div>`;
+    // The menu builds in once per launch; coming back from a mission or a sub-screen is instant.
+    if (!this.menuBuilt) {
+      this.menuBuilt = true;
+      this.screens.menu.classList.add('enter');
+    }
     this.showFlow('menu');
     this.focusFirst(this.screens.menu, '#btn-start');
   }
+
+  private menuBuilt = false;
 
   hideMenu(): void {
     this.showFlow(null);
@@ -1003,6 +1013,14 @@ export class UI {
     this.hud.setCountdown(text);
   }
 
+  setDispatch(d: { title: string; goal: string } | null): void {
+    this.hud.setDispatch(d);
+  }
+
+  clearDispatchSoon(ms: number): void {
+    this.hud.clearDispatchSoon(ms);
+  }
+
   flash(title: string, sub = ''): void {
     this.hud.flash(title, sub);
   }
@@ -1029,6 +1047,13 @@ export class UI {
         ? 'Flight missed'
         : 'Out of time';
     q(this.root, '#finish-medal').innerHTML = done ? medalSvg(r.medal) : '';
+    const stamp = q(this.root, '#finish-stamp');
+    stamp.textContent = done ? 'Mission complete' : 'Mission failed';
+    stamp.className = `result-stamp ${done ? 'ok' : 'bad'}`;
+    const ending = getStory(level.id)?.ending;
+    const storyLine = q(this.root, '#finish-story');
+    storyLine.hidden = !ending;
+    storyLine.textContent = ending ? (done ? ending.done : ending.failed) : '';
     q(this.root, '#finish-time').textContent = formatTime(r.time);
     q(this.root, '#finish-sub').textContent = done
       ? MEDAL_TEXT[r.medal]

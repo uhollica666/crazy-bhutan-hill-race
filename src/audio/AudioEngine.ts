@@ -671,6 +671,20 @@ export class AudioEngine {
     if (ctx) this.tone(back ? 520 : 760, ctx.currentTime, 0.07, 0.12, 'triangle', this.bus.ui);
   }
 
+  /**
+   * The studio/title sting played as the menu appears: a soft rising whoosh into a two-note lift. Quiet by design,
+   * a few tenths of a second, and only if the browser has already allowed audio (it has when the player tapped to skip).
+   */
+  brandSting(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.noiseBurst(t, 0.5, 0.07, 'bandpass', 300, 2600, this.bus.ui);
+    this.tone(392, t + 0.12, 0.9, 0.1, 'triangle', this.bus.ui);
+    this.tone(587.33, t + 0.24, 1.1, 0.1, 'triangle', this.bus.ui);
+    this.tone(1174.66, t + 0.24, 0.8, 0.03, 'sine', this.bus.ui);
+  }
+
   /** Soft sweep for opening / closing a screen. */
   whoosh(): void {
     const ctx = this.ready();

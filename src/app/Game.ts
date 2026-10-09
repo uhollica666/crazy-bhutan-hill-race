@@ -435,6 +435,7 @@ export class Game {
     await (opts.splash ?? Promise.resolve());
     this.last = performance.now();
     this.showMenu();
+    this.audio.brandSting();
     // Connect after the menu is up and the page is idle: the online layer is an extra, never part of start-up.
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
     if (idle) idle.call(window, () => this.startCloud(), { timeout: 3000 });
@@ -646,6 +647,7 @@ export class Game {
       ui.setCountdown('GO!');
       audio.go();
       window.setTimeout(() => ui.setCountdown(null), 700);
+      ui.clearDispatchSoon(3200);
     });
     e.on('checkpoint', ({ index, split }) => {
       ui.flash(
@@ -1349,6 +1351,8 @@ export class Game {
     });
     this.engineSim.reset();
     this.ui.setCountdown(String(Math.ceil(this.rt.session.countdown)));
+    const story = getStory(level.id);
+    this.ui.setDispatch(story ? { title: story.headline, goal: story.quick.goal } : null);
     this.world?.gates.setNext(0);
     this.touch.reset();
     this.rig.setShowcase(false);
@@ -1442,6 +1446,7 @@ export class Game {
     this.audio.setDriving(false);
     this.rig.orbit = true;
     this.ui.setCountdown(null);
+    this.ui.setDispatch(null);
     const names = {
       levels: Object.fromEntries(this.levels.map((l) => [l.id, l.name])),
       vehicles: Object.fromEntries(this.vehicles.map((v) => [v.id, v.name])),

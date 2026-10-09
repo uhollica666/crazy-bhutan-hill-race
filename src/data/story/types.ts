@@ -18,7 +18,11 @@ export interface LevelStory {
   headline: string;
   /** Short tag shown on the briefing card ("Airport transfer"). */
   stamp: string;
-  /** Paragraphs of the briefing. */
+  /** The briefing at a glance: one line each, so the card reads in a few seconds. */
+  quick: { problem: string; goal: string; challenge: string };
+  /** One line shown on the results screen: how the story ended. */
+  ending: { done: string; failed: string };
+  /** Paragraphs of the longer story (tucked behind "Read the full story"). */
   text: string[];
   /** Keys into `cast`. */
   passengers: string[];

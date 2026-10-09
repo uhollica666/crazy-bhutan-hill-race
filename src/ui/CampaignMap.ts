@@ -20,18 +20,18 @@ function backdrop(): string {
   const trees = Array.from({ length: 70 }, (_, i) => {
     const x = (i * 137.5) % W;
     const y = 150 + ((i * 89.3) % (H - 190));
-    return `<path d="M${x.toFixed(0)} ${y.toFixed(0)} l5 -13 l5 13 z" fill="#4b6034" opacity="0.5"/>`;
+    return `<path d="M${x.toFixed(0)} ${y.toFixed(0)} l5 -13 l5 13 z" fill="#2f8f78" opacity="0.38"/>`;
   }).join('');
   return `
     <rect width="${W}" height="${H}" fill="url(#mapSky)"/>
-    ${ridge(120, 70, 1.2, '#b9a98c')}${ridge(170, 55, 3.1, '#a39373')}
-    <path d="M120 100 l25 -38 l22 30 l18 -22 l30 40 z M520 75 l30 -50 l28 38 l22 -26 l36 38 z M840 105 l22 -40 l24 30 l20 -20 l30 30 z" fill="#f5f0e3" opacity="0.9"/>
+    ${ridge(120, 70, 1.2, '#2a3150')}${ridge(170, 55, 3.1, '#222845')}
+    <path d="M120 100 l25 -38 l22 30 l18 -22 l30 40 z M520 75 l30 -50 l28 38 l22 -26 l36 38 z M840 105 l22 -40 l24 30 l20 -20 l30 30 z" fill="#dfe5f7" opacity="0.85"/>
     <rect y="170" width="${W}" height="${H - 170}" fill="url(#mapLand)"/>
     ${trees}
-    <path d="M-10 560 C 150 520, 230 470, 330 455 S 520 420, 600 360 S 760 330, 820 280 S 940 190, 1010 170" fill="none" stroke="#7d9a8f" stroke-width="16" stroke-linecap="round" opacity="0.55"/>
-    <path d="M-10 560 C 150 520, 230 470, 330 455 S 520 420, 600 360 S 760 330, 820 280 S 940 190, 1010 170" fill="none" stroke="#a9c1b6" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
-    <g transform="translate(405 300)" opacity="0.95"><rect x="-22" y="-8" width="44" height="14" fill="#efe4c8" stroke="#7d2a21" stroke-width="2"/><path d="M-26 -8 L0 -26 L26 -8 Z" fill="#7d2a21"/></g>
-    <g transform="translate(262 252)" opacity="0.95"><path d="M-8 6 h16 v-10 l-8 -10 l-8 10 z" fill="#efe4c8" stroke="#7d2a21" stroke-width="1.6"/><circle cx="0" cy="-15" r="2" fill="#dca72c"/></g>`;
+    <path d="M-10 560 C 150 520, 230 470, 330 455 S 520 420, 600 360 S 760 330, 820 280 S 940 190, 1010 170" fill="none" stroke="#2e5fa8" stroke-width="16" stroke-linecap="round" opacity="0.55"/>
+    <path d="M-10 560 C 150 520, 230 470, 330 455 S 520 420, 600 360 S 760 330, 820 280 S 940 190, 1010 170" fill="none" stroke="#6aa5ff" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+    <g transform="translate(405 300)" opacity="0.95"><rect x="-22" y="-8" width="44" height="14" fill="#e9ecf8" stroke="#d12c88" stroke-width="2"/><path d="M-26 -8 L0 -26 L26 -8 Z" fill="#d12c88"/></g>
+    <g transform="translate(262 252)" opacity="0.95"><path d="M-8 6 h16 v-10 l-8 -10 l-8 10 z" fill="#e9ecf8" stroke="#d12c88" stroke-width="1.6"/><circle cx="0" cy="-15" r="2" fill="#dca72c"/></g>`;
 }
 
 /**
@@ -66,8 +66,8 @@ export function renderCampaignMap(cards: LevelCardModel[], selectedId: string | 
   return `<div class="map-art">
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
       <defs>
-        <linearGradient id="mapSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9dcc0"/><stop offset="1" stop-color="#cdbb98"/></linearGradient>
-        <linearGradient id="mapLand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cdbf9a"/><stop offset="1" stop-color="#b3a37c"/></linearGradient>
+        <linearGradient id="mapSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2a4d"/><stop offset="1" stop-color="#141729"/></linearGradient>
+        <linearGradient id="mapLand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#18303a"/><stop offset="1" stop-color="#101a24"/></linearGradient>
       </defs>
       ${backdrop()}
       <path d="${full}" class="map-road-ghost"/>

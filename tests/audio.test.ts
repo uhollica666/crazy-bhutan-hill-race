@@ -119,6 +119,7 @@ describe('AudioEngine without leaks', () => {
     });
     expect(() => {
       audio.checkpoint();
+      audio.brandSting();
       audio.crash(10);
       audio.update(drive);
       audio.click();
@@ -143,6 +144,7 @@ describe('AudioEngine without leaks', () => {
       audio.record();
       audio.comfortWarning();
       audio.whoosh();
+      audio.brandSting();
       audio.airBrake();
       ctx.currentTime += 1;
       audio.crash(12);

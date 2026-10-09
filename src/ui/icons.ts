@@ -22,10 +22,10 @@ export const ICONS = {
 
 /** Decorative endless-knot roundel used on panels. */
 export const KNOT = `<svg class="knot" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-  <circle cx="24" cy="24" r="22" fill="#7d2a21" stroke="#dca72c" stroke-width="2.5"/>
-  <path d="M24 9l15 15-15 15L9 24z" fill="none" stroke="#dca72c" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M24 15l9 9-9 9-9-9z" fill="none" stroke="#f6c452" stroke-width="2.5" stroke-linejoin="round"/>
-  <path d="M17 17l14 14M31 17L17 31" stroke="#dca72c" stroke-width="2.5" stroke-linecap="round" opacity=".85"/>
+  <circle cx="24" cy="24" r="22" fill="#d12c88" stroke="#ff8a2a" stroke-width="2.5"/>
+  <path d="M24 9l15 15-15 15L9 24z" fill="none" stroke="#ff8a2a" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M24 15l9 9-9 9-9-9z" fill="none" stroke="#ffc247" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M17 17l14 14M31 17L17 31" stroke="#ff8a2a" stroke-width="2.5" stroke-linecap="round" opacity=".85"/>
 </svg>`;
 
 const FLAGS: [number, number, string][] = [
@@ -46,8 +46,8 @@ export function logoSvg(id = 'lg'): string {
     <clipPath id="${id}-c"><circle cx="64" cy="64" r="57"/></clipPath>
     <linearGradient id="${id}-s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6fb5"/><stop offset=".7" stop-color="#9ac7e2"/><stop offset="1" stop-color="#f6e7c8"/></linearGradient>
   </defs>
-  <circle cx="64" cy="64" r="63" fill="#7d2a21"/>
-  <circle cx="64" cy="64" r="59" fill="#dca72c"/>
+  <circle cx="64" cy="64" r="63" fill="#d12c88"/>
+  <circle cx="64" cy="64" r="59" fill="#ff8a2a"/>
   <g clip-path="url(#${id}-c)">
     <rect width="128" height="128" fill="url(#${id}-s)"/>
     <circle cx="94" cy="48" r="11" fill="#e8a317"/>
@@ -59,7 +59,7 @@ export function logoSvg(id = 'lg'): string {
   </g>
   <path d="M14 38Q64 6 114 38" fill="none" stroke="#3a1d15" stroke-width="1.6"/>
   ${flags}
-  <circle cx="64" cy="64" r="57" fill="none" stroke="#7d2a21" stroke-width="2"/>
+  <circle cx="64" cy="64" r="57" fill="none" stroke="#d12c88" stroke-width="2"/>
 </svg>`;
 }
 

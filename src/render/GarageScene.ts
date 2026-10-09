@@ -68,10 +68,10 @@ export class GarageScene {
   reducedMotion = false;
 
   constructor(shadows: boolean) {
-    this.scene.background = new Color(0x2a2019);
-    const hemi = new HemisphereLight(0xfff0d8, 0x4a3a2c, 0.95);
-    const amb = new AmbientLight(0xffe8c8, 0.18);
-    this.key = new DirectionalLight(0xfff1d6, 2.1);
+    this.scene.background = new Color(0x0b0d14);
+    const hemi = new HemisphereLight(0xdfe6ff, 0x2c3350, 1.4);
+    const amb = new AmbientLight(0xcfd8ff, 0.2);
+    this.key = new DirectionalLight(0xf2f5ff, 2.1);
     this.key.position.set(-4.5, 7, 5);
     this.key.castShadow = shadows;
     this.key.shadow.mapSize.set(1024, 1024);
@@ -83,7 +83,7 @@ export class GarageScene {
     sc.near = 1;
     sc.far = 24;
     this.key.shadow.bias = -0.0006;
-    const rim = new DirectionalLight(0xffd9a8, 0.9);
+    const rim = new DirectionalLight(0xff4fa8, 1.3);
     rim.position.set(5, 3.5, -6);
     this.lantern = new PointLight(0xffb45a, 14, 12, 1.6);
     this.lantern.position.set(-3.6, 2.4, -2.2);
@@ -112,12 +112,12 @@ export class GarageScene {
 
   /** The workshop: floor, back wall, beams, crates, tyre stacks, a bench and a string of prayer flags. */
   private build(): void {
-    const stone = this.mat(0x6d5c4b);
-    const dark = this.mat(0x3b2d22);
-    const wood = this.mat(0x8a5a32);
-    const woodDark = this.mat(0x5e3b20);
-    const maroon = this.mat(0x7d2a21);
-    const brass = this.mat(0xb8862a);
+    const stone = this.mat(0x30364f);
+    const dark = this.mat(0x131622);
+    const wood = this.mat(0x39405a);
+    const woodDark = this.mat(0x252a3e);
+    const maroon = this.mat(0xd12c88);
+    const brass = this.mat(0xff8a2a);
 
     // Floor and the turntable the vehicle stands on.
     const floor = this.mesh(new CircleGeometry(16, 40).rotateX(-Math.PI / 2), stone, 0, 0, 0);
@@ -134,7 +134,7 @@ export class GarageScene {
     // Back wall (a half ring) with a painted band, and timber posts.
     const ring = new CylinderGeometry(13, 13, 5.2, 36, 1, true, Math.PI * 0.55, Math.PI * 0.9);
     this.geos.push(ring);
-    const wallMat = new MeshLambertMaterial({ color: 0xcdbb98, side: DoubleSide });
+    const wallMat = new MeshLambertMaterial({ color: 0x363e5c, side: DoubleSide });
     this.mats.push(wallMat);
     const back = new Mesh(ring, wallMat);
     back.position.y = 2.6;
@@ -143,7 +143,7 @@ export class GarageScene {
     this.scene.add(back);
     const band = new CylinderGeometry(12.95, 12.95, 0.5, 36, 1, true, Math.PI * 0.55, Math.PI * 0.9);
     this.geos.push(band);
-    const bandMesh = new Mesh(band, this.mat(0x7d2a21));
+    const bandMesh = new Mesh(band, this.mat(0xd12c88));
     (bandMesh.material as MeshLambertMaterial).side = DoubleSide;
     bandMesh.position.y = 4.4;
     bandMesh.rotation.y = Math.PI * 0.5;
@@ -163,7 +163,7 @@ export class GarageScene {
     }
     const tyre = new TorusGeometry(0.42, 0.18, 8, 18);
     this.geos.push(tyre);
-    const tyreMat = this.mat(0x1f1b18);
+    const tyreMat = this.mat(0x15171d);
     for (let i = 0; i < 4; i++) {
       const t = new Mesh(tyre, tyreMat);
       t.rotation.x = Math.PI / 2;
@@ -176,7 +176,7 @@ export class GarageScene {
     for (const sx of [-1.3, 1.3]) this.mesh(new BoxGeometry(0.12, 1, 0.8), woodDark, sx, 0.5, -9);
     this.mesh(new BoxGeometry(0.6, 0.35, 0.4), maroon, -0.8, 1.24, -9);
     // A fuel can and a lantern on the bench.
-    this.mesh(new CylinderGeometry(0.2, 0.2, 0.45, 12), this.mat(0xb8402e), 0.9, 1.3, -9);
+    this.mesh(new CylinderGeometry(0.2, 0.2, 0.45, 12), this.mat(0xff6a3a), 0.9, 1.3, -9);
     this.mesh(new CylinderGeometry(0.09, 0.09, 0.22, 10), this.mat(0xffcf7a, 0xffb45a), -3.6, 2.4, -2.2);
 
     // Prayer flags: five colours on a sagging line across the workshop. Flags sway slightly.
@@ -204,7 +204,7 @@ export class GarageScene {
       this.flags.push(f);
       this.scene.add(f);
     }
-    const lineMesh = new Mesh(new BoxGeometry(18, 0.03, 0.03), this.mat(0x3b2d22));
+    const lineMesh = new Mesh(new BoxGeometry(18, 0.03, 0.03), this.mat(0x131622));
     this.geos.push(lineMesh.geometry);
     lineMesh.position.set(0, 4.25, -7.5);
     lineMesh.visible = false; // the sag is carried by the flag positions; a straight line would cut through them

@@ -23,10 +23,14 @@ test.describe('studio branding and credits', () => {
   }) => {
     const errors = await openGame(page, '&splash=1');
     // openGame waits for the menu; the splash may already be gone, so check the DOM contract on a fresh load.
-    await page.evaluate(() => sessionStorage.clear());
+    await page.evaluate(() => {
+      sessionStorage.clear();
+      localStorage.removeItem('cbhr.intro.launched'); // a first launch on this device
+    });
     await page.goto('/?debug=1&splashhold=1');
     const splash = page.locator('#splash');
     await expect(splash).toBeVisible();
+    await expect(splash).toHaveClass(/stage-studio/);
     await expect(splash.locator('.splash-logo')).toBeVisible();
     await expect.poll(async () => splash.locator('.splash-logo').evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(100);
     await expect(splash.locator('.splash-name')).toHaveText('Novarah Interactives');

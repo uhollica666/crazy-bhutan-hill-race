@@ -19,7 +19,7 @@ ambience ─► low-pass (fog) ─┘
 | -------- | ---- | ----------------------------------------------------------------------- |
 | engine   | 1.0  | tonal engine layers, rasp, turbo whine, burble                          |
 | sfx      | 0.8  | tyre roll, skid, gravel crunch, mud squelch, wet hiss, splash, one-shots |
-| ui       | 0.55 | clicks and whooshes                                                     |
+| ui       | 0.55 | clicks, whooshes and the menu sting (`brandSting`, Pass 5.5)           |
 | ambience | 0.5  | wind, forest, river, crickets, birds, owl, temple bells, aircraft       |
 | weather  | 0.6  | rain layers, thunder                                                    |
 | music    | 0.7  | generative pentatonic drone and plucks                                  |
@@ -97,3 +97,8 @@ volume is a bug.
 
 `window.__cbhr.state()` (with `?debug=1`) lists the live `mix` snapshot; the debug overlay (Backquote) shows the
 engine voice in use and the bus levels. Remember that "Playwright passed" says nothing about loudness.
+
+## Pass 5.5 additions
+
+- `brandSting()`: about 1.3 s, on the ui bus: a band-passed noise sweep (0.07 gain) into a G4 then D5 triangle lift (0.1 gain) with a faint D6 shimmer. It plays once as the menu appears after the intro, only if the audio context is already running (it is when the player tapped or pressed a key to skip). No sound plays during the intro itself, so a cold start is silent by design.
+- **Listen for:** it should feel like a small "door opening", never louder than the checkpoint chime; if it startles on laptop speakers, lower the 0.1 gains. Unverified by a human, like the rest of the audio.

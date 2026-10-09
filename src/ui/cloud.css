@@ -22,8 +22,8 @@
   gap: 8px;
   padding: 5px 12px 5px 10px;
   border-radius: 999px;
-  border: 1.5px solid rgba(220, 167, 44, 0.55);
-  background: rgba(27, 20, 15, 0.7);
+  border: 1.5px solid rgba(255, 138, 42, 0.55);
+  background: rgba(11, 13, 19, 0.7);
   color: var(--cream);
   font: inherit;
   font-size: 13px;
@@ -37,7 +37,7 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #8a7d68;
+  background: #9aa3b8;
 }
 .cl-chip.ok .dot {
   background: #7fcf8a;
@@ -49,8 +49,8 @@
   max-width: 420px;
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1.5px solid rgba(220, 167, 44, 0.45);
-  background: rgba(27, 20, 15, 0.78);
+  border: 1.5px solid rgba(255, 138, 42, 0.45);
+  background: rgba(11, 13, 19, 0.78);
   font-size: 13px;
 }
 .cl-card-ask p {
@@ -85,7 +85,7 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, var(--saffron-light), var(--saffron) 60%, #b87a0c);
+  background: radial-gradient(circle at 35% 30%, var(--saffron-light), var(--saffron) 60%, #d4580a);
   border: 3px solid var(--maroon-dark);
   color: var(--maroon-dark);
   font-family: var(--serif);
@@ -103,9 +103,9 @@
   padding: 8px 10px;
   border-radius: 10px;
   border: 2px solid var(--maroon);
-  background: #fff7e6;
+  background: #0f121a;
   font: inherit;
-  color: #2a1c12;
+  color: #eef0f7;
 }
 .cl-line {
   margin: 4px 0;
@@ -114,7 +114,7 @@
   color: #2f7d3b;
 }
 .cl-sync.warn {
-  color: #a4501a;
+  color: #ff9f3a;
 }
 .cl-actions {
   display: flex;
@@ -126,16 +126,16 @@
   gap: 8px;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 2px solid rgba(125, 42, 33, 0.35);
-  background: rgba(255, 247, 230, 0.55);
+  border: 2px solid rgba(209, 44, 136, 0.35);
+  background: rgba(255, 255, 255, 0.55);
 }
 .cl-auth input {
   padding: 9px 11px;
   border-radius: 10px;
   border: 2px solid var(--maroon);
-  background: #fff7e6;
+  background: #0f121a;
   font: inherit;
-  color: #2a1c12;
+  color: #eef0f7;
 }
 .cl-grid {
   display: grid;
@@ -146,7 +146,7 @@
   display: grid;
   padding: 8px 10px;
   border-radius: 10px;
-  background: rgba(125, 42, 33, 0.08);
+  background: rgba(209, 44, 136, 0.08);
 }
 .cl-grid b {
   font-family: var(--serif);
@@ -168,7 +168,7 @@
   grid-template-columns: 1fr auto auto;
   gap: 12px;
   padding: 4px 0;
-  border-bottom: 1px dotted rgba(125, 42, 33, 0.3);
+  border-bottom: 1px dotted rgba(209, 44, 136, 0.3);
 }
 .cl-records i {
   font-style: normal;
@@ -203,8 +203,8 @@
 .cl-card {
   padding: 12px 14px;
   border-radius: 12px;
-  border: 2px solid rgba(125, 42, 33, 0.4);
-  background: rgba(255, 247, 230, 0.6);
+  border: 2px solid rgba(209, 44, 136, 0.4);
+  background: rgba(255, 255, 255, 0.6);
 }
 .cl-card ul {
   list-style: none;
@@ -246,15 +246,15 @@
   padding: 8px 10px;
   border-radius: 10px;
   border: 2px solid var(--maroon);
-  background: #fff7e6;
+  background: #0f121a;
   font: inherit;
-  color: #2a1c12;
+  color: #eef0f7;
 }
 .cl-table-wrap {
   overflow-x: auto;
   max-height: 46vh;
   overflow-y: auto;
-  border: 1.5px solid rgba(125, 42, 33, 0.35);
+  border: 1.5px solid rgba(209, 44, 136, 0.35);
   border-radius: 10px;
 }
 .cl-table {
@@ -271,13 +271,13 @@
 .cl-table thead th {
   position: sticky;
   top: 0;
-  background: #f0dfb8;
+  background: #0f121a;
 }
 .cl-table tbody tr:nth-child(even) {
-  background: rgba(125, 42, 33, 0.05);
+  background: rgba(209, 44, 136, 0.05);
 }
 .cl-table tr.you {
-  background: rgba(220, 167, 44, 0.3) !important;
+  background: rgba(255, 138, 42, 0.3) !important;
   font-weight: 700;
 }
 .cl-table .rk {
@@ -322,14 +322,14 @@
 .cl-panel .muted,
 .cl-panel small,
 .cl-panel .hud-label {
-  color: #5f4c3a;
+  color: #9aa3b8;
   opacity: 1;
 }
 .cl-panel .cl-sync.ok {
   color: #2f7d3b;
 }
 .cl-panel .cl-sync.warn {
-  color: #a4501a;
+  color: #ff9f3a;
 }
 .cl-panel .cl-sync span {
   color: inherit;
