@@ -1,6 +1,7 @@
 import { ACESFilmicToneMapping, PCFShadowMap, PMREMGenerator, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import type { PerspectiveCamera } from 'three';
+import type { PerspectiveCamera, Texture } from 'three';
+import { setVehicleEnvMap } from './assets';
 import type { QualityLevel } from '../storage/SaveStore';
 import { QUALITY } from './quality';
 import type { QualityProfile } from './quality';
@@ -28,6 +29,7 @@ export interface RenderStats {
 export class GameRenderer {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
+  readonly envMap: Texture;
   profile: QualityProfile;
   /** 0.5..1 multiplier from the adaptive-resolution controller. */
   resolutionScale = 1;
@@ -60,11 +62,12 @@ export class GameRenderer {
     });
     this.applySize();
     this.applyShadows();
-    // A small neutral studio environment gives painted metal and glass something to reflect. It only affects
-    // physically-based materials (the vehicles); the Lambert scenery is lit by the sun and sky as before.
+    // A small neutral studio environment gives painted metal and glass something to reflect. It is NOT set as
+    // scene.environment (that would light the whole world like ambient fill, which kills night); the vehicle
+    // materials take it as their own envMap, scaled by the time of day.
     const pmrem = new PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    this.scene.environmentIntensity = 0.55;
+    this.envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    setVehicleEnvMap(this.envMap);
     pmrem.dispose();
   }
 
@@ -114,6 +117,8 @@ export class GameRenderer {
   }
 
   dispose(): void {
+    setVehicleEnvMap(null);
+    this.envMap.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

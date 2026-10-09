@@ -76,6 +76,10 @@ export class Environment {
   private readonly scratch = new Color();
   /** True when headlights and street lamps should be lit. */
   lightsOn = false;
+  /** 0.1..1 how bright the scene is (time of day and weather). */
+  get brightness(): number {
+    return Math.min(1, Math.max(0.12, this.ambientIntensity / Math.max(0.1, this.baseHemi)));
+  }
 
   constructor(
     readonly scene: Scene,

@@ -81,6 +81,11 @@ export class Terrain {
         const z = this.minZ + j * this.cell;
         let h = natural(x, z);
         let d = 999;
+        const dr = def.drop;
+        if (dr) {
+          const far = road.farLateral(x, z);
+          if (!dr.side || Math.sign(far.lateral) === dr.side) h -= dr.depth * smoothstep(dr.start, dr.start + dr.width, far.dist);
+        }
         if (road.project(x, z, hit)) {
           d = hit.dist;
           if (d < this.flatHalf + this.blend) {

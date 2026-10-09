@@ -283,6 +283,14 @@ export class VehicleModel {
     this.blob.renderOrder = 1;
   }
 
+  /** Scales reflections with the available light (a studio reflection on a night road would glow). */
+  setReflection(k: number): void {
+    for (const m of this.mats) {
+      const std = m as MeshStandardMaterial;
+      if (std.isMeshStandardMaterial && std.envMap) std.envMapIntensity = 0.5 * k;
+    }
+  }
+
   /** Switches the headlight beam (dusk, night, fog, heavy rain). */
   setHeadlights(on: boolean): void {
     this.beam.visible = on;

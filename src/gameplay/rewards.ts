@@ -66,7 +66,7 @@ export function computeReward(level: Pick<LevelDef, 'reward' | 'mission'>, r: Ra
     const amount = Math.round(base * 0.08);
     return { total: amount, lines: [{ label: 'Consolation for the effort', amount }] };
   }
-  lines.push({ label: 'Tourists delivered', amount: Math.round(base * 0.6) });
+  lines.push({ label: level.mission.kind === 'circuit' ? 'Course completed' : 'Tourists delivered', amount: Math.round(base * 0.6) });
   const medal = MEDAL_SHARE[r.medal];
   if (medal > 0) lines.push({ label: `${r.medal[0].toUpperCase()}${r.medal.slice(1)} medal`, amount: Math.round(base * medal) });
   if (level.mission.comfort && r.comfort !== null && r.comfort >= 70) {

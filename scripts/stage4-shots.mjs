@@ -7,7 +7,7 @@ const out = process.argv[2] ?? 'screenshots/after';
 const quality = process.argv[3] ?? 'high';
 mkdirSync(out, { recursive: true });
 
-const LEVELS_ALL = ['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition'];
+const LEVELS_ALL = ['pass-run', 'thimphu-pickup', 'airport-dash', 'punakha-valley', 'dochula-storm', 'chelela-climb', 'trongsa-gorge', 'bumthang-night', 'remote-expedition', 'gmc-plains'];
 const extra = process.env.EXTRA_LEVELS ? process.env.EXTRA_LEVELS.split(',') : [];
 const ALL = process.env.LEVELS ? process.env.LEVELS.split(',') : [...LEVELS_ALL, ...extra];
 const VEHICLES = ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser'];
@@ -38,6 +38,9 @@ await ctx.addInitScript((s) => {
 }, save);
 const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+page.on('console', (m) => {
+  if (m.type() === 'error' || m.type() === 'warning') console.log('CONSOLE', m.type(), m.text().slice(0, 300));
+});
 await page.goto('http://localhost:4173/?debug=1&nosplash=1');
 await page.waitForFunction(() => !!window.__cbhr, undefined, { timeout: 90000 });
 await page.waitForSelector('#btn-start', { state: 'visible' });

@@ -234,6 +234,27 @@ export class Road {
     return true;
   }
 
+  /** Brute-force distance and side of any point from the road (used for far-field terrain shaping at build time). */
+  farLateral(x: number, z: number): { dist: number; lateral: number } {
+    let best = 0;
+    let bestD = Infinity;
+    for (let i = 0; i < this.count; i++) {
+      const ex = this.xs[i] - x;
+      const ez = this.zs[i] - z;
+      const d = ex * ex + ez * ez;
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    const a = Math.max(0, best - 1);
+    const b = Math.min(this.count - 1, best + 1);
+    const tx = this.xs[b] - this.xs[a];
+    const tz = this.zs[b] - this.zs[a];
+    const l = Math.hypot(tx, tz) || 1;
+    return { dist: Math.sqrt(bestD), lateral: ((x - this.xs[best]) * -tz + (z - this.zs[best]) * tx) / l };
+  }
+
   private readonly tmpHit = createRoadHit();
 
   /** Parapet / end-cap collision test for a world point. */

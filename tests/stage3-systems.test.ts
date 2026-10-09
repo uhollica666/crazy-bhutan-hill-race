@@ -273,8 +273,8 @@ describe('upgrades, rewards and mission guards', () => {
     rt.dispose();
     expect(activeObstacles(c)).toBe(0);
   });
-  it('all levels block success when required tourists have not boarded', () => {
-    for (const level of listLevels()) {
+  it('all levels with passengers block success when required tourists have not boarded', () => {
+    for (const level of listLevels().filter((l) => l.stops.some((s) => s.kind === 'pickup' && !s.optional))) {
       const c = new Course(level),
         rt = new MissionRuntime(c, level, { vehicle: getVehicle(level.vehicles[0]), traffic: false });
       const pose = c.poseAt(c.finishS);

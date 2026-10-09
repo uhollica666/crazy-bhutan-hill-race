@@ -69,3 +69,42 @@ export function roundedPolyline(vertices: [number, number][], radius: number): R
   out.push({ x: last[0], z: last[1] });
   return out;
 }
+
+export interface MeanderOptions {
+  /** Start and end z (the road runs from z0 down to z1, i.e. toward -Z). */
+  z0: number;
+  z1: number;
+  /** Spacing of control points along z (m). */
+  step: number;
+  x0: number;
+  /** Main swing (m) and its wavelength (m of z). */
+  amp: number;
+  wavelength: number;
+  /** A second, tighter swing layered on top. */
+  amp2?: number;
+  wavelength2?: number;
+  phase?: number;
+  phase2?: number;
+  /** Amplitude is eased in over this many metres at the start so the opening straight is straight. */
+  ease?: number;
+}
+
+/** A winding valley road: x wanders as two layered sine waves while z advances. Deterministic, no randomness. */
+export function meander(o: MeanderOptions): RoadPointDef[] {
+  const pts: RoadPointDef[] = [];
+  const dir = o.z1 < o.z0 ? -1 : 1;
+  const n = Math.max(2, Math.round(Math.abs(o.z1 - o.z0) / o.step));
+  for (let i = 0; i <= n; i++) {
+    const z = o.z0 + (dir * Math.abs(o.z1 - o.z0) * i) / n;
+    const run = Math.abs(z - o.z0);
+    const k = o.ease ? Math.min(1, run / o.ease) : 1;
+    const ease = k * k * (3 - 2 * k);
+    const x =
+      o.x0 +
+      ease *
+        (o.amp * Math.sin((2 * Math.PI * run) / o.wavelength + (o.phase ?? 0)) +
+          (o.amp2 ?? 0) * Math.sin((2 * Math.PI * run) / (o.wavelength2 ?? 100) + (o.phase2 ?? 0)));
+    pts.push({ x, z });
+  }
+  return pts;
+}

@@ -1,5 +1,5 @@
 import { Color, Mesh, MeshStandardMaterial } from 'three';
-import type { Group, Material, Object3D } from 'three';
+import type { Group, Material, Object3D, Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
@@ -106,6 +106,13 @@ function pickVehicleParts(scene: Group): VehicleAsset | null {
   return body && wheel ? { body, wheel } : null;
 }
 
+let vehicleEnv: Texture | null = null;
+
+/** The reflection map given to vehicle materials (null disables reflections). */
+export function setVehicleEnvMap(t: Texture | null): void {
+  vehicleEnv = t;
+}
+
 export interface Livery {
   body: number;
   accent: number;
@@ -133,6 +140,10 @@ export function instantiate(src: Object3D, livery: Livery | null): { object: Obj
         c = std.clone();
         const hex = colour[std.name];
         if (hex !== undefined) c.color = new Color(hex);
+        if (vehicleEnv && std.name !== 'light_head' && std.name !== 'light_tail') {
+          c.envMap = vehicleEnv;
+          c.envMapIntensity = 0.5;
+        }
         if (std.name === 'light_head') lights.head.push(c);
         if (std.name === 'light_tail') lights.tail.push(c);
         if (std.name === 'glass') {

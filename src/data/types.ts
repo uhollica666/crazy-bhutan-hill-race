@@ -274,7 +274,7 @@ export interface CheckpointDef {
   label: string;
 }
 
-export type MissionKind = 'climb' | 'airport' | 'hillclimb' | 'city' | 'expedition';
+export type MissionKind = 'climb' | 'airport' | 'hillclimb' | 'city' | 'expedition' | 'tour' | 'descent' | 'gorge' | 'night' | 'circuit';
 
 export interface MissionDef {
   kind: MissionKind;
@@ -363,6 +363,11 @@ export interface LevelDef {
     valleyZ: number;
     valleyDepth: number;
     waterLevel: number;
+    /**
+     * The ground falls away from the road: a shelf above a river valley or a cliff drop. Applied outside the
+     * road corridor, optionally on one side only (+1 right of travel, -1 left, omitted = both).
+     */
+    drop?: { start: number; width: number; depth: number; side?: -1 | 1 };
   };
   road: {
     width: number;

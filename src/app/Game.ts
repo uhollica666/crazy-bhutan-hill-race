@@ -96,6 +96,11 @@ const MISSION_LABEL: Record<LevelDef['mission']['kind'], string> = {
   hillclimb: 'Hill climb',
   city: 'City pickup',
   expedition: 'Remote expedition',
+  tour: 'Scenic tour',
+  descent: 'Storm descent',
+  gorge: 'Cliff road',
+  night: 'Night expedition',
+  circuit: 'Closed-course event',
 };
 
 /**
@@ -451,6 +456,7 @@ export class Game {
     const c = this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
     this.world.setConditions(c.weather, c.time);
     this.model?.setHeadlights(this.world.env.lightsOn);
+    this.model?.setReflection(this.world.env.brightness);
     const q = this.quality();
     const snowing = this.level.weather === 'snow' || WEATHER[c.weather].snow;
     this.snow.setCount(snowing ? q.snowCount : 0, this.renderer.renderer.getPixelRatio());

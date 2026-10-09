@@ -18,8 +18,19 @@ const started = (): RaceSession => {
 };
 
 describe('definitions', () => {
-  it('has five levels and four vehicles in campaign order', () => {
-    expect(listLevels().map((l) => l.id)).toEqual(['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition']);
+  it('has ten levels and four vehicles in campaign order', () => {
+    expect(listLevels().map((l) => l.id)).toEqual([
+      'pass-run',
+      'thimphu-pickup',
+      'airport-dash',
+      'punakha-valley',
+      'dochula-storm',
+      'chelela-climb',
+      'trongsa-gorge',
+      'bumthang-night',
+      'remote-expedition',
+      'gmc-plains',
+    ]);
     expect(listVehicles().map((v) => v.id)).toEqual(['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser']);
   });
 

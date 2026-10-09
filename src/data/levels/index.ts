@@ -1,13 +1,18 @@
 import type { LevelDef, VehicleDef } from '../types';
 import { airportDash } from './airport-dash';
+import { bumthangNight } from './bumthang-night';
 import { chelelaClimb } from './chelela-climb';
+import { dochulaStorm } from './dochula-storm';
+import { gmcPlains } from './gmc-plains';
 import { passRun } from './pass-run';
+import { punakhaValley } from './punakha-valley';
 import { remoteExpedition } from './remote-expedition';
 import { thimphuPickup } from './thimphu-pickup';
+import { trongsaGorge } from './trongsa-gorge';
 
 /** Campaign order. Unlock rules live on each LevelDef; this list only fixes display order. */
 const registry = new Map<string, LevelDef>(
-  [passRun, thimphuPickup, airportDash, chelelaClimb, remoteExpedition].map((l) => [l.id, l]),
+  [passRun, thimphuPickup, airportDash, punakhaValley, dochulaStorm, chelelaClimb, trongsaGorge, bumthangNight, remoteExpedition, gmcPlains].map((l) => [l.id, l]),
 );
 
 export const getLevel = (id: string): LevelDef => {

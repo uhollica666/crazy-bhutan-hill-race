@@ -379,7 +379,7 @@ describe('progression', () => {
   const starter = [STARTER_VEHICLE];
 
   it('starts with Pass Run only; the starter hatchback is owned, the rest are locked behind missions', () => {
-    expect(levels.map((l) => isLevelUnlocked(l, none))).toEqual([true, false, false, false, false]);
+    expect(levels.map((l) => isLevelUnlocked(l, none))).toEqual([true, ...Array(levels.length - 1).fill(false)]);
     expect(vehicles.map((v) => vehicleOwnership(v, none, starter))).toEqual([
       'owned',
       'locked',
@@ -401,7 +401,7 @@ describe('progression', () => {
     expect(newlyUnlocked(levels, vehicles, mid, s.progress)).toEqual({ levels: [], vehicles: [] });
 
     s.recordCompletion(run('airport-dash', 'tourist-coaster', 120, 'bronze', 60));
-    expect(isLevelUnlocked(levels[3], s.progress)).toBe(true);
+    expect(isLevelUnlocked(levels.find((l) => l.id === 'chelela-climb') as (typeof levels)[number], s.progress)).toBe(true);
   });
 
   it('available is not owned: buying needs both the unlock and the credits', () => {
@@ -426,7 +426,8 @@ describe('progression', () => {
   });
 
   it('eligibility needs the vehicle to be listed AND to seat the whole party', () => {
-    const [pass, thimphu, airport, chelela, expedition] = levels;
+    const by = (id: string): (typeof levels)[number] => levels.find((l) => l.id === id) as (typeof levels)[number];
+    const [pass, thimphu, airport, chelela, expedition] = ['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition'].map(by);
     expect(canUseVehicle(pass, 'dzo-hatch')).toBe(true);
     expect(canUseVehicle(thimphu, 'dzo-hatch')).toBe(true); // party of 3, hatch seats 3
     expect(canUseVehicle(airport, 'dzo-hatch')).toBe(false); // not listed
@@ -439,10 +440,14 @@ describe('progression', () => {
   });
 
   it('only owned, eligible vehicles can be driven', () => {
-    const [, , airport, chelela] = levels;
+    const airport = levels.find((l) => l.id === 'airport-dash') as (typeof levels)[number];
+    const chelela = levels.find((l) => l.id === 'chelela-climb') as (typeof levels)[number];
     const owned = [STARTER_VEHICLE, 'druk-ranger'];
     expect(availableVehicles(chelela, vehicles, owned).map((v) => v.id)).toEqual(['druk-ranger']);
     expect(availableVehicles(airport, vehicles, owned).map((v) => v.id)).toEqual(['druk-ranger']);
+    // The ten-level campaign always has something a starter-only player can drive: Pass Run, Thimphu, Punakha...
+    const starterLevels = levels.filter((l) => availableVehicles(l, vehicles, starter).length > 0).map((l) => l.id);
+    expect(starterLevels).toEqual(expect.arrayContaining(['pass-run', 'thimphu-pickup', 'punakha-valley', 'gmc-plains']));
     // Nothing owned fits (starter only): the caller provides a loaner rather than blocking the mission.
     expect(availableVehicles(airport, vehicles, starter)).toEqual([]);
   });
