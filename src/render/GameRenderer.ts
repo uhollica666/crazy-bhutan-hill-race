@@ -1,4 +1,5 @@
-import { ACESFilmicToneMapping, PCFShadowMap, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
+import { ACESFilmicToneMapping, PCFShadowMap, PMREMGenerator, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { PerspectiveCamera } from 'three';
 import type { QualityLevel } from '../storage/SaveStore';
 import { QUALITY } from './quality';
@@ -59,6 +60,12 @@ export class GameRenderer {
     });
     this.applySize();
     this.applyShadows();
+    // A small neutral studio environment gives painted metal and glass something to reflect. It only affects
+    // physically-based materials (the vehicles); the Lambert scenery is lit by the sun and sky as before.
+    const pmrem = new PMREMGenerator(this.renderer);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.55;
+    pmrem.dispose();
   }
 
   setQuality(level: QualityLevel): void {

@@ -68,6 +68,11 @@ for (const v of VEHICLES) {
 }
 await page.evaluate(() => document.querySelector('#btn-garage-back').click());
 await page.evaluate(() => document.querySelector('#btn-levels-back')?.click());
+if (process.env.ONLY === 'garage') {
+  await browser.close();
+  console.log('done', out);
+  process.exit(0);
+}
 
 for (const level of ALL) {
   await page.waitForSelector('#btn-start', { state: 'visible' });

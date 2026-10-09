@@ -46,5 +46,5 @@ export const dragonCruiser: VehicleDef = {
   steering: { maxAngle: 0.5, highSpeedRatio: 0.2, fullSpeed: 38, rate: 4 },
   grip: { longitudinal: 1.3, lateral: 1.35, slipSpeed: 1.4 },
   stability: { downforce: 1.8, angularDamping: 1.4, uprighting: 5200, yawAssist: 9000, contactLift: 0.5, maxLateralAccel: 18 },
-  livery: { body: 0x1f4d3a, accent: 0xdca72c, trim: 0xf3efe6 },
+  livery: { body: 0x9a2a20, accent: 0xe3b53a, trim: 0xf3efe6 },
 };

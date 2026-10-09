@@ -31,6 +31,7 @@ import { CameraRig } from '../render/CameraRig';
 import { Snow, VehicleEffects } from '../render/effects';
 import { GameRenderer } from '../render/GameRenderer';
 import { MissionView, Rain } from '../render/MissionView';
+import { assets, loadVehicleAsset, peekVehicleAsset } from '../render/assets';
 import { QUALITY } from '../render/quality';
 import { VehicleModel } from '../render/VehicleModel';
 import { World3D } from '../render/World3D';
@@ -302,6 +303,10 @@ export class Game {
     ui.showLoading(`Loading ${sel.level.name}...`, 0.3);
     await this.loadLevel(sel.level);
     ui.showLoading('Fuelling the tour car...', 0.85);
+    // Fetch the selected vehicle's model (with a time limit) and warm the others in the background.
+    const first = loadVehicleAsset(sel.vehicle.id);
+    for (const v of this.vehicles) void loadVehicleAsset(v.id);
+    await Promise.race([first, new Promise((r) => window.setTimeout(r, 4000))]);
     await nextFrame();
     this.pickVehicle(sel.vehicle);
 
@@ -419,7 +424,14 @@ export class Game {
       this.renderer.scene.remove(this.model.root, this.model.blob);
       this.model.dispose();
     }
-    this.model = new VehicleModel(this.vehicleDef);
+    this.model = new VehicleModel(this.vehicleDef, peekVehicleAsset(base.id));
+    if (!this.model.detailed) {
+      // The glTF model is still on its way (or missing): show the procedural one now and swap when it arrives,
+      // but only while the player is in a menu so a run is never disturbed.
+      void loadVehicleAsset(base.id).then((a) => {
+        if (a && this.baseVehicle.id === base.id && !this.model?.detailed && this.flow.state === 'menu') this.pickVehicle(this.baseVehicle, this.loaner);
+      });
+    }
     this.renderer.scene.add(this.model.root, this.model.blob);
     this.model.setBlobVisible(!this.renderer.profile.shadows);
     this.rig.setVehicle(this.vehicleDef);
@@ -1660,6 +1672,7 @@ export class Game {
     this.feedback.dispose();
     this.about.dispose();
     this.briefing.dispose();
+    assets.dispose();
     this.renderer.dispose();
   }
 }

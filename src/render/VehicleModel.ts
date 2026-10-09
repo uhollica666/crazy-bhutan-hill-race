@@ -12,7 +12,9 @@ import {
   Quaternion,
   Vector3,
 } from 'three';
-import type { BufferGeometry } from 'three';
+import type { BufferGeometry, MeshStandardMaterial, Object3D } from 'three';
+import { instantiate } from './assets';
+import type { VehicleAsset } from './assets';
 import type { VehicleDef } from '../data/types';
 import type { VehicleBody } from '../physics/VehicleBody';
 import type { PhysicsWorld } from '../physics/types';
@@ -178,7 +180,11 @@ export class VehicleModel {
   /** Body, lights and rack ride on a child group so engine vibration never touches the wheels. */
   private readonly shell = new Group();
   private readonly pivots: Group[] = [];
-  private readonly rolls: Mesh[] = [];
+  private readonly rolls: Object3D[] = [];
+  private readonly headMats: MeshStandardMaterial[] = [];
+  private readonly tailMats: MeshStandardMaterial[] = [];
+  /** True when the detailed glTF model is in use (false = procedural fallback). */
+  readonly detailed: boolean;
   private readonly geos: BufferGeometry[] = [];
   private readonly mats: { dispose(): void }[] = [];
   private readonly tailMat = new MeshBasicMaterial({ color: 0x5a1416 });
@@ -190,7 +196,11 @@ export class VehicleModel {
   private brakeGlow = 0;
   private readonly beam: Mesh;
 
-  constructor(private readonly def: VehicleDef) {
+  constructor(
+    private readonly def: VehicleDef,
+    asset: VehicleAsset | null = null,
+  ) {
+    this.detailed = !!asset;
     const lambert = new MeshLambertMaterial({ vertexColors: true });
     const basic = new MeshBasicMaterial({ vertexColors: true });
     const bodyGeo = bodyFor(def);
@@ -200,16 +210,32 @@ export class VehicleModel {
     this.geos.push(bodyGeo, headGeo, tailGeo, wheelGeo);
     this.mats.push(lambert, basic, this.tailMat);
 
-    const body = new Mesh(bodyGeo, lambert);
-    body.castShadow = true;
-    this.shell.add(body, new Mesh(headGeo, basic), new Mesh(tailGeo, this.tailMat));
+    if (asset) {
+      const b = instantiate(asset.body, def.livery);
+      this.shell.add(b.object);
+      this.headMats.push(...b.lights.head);
+      this.tailMats.push(...b.lights.tail);
+      this.mats.push(...b.materials);
+    } else {
+      const body = new Mesh(bodyGeo, lambert);
+      body.castShadow = true;
+      this.shell.add(body, new Mesh(headGeo, basic), new Mesh(tailGeo, this.tailMat));
+    }
     this.root.add(this.shell);
 
     for (const axle of def.axles) {
       for (const side of [-1, 1]) {
         const pivot = new Group();
-        const roll = new Mesh(wheelGeo, lambert);
-        roll.castShadow = true;
+        let roll: Object3D;
+        if (asset) {
+          const w = instantiate(asset.wheel, null);
+          roll = w.object;
+          this.mats.push(...w.materials);
+        } else {
+          const m = new Mesh(wheelGeo, lambert);
+          m.castShadow = true;
+          roll = m;
+        }
         pivot.add(roll);
         pivot.position.set(side * axle.halfTrack, axle.y - def.suspension.rest, axle.z);
         this.root.add(pivot);
@@ -260,6 +286,7 @@ export class VehicleModel {
   /** Switches the headlight beam (dusk, night, fog, heavy rain). */
   setHeadlights(on: boolean): void {
     this.beam.visible = on;
+    for (const m of this.headMats) m.emissiveIntensity = on ? 2.6 : 0.5;
   }
 
   /** Cheap fake shadow for the lowest quality tier (real shadow map otherwise). */
@@ -290,6 +317,7 @@ export class VehicleModel {
     // Brake lights glow while braking (smoothed so quick taps are still visible).
     const target = body.braking > 0.05 && body.speed > 0.5 ? 1 : 0;
     this.brakeGlow += (target - this.brakeGlow) * 0.35;
+    for (const m of this.tailMats) m.emissiveIntensity = 0.45 + this.brakeGlow * 2.8;
     this.tailMat.color.setRGB(
       0.35 + this.brakeGlow * 0.65,
       0.08 + this.brakeGlow * 0.1,
