@@ -321,6 +321,7 @@ export class UI {
           <div class="field"><label for="set-master">Master volume</label><output id="out-master"></output><input id="set-master" type="range" min="0" max="100" step="1" /></div>
           <div class="field"><label for="set-music">Music</label><output id="out-music"></output><input id="set-music" type="range" min="0" max="100" step="1" /></div>
           <div class="field"><label for="set-sfx">Sound effects</label><output id="out-sfx"></output><input id="set-sfx" type="range" min="0" max="100" step="1" /></div>
+          <div class="field"><label for="set-ambient">Environment (wind, rain, nature)</label><output id="out-ambient"></output><input id="set-ambient" type="range" min="0" max="100" step="1" /></div>
           <div class="field"><label for="set-mute">Mute all sound</label><input id="set-mute" type="checkbox" /></div>
           <h3>Graphics</h3>
           <div class="field"><label for="set-quality">Quality</label>
@@ -455,7 +456,7 @@ export class UI {
       else if (t.dataset.buyUpgrade) this.actions.buyUpgrade(v.id, t.dataset.buyUpgrade);
     });
 
-    const slider = (id: string, out: string, key: 'masterVolume' | 'musicVolume' | 'sfxVolume'): void => {
+    const slider = (id: string, out: string, key: 'masterVolume' | 'musicVolume' | 'sfxVolume' | 'ambientVolume'): void => {
       const el = q<HTMLInputElement>(this.root, id);
       el.addEventListener('input', () => {
         q(this.root, out).textContent = `${el.value}%`;
@@ -465,6 +466,7 @@ export class UI {
     slider('#set-master', '#out-master', 'masterVolume');
     slider('#set-music', '#out-music', 'musicVolume');
     slider('#set-sfx', '#out-sfx', 'sfxVolume');
+    slider('#set-ambient', '#out-ambient', 'ambientVolume');
     const sens = q<HTMLInputElement>(this.root, '#set-sens');
     sens.addEventListener('input', () => {
       q(this.root, '#out-sens').textContent = `${sens.value}%`;
@@ -512,6 +514,7 @@ export class UI {
     set('#set-master', s.masterVolume, '#out-master');
     set('#set-music', s.musicVolume, '#out-music');
     set('#set-sfx', s.sfxVolume, '#out-sfx');
+    set('#set-ambient', s.ambientVolume, '#out-ambient');
     set('#set-sens', s.touchSensitivity, '#out-sens');
     q<HTMLInputElement>(this.root, '#set-mute').checked = s.muted;
     q<HTMLInputElement>(this.root, '#set-motion').checked = s.reducedMotion;

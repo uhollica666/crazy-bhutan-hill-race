@@ -31,6 +31,11 @@ class FakeNode {
   gain = new FakeParam();
   frequency = new FakeParam();
   Q = new FakeParam();
+  threshold = new FakeParam();
+  knee = new FakeParam();
+  ratio = new FakeParam();
+  attack = new FakeParam();
+  release = new FakeParam();
   constructor(readonly kind: string) {}
   connect<T>(n: T): T {
     FakeNode.alive.add(this);
@@ -61,6 +66,7 @@ class FakeContext {
   createGain = () => this.make('gain');
   createOscillator = () => this.make('osc');
   createBiquadFilter = () => this.make('filter');
+  createDynamicsCompressor = () => this.make('compressor');
   createBufferSource = () => this.make('src');
   createBuffer = (_c: number, len: number) => ({ getChannelData: () => new Float32Array(len) });
   resume = () => Promise.resolve();
@@ -173,17 +179,51 @@ describe('AudioEngine without leaks', () => {
 
   it('music start/stop cycles do not stack drones', () => {
     const { audio, ctx } = makeEngine();
+    const sines = (): number =>
+      ctx.nodes.filter((n) => n.kind === 'osc' && n.started && !n.stopped && n.type === 'sine').length;
+    const baseline = sines(); // continuous engine / ambience layers
     for (let i = 0; i < 6; i++) {
       audio.startMusic();
       audio.stopMusic();
     }
     audio.startMusic();
-    const drones = ctx.nodes.filter((n) => n.kind === 'osc' && n.started && !n.stopped && n.type === 'sine');
-    expect(drones.length).toBe(2); // exactly one drone pair running
+    expect(sines() - baseline).toBe(2); // exactly one drone pair running
     audio.stopMusic();
-    expect(
-      ctx.nodes.filter((n) => n.kind === 'osc' && n.started && !n.stopped && n.type === 'sine').length,
-    ).toBe(0);
+    expect(sines()).toBe(baseline);
+  });
+
+  it('every vehicle has its own engine voice, and unknown vehicles fall back to a neutral one', () => {
+    const { audio } = makeEngine();
+    const seen = new Set<string>();
+    for (const id of ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser']) {
+      audio.setVehicle(getVehicle(id).audio, id);
+      const v = audio.currentVoice;
+      seen.add(JSON.stringify([v.wave, v.idleHz, v.bodyHz, v.whineHz]));
+    }
+    expect(seen.size).toBe(4);
+    audio.setVehicle(getVehicle('druk-ranger').audio, 'mystery');
+    expect(audio.currentVoice.idleHz).toBe(getVehicle('druk-ranger').audio.idleHz);
+  });
+
+  it('weather, night and fog ambience and ducking create no nodes per frame and stay bounded', () => {
+    const { audio, ctx } = makeEngine();
+    audio.setDriving(true);
+    audio.update(drive);
+    const created = ctx.nodes.length;
+    audio.setAmbient({ wind: 0.6, birds: false, aircraft: true, night: true, water: true, forest: 0.7, bells: true, fog: 0.8 });
+    audio.setWeather(1, 0.8);
+    audio.duck(0.6, 2);
+    for (let i = 0; i < 300; i++) {
+      ctx.currentTime += 0.1;
+      audio.update({ ...drive, surface: i % 2 ? 'mud' : 'gravel', wet: true, water: 0.5, rpm: 0.6, load: 0.8, overrun: i % 3 === 0 });
+    }
+    ctx.finishAll();
+    expect(audio.liveOneShots).toBe(0);
+    expect(ctx.nodes.length - created).toBeLessThan(200); // events only, no per-frame growth
+    expect(audio.mix.duck).toBeGreaterThanOrEqual(0);
+    expect(audio.mix.duck).toBeLessThanOrEqual(0.8);
+    audio.dispose();
+    expect(audio.available).toBe(false);
   });
 
   it('volume and mute settings apply to the master / bus gains', () => {

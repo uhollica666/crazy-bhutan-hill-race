@@ -35,7 +35,7 @@ test.describe('ten-level arcade campaign', () => {
     await expect(page.locator('button[data-level="punakha-valley"]')).toContainText('Finish Thimphu Town Pickup');
     await expect(page.locator('button[data-level="dochula-storm"]')).toContainText('Finish Punakha Valley Tour');
     await expect(page.locator('button[data-level="gmc-plains"]')).toContainText('Finish Bumthang Night Expedition');
-    await expect(page.locator('button[data-level="pass-run"] .tags')).toBeVisible();
+    await expect(page.locator('button[data-level="thimphu-pickup"] .tags i').first()).toBeVisible();
     await page.screenshot({ path: 'screenshots/desktop-mission-map.png' });
     expect(errors).toEqual([]);
   });
@@ -112,6 +112,7 @@ test.describe('3D assets: loading, fallback and lifecycle', () => {
 
   test('if the model files cannot be loaded, the procedural vehicles take over and the game still plays', async ({ page }) => {
     await page.route('**/models/**', (r) => r.abort());
+    await seedSave(page, makeSave());
     const errors = await openGame(page);
     await openGarage(page, 'pass-run');
     await expect.poll(async () => (await state(page)).detailedModel).toBe(false);
@@ -148,12 +149,17 @@ test.describe('3D assets: loading, fallback and lifecycle', () => {
     expect(Math.abs(again.t - first.t)).toBeLessThanOrEqual(3);
     // Cycling through all four vehicles in the garage does not grow memory without bound either.
     await openGarage(page, 'pass-run');
+    // First lap uploads each cached model once; later laps must add nothing.
+    for (let i = 0; i < 4; i++) {
+      await page.locator('#btn-veh-next').click();
+      await page.waitForTimeout(250);
+    }
     const before = (await state(page)).stats.geometries;
     for (let i = 0; i < 8; i++) {
       await page.locator('#btn-veh-next').click();
       await page.waitForTimeout(250);
     }
-    expect((await state(page)).stats.geometries - before).toBeLessThanOrEqual(30);
+    expect((await state(page)).stats.geometries - before).toBeLessThanOrEqual(6);
   });
 
   test('Low quality keeps the detailed models and cuts the world detail', async ({ page }) => {

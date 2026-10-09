@@ -209,6 +209,11 @@ export class Game {
     loose: 0,
     wet: false,
     water: 0,
+    surface: 'asphalt' as string,
+    rpm: undefined as number | undefined,
+    load: 0,
+    shifting: false,
+    overrun: false,
   };
   private acc = 0;
   private time = 0;
@@ -458,7 +463,7 @@ export class Game {
     this.renderer.scene.add(this.model.root, this.model.blob);
     this.model.setBlobVisible(!this.renderer.profile.shadows);
     this.rig.setVehicle(this.vehicleDef);
-    this.audio.setVehicle(this.vehicleDef.audio);
+    this.audio.setVehicle(this.vehicleDef.audio, this.vehicleDef.id);
     this.engineSim.setVehicle(this.vehicleDef);
     this.driveSound.topSpeed = this.vehicleDef.engine.topSpeed;
     this.driveSound.gearTopSpeeds = this.vehicleDef.engine.gearTopSpeeds;
@@ -482,6 +487,11 @@ export class Game {
       wind: snowing ? 0.9 : 0.4,
       birds: c.weather === 'clear' || c.weather === 'cloudy',
       aircraft: this.level.mission.kind === 'airport',
+      night: c.time === 'night',
+      water: !!this.level.ford || this.level.terrain.valleyDepth > 0,
+      forest: clamp(this.level.scenery.trees / 700, 0, 1),
+      bells: this.level.region !== undefined && c.time !== 'night' && this.level.mission.kind !== 'circuit',
+      fog: c.weather === 'fog' ? 0.8 : c.weather === 'snow' ? 0.3 : 0,
     });
     this.audio.setWeather(WEATHER[c.weather].rain, WEATHER[c.weather].wind / 4);
   }
@@ -1464,6 +1474,7 @@ export class Game {
       ds.loose = 0;
       ds.wet = false;
       ds.water = 0;
+      ds.surface = 'asphalt';
       if (playing) {
         ds.offRoad = Math.abs(rt.lateral) > this.course.road.halfWidth + 0.1;
         const wheel = b.wheels.find((w) => w.inContact);
@@ -1472,6 +1483,7 @@ export class Game {
           ds.loose = sf.looseness * (sf.id === 'asphalt' || sf.id === 'wetAsphalt' ? 0 : 1);
           ds.wet = sf.id === 'wetAsphalt';
           ds.water = clamp(rt.status.waterDepth / 0.6, 0, 1);
+          ds.surface = sf.id === 'rocky' ? 'gravel' : sf.id === 'grass' ? 'dirt' : sf.id === 'wetAsphalt' ? 'asphalt' : sf.id;
         }
       }
       ds.dt = dt;
@@ -1493,6 +1505,10 @@ export class Game {
       h.rpm = eng.rpm;
       h.load = eng.load;
       h.shifting = eng.shifting;
+      ds.rpm = eng.rpm;
+      ds.load = eng.load;
+      ds.shifting = eng.shifting;
+      ds.overrun = eng.overrun;
       h.engineWarn = rt.status.stalledFor > 0 || rt.status.health < 25 || rt.status.outOfFuel;
       h.timerText = formatClock(deadline ? s.timeLeft : s.time);
       h.timerLabel = this.level.mission.timerLabel;

@@ -12,6 +12,8 @@ export interface Settings {
   masterVolume: number;
   musicVolume: number;
   sfxVolume: number;
+  /** Environment sound: wind, birds, rain, river. */
+  ambientVolume: number;
   muted: boolean;
   quality: QualityLevel;
   touchControls: TouchMode;
@@ -105,6 +107,7 @@ export const defaultSettings = (quality: QualityLevel = 'medium'): Settings => (
   masterVolume: 0.8,
   musicVolume: 0.5,
   sfxVolume: 0.9,
+  ambientVolume: 0.7,
   muted: false,
   quality,
   touchControls: 'auto',
@@ -140,6 +143,7 @@ export function parseSettings(raw: unknown, fallback: Settings): Settings {
     masterVolume: num(o.masterVolume, fallback.masterVolume, 0, 1),
     musicVolume: num(o.musicVolume, fallback.musicVolume, 0, 1),
     sfxVolume: num(o.sfxVolume, fallback.sfxVolume, 0, 1),
+    ambientVolume: num(o.ambientVolume, fallback.ambientVolume, 0, 1),
     muted: typeof o.muted === 'boolean' ? o.muted : fallback.muted,
     quality: isQuality(o.quality) ? o.quality : fallback.quality,
     touchControls: isTouch(o.touchControls) ? o.touchControls : fallback.touchControls,

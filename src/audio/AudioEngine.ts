@@ -1,11 +1,15 @@
-import { clamp } from '../core/math';
+import { clamp, lerp } from '../core/math';
 import type { VehicleDef } from '../data/types';
+import { VOICES, voiceFor } from './voices';
+import type { EngineVoice } from './voices';
 
 export interface AudioLevels {
   masterVolume: number;
   musicVolume: number;
   sfxVolume: number;
   muted: boolean;
+  /** Environment (wind, birds, rain, river): optional so older callers keep working. */
+  ambientVolume?: number;
 }
 
 export interface DriveSound {
@@ -26,6 +30,13 @@ export interface DriveSound {
   wet?: boolean;
   /** 0..1 depth of water the vehicle is wading through. Optional. */
   water?: number;
+  /** What the tyres are on: asphalt | gravel | dirt | mud | water. Optional. */
+  surface?: string;
+  /** From the shared EngineSim (so the sound and the HUD agree). Optional: a fallback model is used otherwise. */
+  rpm?: number;
+  load?: number;
+  shifting?: boolean;
+  overrun?: boolean;
 }
 
 export interface AmbientDef {
@@ -34,44 +45,94 @@ export interface AmbientDef {
   birds: boolean;
   /** Occasional distant aircraft. */
   aircraft: boolean;
+  /** Night ambience: crickets and the odd owl instead of birds. */
+  night?: boolean;
+  /** A river or lake is close: adds a low rush. */
+  water?: boolean;
+  /** 0..1 forest density: leaf rustle. */
+  forest?: number;
+  /** Distant temple bells now and then. */
+  bells?: boolean;
+  /** 0..1: fog muffles the highs of the whole environment. */
+  fog?: number;
+}
+
+/** A snapshot of the mixer, for the debug overlay and tests (what the engineer would otherwise have to guess). */
+export interface MixSnapshot {
+  master: number;
+  engine: number;
+  sfx: number;
+  ui: number;
+  ambience: number;
+  weather: number;
+  music: number;
+  /** 0..1 how far the environment is currently ducked under the engine and important sounds. */
+  duck: number;
 }
 
 const PENTATONIC = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
 const MAX_ONE_SHOTS = 14;
 
+// Bus trims. These are the "mix": the engine and effects lead, the environment sits under them.
+const TRIM = { engine: 1, sfx: 0.8, ui: 0.55, ambience: 0.5, weather: 0.6, music: 0.7 };
+
 type ContextFactory = () => AudioContext;
+type Bus = 'engine' | 'sfx' | 'ui' | 'ambience' | 'weather' | 'music';
+
+interface EngineNodes {
+  main: OscillatorNode;
+  harm: OscillatorNode;
+  sub: OscillatorNode;
+  whine: OscillatorNode;
+  lump: OscillatorNode;
+  mainG: GainNode;
+  harmG: GainNode;
+  subG: GainNode;
+  whineG: GainNode;
+  lumpDepth: GainNode;
+  raspBp: BiquadFilterNode;
+  raspG: GainNode;
+  lp: BiquadFilterNode;
+  body: BiquadFilterNode;
+  out: GainNode;
+}
 
 /**
- * Fully synthesised audio (no sample files). Continuous layers (engine, tyres, skid, wind) are built once and
- * only have their parameters modulated; one-shots reuse a shared noise buffer, are capped in number, and
- * disconnect themselves when they end so no nodes accumulate. Every public method is safe to call when audio
- * is unavailable or still locked (browsers require a user gesture before sound starts).
+ * Fully synthesised audio (no sample files). Continuous layers (engine, surfaces, wind, forest, river, night,
+ * rain) are built once and only have their parameters modulated; one-shots reuse a shared noise buffer, are
+ * capped in number and disconnect themselves when they end, so no nodes accumulate.
+ *
+ * Everything goes through a small mixer: engine, effects, UI, environment, weather and music buses into a
+ * master gain and a limiter. The environment ducks under a working engine and under important sounds. Every
+ * public method is safe to call when audio is unavailable or still locked (browsers require a user gesture).
  */
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private failed = false;
   private master!: GainNode;
+  private limiter!: DynamicsCompressorNode;
+  private bus!: Record<Bus, GainNode>;
+  /** Alias of the effects bus, kept because one-shots use it as their default destination. */
   private sfx!: GainNode;
-  private music!: GainNode;
+  private ambLP!: BiquadFilterNode;
   private noise!: AudioBuffer;
-  private levels: AudioLevels = { masterVolume: 0.8, musicVolume: 0.5, sfxVolume: 0.9, muted: false };
+  private levels: AudioLevels = { masterVolume: 0.8, musicVolume: 0.5, sfxVolume: 0.9, muted: false, ambientVolume: 0.7 };
+  private ambLevel = 0.7;
+  private engLevel = 0.9;
 
-  private engine: {
-    o1: OscillatorNode;
-    o2: OscillatorNode;
-    sub: OscillatorNode;
-    harsh: GainNode;
-    subGain: GainNode;
-    lp: BiquadFilterNode;
-    gain: GainNode;
-  } | null = null;
+  private engine: EngineNodes | null = null;
   private tyre: { gain: GainNode; bp: BiquadFilterNode } | null = null;
   private skid: { gain: GainNode } | null = null;
-  private wind: { gain: GainNode; lp: BiquadFilterNode } | null = null;
-  private rainLayer: { gain: GainNode } | null = null;
+  private crunch: { gain: GainNode; lfo: OscillatorNode; depth: GainNode } | null = null;
+  private squelch: { gain: GainNode; depth: GainNode } | null = null;
+  private hiss: { gain: GainNode } | null = null;
   private splashLayer: { gain: GainNode } | null = null;
-  private rainLevel = 0;
-  private windExtra = 0;
+  private wind: { gain: GainNode; lp: BiquadFilterNode } | null = null;
+  private forestLayer: { gain: GainNode; bp: BiquadFilterNode } | null = null;
+  private river: { gain: GainNode } | null = null;
+  private crickets: { gain: GainNode; depth: GainNode; lfo: OscillatorNode } | null = null;
+  private rainHi: { gain: GainNode } | null = null;
+  private rainLo: { gain: GainNode; bp: BiquadFilterNode } | null = null;
   private drones: OscillatorNode[] = [];
   private driving = false;
   private oneShots = 0;
@@ -79,13 +140,21 @@ export class AudioEngine {
   private musicTimer: number | null = null;
   private nextBird = 0;
   private nextAircraft = 0;
+  private nextBell = 0;
+  private nextOwl = 0;
   private nextNote = 0;
   private musicOn = false;
   private rpm = 0.2;
   private gear = 0;
   private wasBraking = 0;
-  private profile: VehicleDef['audio'] = { idleHz: 34, rangeHz: 78, cutoff: 380, harsh: 0.35, rumble: 0.3 };
+  private lastPop = 0;
+  private duckUntil = 0;
+  private duckAmount = 0.5;
+  private voice: EngineVoice = VOICES['druk-ranger'];
   private ambient: AmbientDef = { wind: 0.4, birds: true, aircraft: false };
+  private rainLevel = 0;
+  private windExtra = 0;
+  readonly mix: MixSnapshot = { master: 0, engine: 0, sfx: 0, ui: 0, ambience: 0, weather: 0, music: 0, duck: 0 };
 
   constructor(private readonly makeContext?: ContextFactory) {}
 
@@ -96,6 +165,11 @@ export class AudioEngine {
   /** Number of live one-shot nodes (exposed so tests can prove nothing leaks). */
   get liveOneShots(): number {
     return this.oneShots;
+  }
+
+  /** The vehicle voice currently in use (exposed for tests and the debug overlay). */
+  get currentVoice(): EngineVoice {
+    return this.voice;
   }
 
   /** Must be called from a genuine user gesture (key press / pointer down). */
@@ -124,12 +198,29 @@ export class AudioEngine {
       ctx = new Ctor();
     }
     this.ctx = ctx;
+    // Mixer: buses -> master -> limiter -> speakers.
     this.master = ctx.createGain();
-    this.sfx = ctx.createGain();
-    this.music = ctx.createGain();
-    this.sfx.connect(this.master);
-    this.music.connect(this.master);
-    this.master.connect(ctx.destination);
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -12;
+    this.limiter.knee.value = 10;
+    this.limiter.ratio.value = 8;
+    this.limiter.attack.value = 0.003;
+    this.limiter.release.value = 0.18;
+    this.master.connect(this.limiter);
+    this.limiter.connect(ctx.destination);
+    const mk = (): GainNode => {
+      const g = ctx.createGain();
+      g.connect(this.master);
+      return g;
+    };
+    this.bus = { engine: mk(), sfx: mk(), ui: mk(), ambience: ctx.createGain(), weather: mk(), music: mk() };
+    // The environment passes through a low-pass so fog can muffle it.
+    this.ambLP = ctx.createBiquadFilter();
+    this.ambLP.type = 'lowpass';
+    this.ambLP.frequency.value = 20000;
+    this.bus.ambience.connect(this.ambLP);
+    this.ambLP.connect(this.master);
+    this.sfx = this.bus.sfx;
 
     const len = ctx.sampleRate * 2;
     this.noise = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -152,84 +243,158 @@ export class AudioEngine {
     return s;
   }
 
+  /** A looping noise layer: noise -> filter -> gain -> bus. */
+  private noiseLayer(
+    ctx: AudioContext,
+    type: BiquadFilterType,
+    freq: number,
+    q: number,
+    dest: AudioNode,
+  ): { gain: GainNode; filter: BiquadFilterNode } {
+    const n = this.noiseSource(ctx);
+    const f = ctx.createBiquadFilter();
+    f.type = type;
+    f.frequency.value = freq;
+    f.Q.value = q;
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    n.connect(f).connect(g).connect(dest);
+    n.start(0, Math.random());
+    return { gain: g, filter: f };
+  }
+
   private buildLayers(ctx: AudioContext): void {
-    const o1 = ctx.createOscillator();
-    const o2 = ctx.createOscillator();
-    const sub = ctx.createOscillator();
-    o1.type = 'sawtooth';
-    o2.type = 'square';
-    sub.type = 'triangle';
+    const mkOsc = (type: OscillatorType): OscillatorNode => {
+      const o = ctx.createOscillator();
+      o.type = type;
+      return o;
+    };
+    // ---- engine
+    const main = mkOsc(this.voice.wave);
+    const harm = mkOsc('square');
+    const sub = mkOsc('triangle');
+    const whine = mkOsc('sine');
+    const lump = mkOsc('sine');
+    const mainG = ctx.createGain();
+    const harmG = ctx.createGain();
+    const subG = ctx.createGain();
+    const whineG = ctx.createGain();
+    const lumpDepth = ctx.createGain();
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.Q.value = 1.2;
-    const eg = ctx.createGain();
-    eg.gain.value = 0;
-    const harsh = ctx.createGain();
-    const subGain = ctx.createGain();
-    o1.connect(lp);
-    o2.connect(harsh).connect(lp);
-    sub.connect(subGain).connect(lp);
-    lp.connect(eg).connect(this.sfx);
-    o1.start();
-    o2.start();
-    sub.start();
-    this.engine = { o1, o2, sub, harsh, subGain, lp, gain: eg };
-    this.applyProfile();
-
-    const tn = this.noiseSource(ctx);
-    const tbp = ctx.createBiquadFilter();
-    tbp.type = 'bandpass';
-    tbp.frequency.value = 600;
-    tbp.Q.value = 0.6;
-    const tg = ctx.createGain();
-    tg.gain.value = 0;
-    tn.connect(tbp).connect(tg).connect(this.sfx);
-    tn.start();
-    this.tyre = { gain: tg, bp: tbp };
-
-    const sn = this.noiseSource(ctx);
-    const sbp = ctx.createBiquadFilter();
-    sbp.type = 'bandpass';
-    sbp.frequency.value = 1900;
-    sbp.Q.value = 7;
-    const sg = ctx.createGain();
-    sg.gain.value = 0;
-    sn.connect(sbp).connect(sg).connect(this.sfx);
-    sn.start();
-    this.skid = { gain: sg };
-
-    const wn = this.noiseSource(ctx);
-    const wlp = ctx.createBiquadFilter();
-    wlp.type = 'lowpass';
-    wlp.frequency.value = 500;
-    const wg = ctx.createGain();
-    wg.gain.value = 0.05;
-    wn.connect(wlp).connect(wg).connect(this.sfx);
-    wn.start();
-    this.wind = { gain: wg, lp: wlp };
-
-    // Rain: a continuous high-passed noise layer, only its gain moves.
+    lp.Q.value = 1.1;
+    const body = ctx.createBiquadFilter();
+    body.type = 'peaking';
+    body.Q.value = 1.4;
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    main.connect(mainG).connect(lp);
+    harm.connect(harmG).connect(lp);
+    sub.connect(subG).connect(lp);
+    lp.connect(body).connect(out);
+    // Intake / exhaust rasp rides above the tonal layers.
     const rn = this.noiseSource(ctx);
-    const rhp = ctx.createBiquadFilter();
-    rhp.type = 'highpass';
-    rhp.frequency.value = 1400;
-    const rg = ctx.createGain();
-    rg.gain.value = 0;
-    rn.connect(rhp).connect(rg).connect(this.sfx);
-    rn.start();
-    this.rainLayer = { gain: rg };
+    const raspBp = ctx.createBiquadFilter();
+    raspBp.type = 'bandpass';
+    raspBp.Q.value = 0.9;
+    raspBp.frequency.value = 700;
+    const raspG = ctx.createGain();
+    raspG.gain.value = 0;
+    rn.connect(raspBp).connect(raspG).connect(out);
+    rn.start(0, Math.random());
+    // Turbo / supercharger whine sits outside the low-pass so it stays bright.
+    whine.connect(whineG).connect(out);
+    // Idle lump: a slow LFO on the engine's own gain.
+    lump.connect(lumpDepth).connect(out.gain);
+    out.connect(this.bus.engine);
+    for (const o of [main, harm, sub, whine, lump]) o.start();
+    this.engine = { main, harm, sub, whine, lump, mainG, harmG, subG, whineG, lumpDepth, raspBp, raspG, lp, body, out };
+    this.applyVoice();
 
-    // Water splashing around the wheels while wading.
-    const wn2 = this.noiseSource(ctx);
-    const wbp = ctx.createBiquadFilter();
-    wbp.type = 'bandpass';
-    wbp.frequency.value = 900;
-    wbp.Q.value = 0.8;
-    const wg2 = ctx.createGain();
-    wg2.gain.value = 0;
-    wn2.connect(wbp).connect(wg2).connect(this.sfx);
-    wn2.start();
-    this.splashLayer = { gain: wg2 };
+    // ---- tyres and surfaces (effects bus)
+    const roll = this.noiseLayer(ctx, 'bandpass', 600, 0.6, this.bus.sfx);
+    this.tyre = { gain: roll.gain, bp: roll.filter };
+    const skid = this.noiseLayer(ctx, 'bandpass', 1900, 7, this.bus.sfx);
+    this.skid = { gain: skid.gain };
+    // Gravel crunch: noise chopped by a fast LFO into grains.
+    const cr = this.noiseLayer(ctx, 'bandpass', 2100, 0.8, this.bus.sfx);
+    const crLfo = mkOsc('square');
+    crLfo.frequency.value = 26;
+    const crDepth = ctx.createGain();
+    crDepth.gain.value = 0;
+    crLfo.connect(crDepth).connect(cr.gain.gain);
+    crLfo.start();
+    this.crunch = { gain: cr.gain, lfo: crLfo, depth: crDepth };
+    // Mud squelch: low noise swelling slowly.
+    const sq = this.noiseLayer(ctx, 'lowpass', 340, 1.2, this.bus.sfx);
+    const sqLfo = mkOsc('sine');
+    sqLfo.frequency.value = 3.2;
+    const sqDepth = ctx.createGain();
+    sqDepth.gain.value = 0;
+    sqLfo.connect(sqDepth).connect(sq.gain.gain);
+    sqLfo.start();
+    this.squelch = { gain: sq.gain, depth: sqDepth };
+    const hiss = this.noiseLayer(ctx, 'highpass', 3200, 0.5, this.bus.sfx);
+    this.hiss = { gain: hiss.gain };
+    const spl = this.noiseLayer(ctx, 'bandpass', 900, 0.8, this.bus.sfx);
+    this.splashLayer = { gain: spl.gain };
+
+    // ---- environment (ambience bus)
+    const w = this.noiseLayer(ctx, 'lowpass', 500, 0.7, this.bus.ambience);
+    w.gain.gain.value = 0.02;
+    this.wind = { gain: w.gain, lp: w.filter };
+    const fo = this.noiseLayer(ctx, 'bandpass', 1900, 0.5, this.bus.ambience);
+    this.forestLayer = { gain: fo.gain, bp: fo.filter };
+    const rv = this.noiseLayer(ctx, 'lowpass', 650, 0.6, this.bus.ambience);
+    this.river = { gain: rv.gain };
+    // Night insects: two slightly detuned high tones chopped into chirps.
+    const ca = mkOsc('sine');
+    const cb = mkOsc('sine');
+    ca.frequency.value = 4300;
+    cb.frequency.value = 5100;
+    const cg = ctx.createGain();
+    cg.gain.value = 0;
+    const cLfo = mkOsc('square');
+    cLfo.frequency.value = 7.5;
+    const cDepth = ctx.createGain();
+    cDepth.gain.value = 0;
+    ca.connect(cg);
+    cb.connect(cg);
+    cg.connect(this.bus.ambience);
+    cLfo.connect(cDepth).connect(cg.gain);
+    for (const o of [ca, cb, cLfo]) o.start();
+    this.crickets = { gain: cg, depth: cDepth, lfo: cLfo };
+
+    // ---- weather (weather bus)
+    const rh = this.noiseLayer(ctx, 'highpass', 1500, 0.5, this.bus.weather);
+    this.rainHi = { gain: rh.gain };
+    const rl = this.noiseLayer(ctx, 'bandpass', 520, 0.7, this.bus.weather);
+    this.rainLo = { gain: rl.gain, bp: rl.filter };
+  }
+
+  /** Switches the engine character (called when the player picks a vehicle). */
+  setVehicle(audio: VehicleDef['audio'], id?: string): void {
+    this.voice = voiceFor(id, audio);
+    this.applyVoice();
+  }
+
+  private applyVoice(): void {
+    if (!this.engine || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const v = this.voice;
+    const e = this.engine;
+    e.main.type = v.wave;
+    e.mainG.gain.setTargetAtTime(0.7, t, 0.05);
+    e.harmG.gain.setTargetAtTime(v.harsh * 0.55, t, 0.05);
+    e.subG.gain.setTargetAtTime(v.sub * 0.9, t, 0.05);
+    e.whineG.gain.setTargetAtTime(0, t, 0.05);
+    e.body.frequency.setTargetAtTime(v.bodyHz, t, 0.05);
+    e.body.gain.setTargetAtTime(v.bodyGain, t, 0.05);
+  }
+
+  /** Per-level wind / birds / aircraft / night / river / forest / bells / fog. */
+  setAmbient(a: AmbientDef): void {
+    this.ambient = a;
   }
 
   /** Weather bed: rain intensity 0..1 and extra wind 0..1 (gusts on exposed roads). */
@@ -238,118 +403,195 @@ export class AudioEngine {
     this.windExtra = clamp(wind, 0, 1);
   }
 
-  /** Switches the engine character (called when the player picks a vehicle). */
-  setVehicle(audio: VehicleDef['audio']): void {
-    this.profile = audio;
-    this.applyProfile();
-  }
-
-  private applyProfile(): void {
-    if (!this.engine || !this.ctx) return;
-    const t = this.ctx.currentTime;
-    this.engine.harsh.gain.setTargetAtTime(0.15 + this.profile.harsh * 0.55, t, 0.05);
-    this.engine.subGain.gain.setTargetAtTime(this.profile.rumble * 0.9, t, 0.05);
-  }
-
-  /** Per-level wind / birds / aircraft. */
-  setAmbient(a: AmbientDef): void {
-    this.ambient = a;
-  }
-
   setLevels(levels: AudioLevels): void {
-    this.levels = levels;
+    this.levels = { ...levels, ambientVolume: levels.ambientVolume ?? 0.7 };
     this.applyLevels();
+  }
+
+  /** Lowers the environment for a moment (a warning, a pickup chime) so the important sound is heard. */
+  duck(amount = 0.5, seconds = 1): void {
+    const now = this.ctx?.currentTime ?? 0;
+    this.duckAmount = clamp(amount, 0, 0.9);
+    this.duckUntil = now + seconds;
   }
 
   private applyLevels(): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const { masterVolume, musicVolume, sfxVolume, muted } = this.levels;
-    this.master.gain.setTargetAtTime(muted ? 0 : masterVolume, t, 0.03);
-    this.sfx.gain.setTargetAtTime(sfxVolume, t, 0.03);
-    this.music.gain.setTargetAtTime(musicVolume * 0.7, t, 0.03);
+    const amb = this.levels.ambientVolume ?? 0.7;
+    const m = muted ? 0 : masterVolume;
+    this.master.gain.setTargetAtTime(m, t, 0.03);
+    this.bus.sfx.gain.setTargetAtTime(sfxVolume * TRIM.sfx, t, 0.03);
+    this.bus.ui.gain.setTargetAtTime(sfxVolume * TRIM.ui, t, 0.03);
+    this.bus.music.gain.setTargetAtTime(musicVolume * TRIM.music, t, 0.03);
+    this.ambLevel = amb;
+    this.engLevel = sfxVolume;
+    // The engine bus follows the driving state; the environment is also trimmed per frame while driving.
+    this.bus.engine.gain.setTargetAtTime(this.driving ? sfxVolume * TRIM.engine : 0, t, 0.05);
+    this.bus.ambience.gain.setTargetAtTime(amb * TRIM.ambience, t, 0.2);
+    this.bus.weather.gain.setTargetAtTime(amb * TRIM.weather, t, 0.2);
+    this.mix.master = m;
+    this.mix.sfx = sfxVolume * TRIM.sfx;
+    this.mix.ui = sfxVolume * TRIM.ui;
+    this.mix.music = musicVolume * TRIM.music;
+    this.mix.engine = this.driving ? sfxVolume * TRIM.engine : 0;
+    this.mix.ambience = amb * TRIM.ambience;
+    this.mix.weather = amb * TRIM.weather;
   }
 
   /** Switches the driving layers on/off (e.g. off in menus and when paused). */
   setDriving(on: boolean): void {
     this.driving = on;
-    if (!on && this.ctx && this.engine && this.tyre && this.skid) {
-      const t = this.ctx.currentTime;
-      this.engine.gain.gain.setTargetAtTime(0, t, 0.05);
-      this.tyre.gain.gain.setTargetAtTime(0, t, 0.05);
-      this.skid.gain.gain.setTargetAtTime(0, t, 0.05);
+    if (!this.ctx || !this.engine) return;
+    const t = this.ctx.currentTime;
+    if (on) {
+      this.bus.engine.gain.setTargetAtTime(this.engLevel * TRIM.engine, t, 0.08);
+      this.mix.engine = this.engLevel * TRIM.engine;
+      return;
     }
+    this.bus.engine.gain.setTargetAtTime(0, t, 0.06);
+    this.engine.out.gain.setTargetAtTime(0, t, 0.05);
+    for (const l of [this.tyre, this.skid, this.crunch, this.squelch, this.hiss, this.splashLayer]) {
+      l?.gain.gain.setTargetAtTime(0, t, 0.06);
+    }
+    this.crunch?.depth.gain.setTargetAtTime(0, t, 0.06);
+    this.squelch?.depth.gain.setTargetAtTime(0, t, 0.06);
+    this.mix.engine = 0;
   }
 
-  /** Per-frame engine / tyre / wind modulation. Allocation-free. */
+  /** Per-frame engine / surface / environment modulation. Allocation-free. */
   update(s: DriveSound): void {
     const ctx = this.ctx;
     if (!ctx || !this.engine || !this.tyre || !this.skid || !this.wind || ctx.state !== 'running') return;
     const t = ctx.currentTime;
     const speed = Math.abs(s.speed);
-    const wind = this.wind;
-    wind.gain.gain.setTargetAtTime(
-      0.02 + (this.ambient.wind + this.windExtra) * 0.06 + clamp(speed / s.topSpeed, 0, 1) * 0.1,
-      t,
-      0.15,
-    );
-    wind.lp.frequency.setTargetAtTime(350 + speed * 30, t, 0.15);
-    this.rainLayer?.gain.gain.setTargetAtTime(this.rainLevel * 0.085, t, 0.3);
+    const speedFrac = clamp(speed / s.topSpeed, 0, 1);
+    const a = this.ambient;
+
+    // ---- environment: calm by default, ducked under a working engine and under important sounds
+    const working = this.driving ? clamp(s.throttle * 0.6 + speedFrac * 0.5, 0, 1) : 0;
+    const eventDuck = t < this.duckUntil ? this.duckAmount : 0;
+    const duck = clamp(working * 0.35 + eventDuck, 0, 0.8);
+    this.mix.duck = duck;
+    const amb = this.ambLevel * TRIM.ambience * (1 - duck);
+    const wx = this.ambLevel * TRIM.weather * (1 - duck * 0.5);
+    this.bus.ambience.gain.setTargetAtTime(amb, t, 0.35);
+    this.bus.weather.gain.setTargetAtTime(wx, t, 0.5);
+    this.mix.ambience = amb;
+    this.mix.weather = wx;
+    this.ambLP.frequency.setTargetAtTime(lerp(20000, 1700, clamp(a.fog ?? 0, 0, 1)), t, 0.8);
+    this.wind.gain.gain.setTargetAtTime(0.02 + (a.wind + this.windExtra) * 0.07 + speedFrac * 0.05, t, 0.4);
+    this.wind.lp.frequency.setTargetAtTime(380 + speed * 22 + this.windExtra * 300, t, 0.3);
+    this.forestLayer?.gain.gain.setTargetAtTime((a.forest ?? 0) * (0.012 + 0.04 * (a.wind + this.windExtra)), t, 0.6);
+    this.forestLayer?.bp.frequency.setTargetAtTime(1500 + (a.wind + this.windExtra) * 900, t, 0.5);
+    this.river?.gain.gain.setTargetAtTime(a.water ? 0.1 : 0, t, 0.8);
+    if (this.crickets) {
+      const lvl = a.night && this.rainLevel < 0.4 ? 0.011 : 0;
+      this.crickets.gain.gain.setTargetAtTime(lvl, t, 0.5);
+      this.crickets.depth.gain.setTargetAtTime(lvl, t, 0.5);
+      this.crickets.lfo.frequency.setTargetAtTime(7 + (Math.sin(t * 0.7) + 1) * 1.8, t, 0.3);
+    }
+    this.rainHi?.gain.gain.setTargetAtTime(this.rainLevel * 0.1, t, 1.2);
+    this.rainLo?.gain.gain.setTargetAtTime(this.rainLevel * 0.12, t, 1.2);
+    this.rainLo?.bp.frequency.setTargetAtTime(420 + this.rainLevel * 400, t, 1.2);
     this.ambientEvents(t);
-    if (!this.driving) {
-      this.splashLayer?.gain.gain.setTargetAtTime(0, t, 0.1);
-      return;
+    if (!this.driving) return;
+
+    // ---- engine
+    const e = this.engine;
+    const v = this.voice;
+    let rpm: number;
+    let load: number;
+    let shifting: boolean;
+    if (s.rpm !== undefined) {
+      rpm = s.rpm;
+      load = s.load ?? s.throttle;
+      shifting = !!s.shifting;
+    } else {
+      // Fallback gearbox when no shared engine model is supplied.
+      let gear = 0;
+      while (gear < s.gearTopSpeeds.length - 1 && speed > s.gearTopSpeeds[gear]) gear++;
+      const prev = gear === 0 ? 0 : s.gearTopSpeeds[gear - 1] * 0.62;
+      const ld = 0.55 + 0.45 * clamp(s.throttle + 0.25, 0, 1);
+      const target = 0.18 + 0.82 * clamp((speed - prev) / (s.gearTopSpeeds[gear] - prev || 1), 0, 1) * ld;
+      const rate = target > this.rpm ? 9 : 4.5;
+      this.rpm += (target - this.rpm) * (1 - Math.exp(-rate * Math.max(s.dt, 0.001)));
+      shifting = gear !== this.gear;
+      this.gear = gear;
+      rpm = this.rpm;
+      load = s.throttle;
+    }
+    const r = clamp((rpm - 0.18) / 0.82, 0, 1);
+    const f0 = v.idleHz + r * v.rangeHz;
+    e.main.frequency.setTargetAtTime(f0, t, 0.03);
+    e.harm.frequency.setTargetAtTime(f0 * 2.005, t, 0.03);
+    e.sub.frequency.setTargetAtTime(f0 * 0.5, t, 0.03);
+    e.lp.frequency.setTargetAtTime(v.cutoff + r * v.cutoffRange * 0.6 + load * v.cutoffRange * 0.5, t, 0.06);
+    // Lump: the uneven pulse of a big or lazy engine, strongest when revs are low.
+    e.lump.frequency.setTargetAtTime(Math.max(2, f0 * v.lumpRate * 0.5), t, 0.1);
+    e.lumpDepth.gain.setTargetAtTime(v.gain * v.lump * 0.045 * (1 - r * 0.7), t, 0.1);
+    e.raspBp.frequency.setTargetAtTime(500 + r * 1600, t, 0.08);
+    e.raspG.gain.setTargetAtTime(v.rasp * (0.03 + 0.12 * load) * (0.4 + r * 0.6), t, 0.06);
+    e.whine.frequency.setTargetAtTime(v.whineHz + r * v.whineRange, t, 0.05);
+    e.whineG.gain.setTargetAtTime(v.whine * 0.05 * clamp(load * 1.2 + r * 0.3, 0, 1) * (r > 0.1 ? 1 : 0), t, 0.1);
+    const base = v.gain * (0.085 + 0.085 * load + 0.035 * r);
+    e.out.gain.setTargetAtTime(shifting ? base * 0.5 : base, t, shifting ? 0.01 : 0.06);
+    this.bus.engine.gain.setTargetAtTime(this.engLevel * TRIM.engine, t, 0.15);
+    this.mix.engine = this.engLevel * TRIM.engine;
+    // Burble and pops on a lifted throttle, for the voices that have them.
+    if (s.overrun && v.pops > 0 && speed > 8 && t - this.lastPop > 0.28 && Math.random() < v.pops * 0.35) {
+      this.lastPop = t;
+      this.noiseBurst(t, 0.08, 0.12 * v.gain, 'lowpass', 900, 160, this.bus.engine);
     }
 
-    // Simple gearbox: rpm climbs within a gear and drops on shift. The target is smoothed in JS so pitch
-    // glides instead of stepping, with a brief rev-hang on lift-off.
-    let gear = 0;
-    while (gear < s.gearTopSpeeds.length - 1 && speed > s.gearTopSpeeds[gear]) gear++;
-    const prev = gear === 0 ? 0 : s.gearTopSpeeds[gear - 1] * 0.62;
-    const load = 0.55 + 0.45 * clamp(s.throttle + 0.25, 0, 1);
-    const target = 0.2 + 0.8 * clamp((speed - prev) / (s.gearTopSpeeds[gear] - prev || 1), 0, 1) * load;
-    const rate = target > this.rpm ? 9 : 4.5;
-    this.rpm += (target - this.rpm) * (1 - Math.exp(-rate * Math.max(s.dt, 0.001)));
-    const shifted = gear !== this.gear;
-    this.gear = gear;
-
-    const p = this.profile;
-    const f0 = p.idleHz + this.rpm * p.rangeHz;
-    this.engine.o1.frequency.setTargetAtTime(f0, t, 0.03);
-    this.engine.o2.frequency.setTargetAtTime(f0 * 2.005, t, 0.03);
-    this.engine.sub.frequency.setTargetAtTime(f0 * 0.5, t, 0.03);
-    this.engine.lp.frequency.setTargetAtTime(p.cutoff + this.rpm * 900 + s.throttle * 700, t, 0.06);
-    const base = 0.07 + s.throttle * 0.07 + this.rpm * 0.03;
-    this.engine.gain.gain.setTargetAtTime(shifted ? base * 0.45 : base, t, shifted ? 0.01 : 0.06);
-
-    const roll = s.grounded ? clamp(speed / 30, 0, 1) : 0;
-    // The gravel verge is crunchier and louder than asphalt.
+    // ---- tyres and surfaces
+    const surf = s.surface ?? (s.wet ? 'water' : s.offRoad ? 'dirt' : 'asphalt');
     const loose = Math.max(s.offRoad ? 0.5 : 0, s.loose ?? 0);
-    this.tyre.gain.gain.setTargetAtTime(roll * (0.1 + loose * 0.12), t, 0.08);
-    // Wet asphalt hisses (higher band); loose ground crunches (lower, wider).
+    const roll = s.grounded ? clamp(speed / 30, 0, 1) : 0;
+    this.tyre.gain.gain.setTargetAtTime(roll * (0.09 + loose * 0.05), t, 0.08);
     this.tyre.bp.frequency.setTargetAtTime((loose > 0.3 ? 260 : s.wet ? 900 : 380) + speed * 22, t, 0.1);
+    const gravel = s.grounded && (surf === 'gravel' || surf === 'dirt') ? roll : 0;
+    this.crunch?.gain.gain.setTargetAtTime(gravel * 0.06, t, 0.08);
+    this.crunch?.depth.gain.setTargetAtTime(gravel * 0.05, t, 0.08);
+    this.crunch?.lfo.frequency.setTargetAtTime(14 + speed * 1.6, t, 0.1);
+    const mud = s.grounded && surf === 'mud' ? roll : 0;
+    this.squelch?.gain.gain.setTargetAtTime(mud * 0.1, t, 0.1);
+    this.squelch?.depth.gain.setTargetAtTime(mud * 0.1, t, 0.1);
+    this.hiss?.gain.gain.setTargetAtTime(s.grounded && s.wet ? roll * 0.05 : 0, t, 0.15);
     this.splashLayer?.gain.gain.setTargetAtTime((s.water ?? 0) * clamp(speed / 8, 0, 1) * 0.16, t, 0.1);
-    const skid = s.grounded
-      ? clamp((s.slip - 2.5) / 5, 0, 1) * 0.1 + (s.braking && speed > 12 ? 0.04 : 0)
-      : 0;
+    const skid = s.grounded ? clamp((s.slip - 2.5) / 5, 0, 1) * 0.1 + (s.braking && speed > 12 ? 0.04 : 0) : 0;
     this.skid.gain.gain.setTargetAtTime(skid, t, 0.05);
 
-    // Air-brake hiss for the coach after a firm stop-and-release.
+    // Air-brake hiss for the heavy diesel after a firm stop-and-release.
     const braking = s.braking && speed > 6 ? 1 : 0;
-    if (this.wasBraking && !braking && this.profile.rumble > 0.5) this.airBrake();
+    if (this.wasBraking && !braking && v.sub > 0.8 && v.lump > 0.5) this.airBrake();
     this.wasBraking = braking;
   }
 
   private ambientEvents(now: number): void {
     if (!this.ctx) return;
-    if (this.ambient.birds && now >= this.nextBird) {
+    const a = this.ambient;
+    const calm = this.rainLevel < 0.35;
+    if (a.birds && !a.night && calm && now >= this.nextBird) {
       this.nextBird = now + 3 + Math.random() * 6;
       const base = 2200 + Math.random() * 1800;
       const n = 2 + Math.floor(Math.random() * 3);
       for (let i = 0; i < n; i++)
-        this.tone(base * (1 + i * 0.06), now + i * 0.11, 0.07, 0.015, 'sine', this.sfx, base * 1.25);
+        this.tone(base * (1 + i * 0.06), now + i * 0.11, 0.07, 0.012, 'sine', this.bus.ambience, base * 1.25);
     }
-    if (this.ambient.aircraft && now >= this.nextAircraft) {
+    if (a.night && calm && now >= this.nextOwl) {
+      this.nextOwl = now + 9 + Math.random() * 14;
+      this.tone(420, now, 0.35, 0.02, 'sine', this.bus.ambience, 360);
+      this.tone(400, now + 0.55, 0.5, 0.018, 'sine', this.bus.ambience, 330);
+    }
+    if (a.bells && now >= this.nextBell) {
+      this.nextBell = now + 14 + Math.random() * 18;
+      const f = [392, 440, 523.25][Math.floor(Math.random() * 3)];
+      this.tone(f, now, 2.4, 0.018, 'sine', this.bus.ambience);
+      this.tone(f * 2.76, now, 1.2, 0.006, 'sine', this.bus.ambience);
+    }
+    if (a.aircraft && now >= this.nextAircraft) {
       this.nextAircraft = now + 30 + Math.random() * 30;
       this.flyover(now);
     }
@@ -399,6 +641,7 @@ export class AudioEngine {
     type: BiquadFilterType,
     f0: number,
     f1: number,
+    dest: AudioNode = this.sfx,
   ): void {
     const ctx = this.ctx;
     if (!ctx || this.oneShots >= MAX_ONE_SHOTS) return;
@@ -412,7 +655,7 @@ export class AudioEngine {
     g.gain.setValueAtTime(0.0001, at);
     g.gain.exponentialRampToValueAtTime(gain, at + Math.min(0.03, dur / 4));
     g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-    src.connect(f).connect(g).connect(this.sfx);
+    src.connect(f).connect(g).connect(dest);
     src.start(at, Math.random());
     src.stop(at + dur + 0.05);
     this.track(src, f, g);
@@ -425,13 +668,13 @@ export class AudioEngine {
 
   click(back = false): void {
     const ctx = this.ready();
-    if (ctx) this.tone(back ? 520 : 760, ctx.currentTime, 0.07, 0.12, 'triangle');
+    if (ctx) this.tone(back ? 520 : 760, ctx.currentTime, 0.07, 0.12, 'triangle', this.bus.ui);
   }
 
   /** Soft sweep for opening / closing a screen. */
   whoosh(): void {
     const ctx = this.ready();
-    if (ctx) this.noiseBurst(ctx.currentTime, 0.28, 0.12, 'bandpass', 500, 2200);
+    if (ctx) this.noiseBurst(ctx.currentTime, 0.28, 0.12, 'bandpass', 500, 2200, this.bus.ui);
   }
 
   countdown(n: number): void {
@@ -450,6 +693,7 @@ export class AudioEngine {
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime;
+    this.duck(0.4, 1.2);
     this.tone(880, t, 0.9, 0.2, 'sine');
     this.tone(1318.5, t + 0.09, 1.0, 0.16, 'sine');
     this.tone(2637, t + 0.09, 0.4, 0.04, 'sine');
@@ -459,6 +703,7 @@ export class AudioEngine {
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime;
+    this.duck(0.6, 2.5);
     [523.25, 587.33, 659.25, 783.99, 880, 1046.5].forEach((f, i) => {
       this.tone(f, t + i * 0.11, 0.9, 0.17, 'triangle');
       this.tone(f * 2, t + i * 0.11, 0.5, 0.04, 'sine');
@@ -509,6 +754,7 @@ export class AudioEngine {
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime;
+    this.duck(0.4, 1.4);
     [659.25, 830.61, 987.77].forEach((f, i) => this.tone(f, t + i * 0.09, 0.5, 0.16, 'triangle'));
   }
 
@@ -517,6 +763,7 @@ export class AudioEngine {
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime;
+    this.duck(0.5, 1.2);
     this.tone(880, t, 0.12, 0.13, 'square');
     this.tone(880, t + 0.2, 0.12, 0.13, 'square');
   }
@@ -541,7 +788,7 @@ export class AudioEngine {
   /** Distant thunder: a long, low rumble. */
   thunder(): void {
     const ctx = this.ready();
-    if (ctx) this.noiseBurst(ctx.currentTime + 0.25, 2.4, 0.5, 'lowpass', 420, 60);
+    if (ctx) this.noiseBurst(ctx.currentTime + 0.25, 2.4, 0.5, 'lowpass', 420, 60, this.bus.weather);
   }
 
   /** Rocks coming down. */
@@ -549,6 +796,7 @@ export class AudioEngine {
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime;
+    this.duck(0.5, 1.5);
     this.noiseBurst(t, 1.1, 0.4, 'lowpass', 900, 100);
     this.tone(70, t + 0.05, 0.5, 0.3, 'sine', this.sfx, 40);
   }
@@ -594,9 +842,9 @@ export class AudioEngine {
     f.frequency.linearRampToValueAtTime(160, at + 9);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, at);
-    g.gain.linearRampToValueAtTime(0.1, at + 4);
+    g.gain.linearRampToValueAtTime(0.06, at + 4);
     g.gain.linearRampToValueAtTime(0.0001, at + 9);
-    src.connect(f).connect(g).connect(this.sfx);
+    src.connect(f).connect(g).connect(this.bus.ambience);
     src.start(at, Math.random());
     src.stop(at + 9.1);
     this.track(src, f, g);
@@ -650,7 +898,7 @@ export class AudioEngine {
       o.type = 'sine';
       o.frequency.value = f;
       g.gain.value = 0.05;
-      o.connect(g).connect(this.music);
+      o.connect(g).connect(this.bus.music);
       o.start();
       this.drones.push(o);
     }
@@ -659,8 +907,8 @@ export class AudioEngine {
       if (!c || c.state !== 'running' || !this.musicOn) return;
       while (this.nextNote < c.currentTime + 0.6) {
         const f = PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)];
-        this.tone(f, this.nextNote, 2.2, 0.09, 'triangle', this.music);
-        if (Math.random() < 0.35) this.tone(f * 1.5, this.nextNote + 0.18, 1.8, 0.04, 'sine', this.music);
+        this.tone(f, this.nextNote, 2.2, 0.09, 'triangle', this.bus.music);
+        if (Math.random() < 0.35) this.tone(f * 1.5, this.nextNote + 0.18, 1.8, 0.04, 'sine', this.bus.music);
         this.nextNote += 1.1 + Math.random() * 2.6;
       }
     }, 250);
@@ -668,6 +916,7 @@ export class AudioEngine {
 
   dispose(): void {
     this.stopMusic();
+    this.driving = false;
     void this.ctx?.close().catch(() => undefined);
     this.ctx = null;
   }
