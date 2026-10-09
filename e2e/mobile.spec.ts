@@ -209,7 +209,7 @@ for (const viewport of [
     page,
   }) => {
     await page.setViewportSize(viewport);
-    await page.goto('/?debug=1&quality=low');
+    await page.goto('/?debug=1&quality=low&splashhold=1');
     const splash = page.locator('#splash');
     await expect(splash).toBeVisible();
     await splash.tap();

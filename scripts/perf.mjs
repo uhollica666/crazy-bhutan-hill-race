@@ -22,6 +22,7 @@ const full = (quality) => ({
     musicVolume: 0,
     sfxVolume: 0.9,
     muted: true,
+    levelsView: 'list',
     quality,
     touchControls: 'off',
     touchSensitivity: 1,
