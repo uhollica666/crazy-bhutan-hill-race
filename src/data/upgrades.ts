@@ -151,3 +151,44 @@ export function applyUpgrades(base: VehicleDef, levels: UpgradeLevels): VehicleD
   cache.set(key, out);
   return out;
 }
+
+/**
+ * The measurable before/after of buying the next level of an upgrade, read from the same `applyUpgrades` the
+ * physics uses (so the garage can never promise something the car does not do). Null when maxed or incompatible.
+ */
+export function upgradePreview(base: VehicleDef, levels: UpgradeLevels, id: UpgradeId): { label: string; before: string; after: string }[] | null {
+  if (nextUpgradeCost(base, levels, id) === null) return null;
+  const now = applyUpgrades(base, levels);
+  const next = applyUpgrades(base, { ...levels, [id]: (levels[id] ?? 0) + 1 });
+  const rel = (x: number, y: number, ref: number): { before: string; after: string } => ({
+    before: `${Math.round((x / ref) * 100)}%`,
+    after: `${Math.round((y / ref) * 100)}%`,
+  });
+  switch (id) {
+    case 'engine':
+      return [
+        { label: 'Top speed', before: `${Math.round(now.engine.topSpeed * 3.6)} km/h`, after: `${Math.round(next.engine.topSpeed * 3.6)} km/h` },
+        { label: 'Engine force', ...rel(now.engine.force, next.engine.force, base.engine.force) },
+      ];
+    case 'tires':
+      return [
+        { label: 'Grip', ...rel(now.grip.lateral, next.grip.lateral, base.grip.lateral) },
+        { label: 'Off-road ability', before: `${Math.round(now.offroad * 100)}%`, after: `${Math.round(next.offroad * 100)}%` },
+      ];
+    case 'suspension':
+      return [
+        { label: 'Damping', ...rel(now.suspension.damping, next.suspension.damping, base.suspension.damping) },
+        { label: 'Anti-roll', ...rel(now.suspension.antiRoll, next.suspension.antiRoll, base.suspension.antiRoll) },
+      ];
+    case 'brakes':
+      return [{ label: 'Braking force', ...rel(now.engine.brakeForce, next.engine.brakeForce, base.engine.brakeForce) }];
+    case 'tank':
+    case 'efficiency':
+      return [{ label: 'Range', before: `${Math.round(now.fuel.rangeKm)} km`, after: `${Math.round(next.fuel.rangeKm)} km` }];
+    case 'armor':
+      return [
+        { label: 'Condition', before: `${Math.round(now.durability.health)}`, after: `${Math.round(next.durability.health)}` },
+        { label: 'Damage taken', before: `${Math.round((1 - now.durability.resistance) * 100)}%`, after: `${Math.round((1 - next.durability.resistance) * 100)}%` },
+      ];
+  }
+}

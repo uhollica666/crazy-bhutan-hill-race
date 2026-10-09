@@ -484,3 +484,49 @@ svg.pax {
     align-self: end;
   }
 }
+
+/* ---- Pass 4.5: the garage stage (orbit camera surface) and its view buttons */
+.garage-stage {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  cursor: grab;
+}
+.garage-stage:active {
+  cursor: grabbing;
+}
+.garage-panel {
+  position: relative;
+  z-index: 1;
+}
+.garage-view {
+  position: absolute;
+  right: calc(var(--sar) + 16px);
+  bottom: calc(var(--sab) + 16px);
+  z-index: 2;
+  display: flex;
+  gap: 8px;
+}
+.garage-view .icon-btn {
+  font-size: 22px;
+  font-weight: 800;
+}
+.upg-delta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 3px;
+  font-size: 12.5px;
+}
+.upg-delta s {
+  opacity: 0.6;
+}
+.upg-delta b {
+  color: var(--saffron-light);
+}
+@media (max-width: 640px) {
+  .garage-view {
+    bottom: auto;
+    top: calc(var(--sat) + 70px);
+  }
+}

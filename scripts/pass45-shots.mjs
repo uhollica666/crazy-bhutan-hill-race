@@ -86,5 +86,25 @@ await session('settings', { w: 1280, h: 720, touch: false, settings: {} }, async
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${out}/settings-controls.png` });
 });
+for (const v of ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser']) {
+  await session('garage-' + v, { w: 1280, h: 720, touch: false, settings: {}, vehicle: v }, async (page) => {
+    await page.evaluate(() => document.querySelector('#btn-menu-garage').click());
+    await page.waitForSelector('#screen-garage:not([hidden])');
+    for (let i = 0; i < 5; i++) {
+      const id = await page.evaluate(() => window.__cbhr.state().vehicleId);
+      if (id === v) break;
+      await page.evaluate(() => document.querySelector('#btn-veh-next').click());
+      await page.waitForTimeout(400);
+    }
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: out + '/garage-' + v + '.png' });
+  });
+}
+await session('garage-mobile', { w: 800, h: 360, touch: true, settings: {} }, async (page) => {
+  await page.evaluate(() => document.querySelector('#btn-menu-garage').click());
+  await page.waitForSelector('#screen-garage:not([hidden])');
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: out + '/garage-mobile.png' });
+});
 await browser.close();
 console.log('done', out);

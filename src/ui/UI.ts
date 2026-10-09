@@ -33,6 +33,8 @@ export interface UIActions {
   buyVehicle(id: string): void;
   buyUpgrade(vehicleId: string, upgradeId: string): void;
   setConditions(index: number): void;
+  /** Garage orbit camera: drag (pixels), zoom (fraction), turn (radians) or reset. */
+  garageView(cmd: { orbit?: [number, number]; zoom?: number; turn?: number; reset?: boolean }): void;
   readBriefing(): void;
   toggleDrive(): void;
   requestService(kind: ServiceKind): void;
@@ -87,6 +89,8 @@ export interface UpgradeRow {
   nextCost: number | null;
   nextEffect: string | null;
   canBuy: boolean;
+  /** Real before/after numbers for the next level. */
+  preview: { label: string; before: string; after: string }[] | null;
 }
 
 export interface VehicleCardModel {
@@ -238,6 +242,14 @@ export class UI {
       </section>
 
       <section class="screen garage" id="screen-garage" data-screen hidden aria-labelledby="garage-title">
+        <div class="garage-stage" id="garage-stage" aria-hidden="true"></div>
+        <div class="garage-view" role="group" aria-label="Camera">
+          <button class="icon-btn" id="gv-left" type="button" aria-label="Turn left">${ICONS.left}</button>
+          <button class="icon-btn" id="gv-right" type="button" aria-label="Turn right">${ICONS.right}</button>
+          <button class="icon-btn" id="gv-in" type="button" aria-label="Zoom in">+</button>
+          <button class="icon-btn" id="gv-out" type="button" aria-label="Zoom out">&minus;</button>
+          <button class="icon-btn" id="gv-reset" type="button" aria-label="Reset view">${ICONS.recover}</button>
+        </div>
         <div class="garage-panel">
           <header class="sheet-head">
             <button class="icon-btn" id="btn-garage-back" data-back type="button" aria-label="Back">${ICONS.left}</button>
@@ -482,6 +494,58 @@ export class UI {
       this.actions.chooseLevel(card.dataset.level as string);
     });
 
+    // Garage camera: drag the empty stage, wheel to zoom, buttons for keyboard and touch users.
+    const stage = q(this.root, '#garage-stage');
+    const drag = { id: -1, x: 0, y: 0 };
+    const pinch = new Map<number, { x: number; y: number }>();
+    let pinchDist = 0;
+    stage.addEventListener('pointerdown', (e) => {
+      pinch.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch.size === 1) Object.assign(drag, { id: e.pointerId, x: e.clientX, y: e.clientY });
+      if (pinch.size === 2) {
+        const [a, b] = [...pinch.values()];
+        pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
+      }
+      try {
+        stage.setPointerCapture(e.pointerId);
+      } catch {
+        /* pointer already gone */
+      }
+    });
+    stage.addEventListener('pointermove', (e) => {
+      if (!pinch.has(e.pointerId)) return;
+      pinch.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch.size === 2) {
+        const [a, b] = [...pinch.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (pinchDist > 0) this.actions.garageView({ zoom: (pinchDist - d) / Math.max(1, pinchDist) });
+        pinchDist = d;
+      } else if (e.pointerId === drag.id) {
+        this.actions.garageView({ orbit: [e.clientX - drag.x, e.clientY - drag.y] });
+        drag.x = e.clientX;
+        drag.y = e.clientY;
+      }
+    });
+    const endDrag = (e: PointerEvent): void => {
+      pinch.delete(e.pointerId);
+      if (e.pointerId === drag.id) drag.id = -1;
+      pinchDist = 0;
+    };
+    stage.addEventListener('pointerup', endDrag);
+    stage.addEventListener('pointercancel', endDrag);
+    stage.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        this.actions.garageView({ zoom: Math.sign(e.deltaY) * 0.08 });
+      },
+      { passive: false },
+    );
+    on('#gv-left', () => this.actions.garageView({ turn: -0.35 }));
+    on('#gv-right', () => this.actions.garageView({ turn: 0.35 }));
+    on('#gv-in', () => this.actions.garageView({ zoom: -0.12 }));
+    on('#gv-out', () => this.actions.garageView({ zoom: 0.12 }));
+    on('#gv-reset', () => this.actions.garageView({ reset: true }));
     // Garage buy buttons: delegated, because the garage is re-rendered on every change.
     this.screens.garage.addEventListener('click', (e) => {
       const t = (e.target as HTMLElement).closest<HTMLElement>('[data-buy-vehicle],[data-buy-upgrade]');
@@ -795,7 +859,7 @@ export class UI {
             ? '<span class="maxed">Maxed</span>'
             : `<button class="btn" type="button" data-buy-upgrade="${esc(u.id)}"${u.canBuy ? '' : ' disabled'} aria-label="Buy ${esc(u.name)} level ${u.level + 1} for ${u.nextCost} credits">${COIN}<span>${u.nextCost}</span></button>`;
         return `<div class="upg"><div class="upg-main"><b>${esc(u.name)}</b><span class="upg-pips" role="img" aria-label="level ${u.level} of ${u.max}">${pips}</span>
-          <small>${esc(u.nextEffect ?? u.blurb)}</small></div>${action}</div>`;
+          <small>${esc(u.nextEffect ?? u.blurb)}</small>${u.preview ? `<span class="upg-delta">${u.preview.map((p) => `<span>${esc(p.label)} <s>${esc(p.before)}</s> &rarr; <b>${esc(p.after)}</b></span>`).join('')}</span>` : ''}</div>${action}</div>`;
       })
       .join('');
 

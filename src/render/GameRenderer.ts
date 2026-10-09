@@ -106,6 +106,11 @@ export class GameRenderer {
     this.renderer.render(this.scene, camera);
   }
 
+  /** Draws another scene (the garage) with its own camera. */
+  renderScene(scene: Scene, camera: PerspectiveCamera): void {
+    this.renderer.render(scene, camera);
+  }
+
   stats(): RenderStats {
     const i = this.renderer.info;
     return {

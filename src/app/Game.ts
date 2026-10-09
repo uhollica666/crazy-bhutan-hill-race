@@ -4,7 +4,7 @@ import { clamp } from '../core/math';
 import { levelTimes, listLevels, paceFor } from '../data/levels';
 import { getCast, getStory } from '../data/story';
 import type { CastMember } from '../data/story';
-import { MAX_UPGRADE_LEVEL, UPGRADES, applyUpgrades, nextUpgradeCost } from '../data/upgrades';
+import { MAX_UPGRADE_LEVEL, UPGRADES, applyUpgrades, nextUpgradeCost, upgradePreview } from '../data/upgrades';
 import { WEATHER, conditionsLabel } from '../data/weather';
 import { getVehicle, listVehicles, vehicleStats } from '../data/vehicles';
 import type { LevelDef, ServiceKind, UpgradeId, VehicleDef } from '../data/types';
@@ -37,6 +37,7 @@ import { assets, loadVehicleAsset, peekVehicleAsset } from '../render/assets';
 import { disposeEnvKit, loadEnvKit } from '../render/envKit';
 import { QUALITY } from '../render/quality';
 import { VehicleModel } from '../render/VehicleModel';
+import { GarageScene } from '../render/GarageScene';
 import { World3D } from '../render/World3D';
 import { DraftStore, createTransport, readFeedbackConfig } from '../services/feedback';
 import type { FeedbackConfig, FeedbackPayload } from '../services/feedback';
@@ -149,6 +150,8 @@ export class Game {
   private autodriveOn = false;
   private adaptive: AdaptiveResolution | null = null;
   private menuScreen: MenuScreen = 'menu';
+  /** The dedicated garage scene: created on first use, drawn instead of the world while the garage is open. */
+  private garage: GarageScene | null = null;
   private freeGarage = false;
   private previewId = '';
   private inRun = false;
@@ -267,6 +270,12 @@ export class Game {
         buyVehicle: (id) => this.buyVehicle(id),
         buyUpgrade: (v, u) => this.buyUpgrade(v, u as UpgradeId),
         setConditions: (i) => this.setConditions(i),
+        garageView: (c) => {
+          if (c.orbit) this.garage?.orbit(c.orbit[0], c.orbit[1]);
+          if (c.zoom) this.garage?.zoom(c.zoom);
+          if (c.turn) this.garage?.turn(c.turn);
+          if (c.reset) this.garage?.resetView();
+        },
         readBriefing: () => this.readBriefing(),
         toggleDrive: () => this.toggleDrive(),
         requestService: (k) => this.requestService(k),
@@ -468,6 +477,7 @@ export class Game {
     this.engineSim.setVehicle(this.vehicleDef);
     this.driveSound.topSpeed = this.vehicleDef.engine.topSpeed;
     this.driveSound.gearTopSpeeds = this.vehicleDef.engine.gearTopSpeeds;
+    if (this.garage) this.garage.setVehicle(this.vehicleDef, peekVehicleAsset(base.id));
     this.buildPreview();
     this.applyConditions();
     this.rig.snap();
@@ -696,6 +706,7 @@ export class Game {
   private readonly onResize = (): void => {
     const { width, height } = this.renderer.applySize();
     this.rig.resize(width, height);
+    this.garage?.resize(width, height);
     this.syncPixelRatio();
   };
 
@@ -804,6 +815,7 @@ export class Game {
         nextCost: cost,
         nextEffect: cost === null ? null : `Next: ${def.levels[lvl].effect}`,
         canBuy: cost !== null && this.store.credits >= cost,
+        preview: upgradePreview(v, levels, id),
       };
     });
   }
@@ -946,8 +958,21 @@ export class Game {
     this.openGarageScreen();
   }
 
+  private garageActive(): boolean {
+    return this.flow.state === 'menu' && this.menuScreen === 'garage' && !!this.garage;
+  }
+
   private openGarageScreen(): void {
     this.menuScreen = 'garage';
+    if (!this.garage) {
+      this.garage = new GarageScene(this.renderer.profile.shadows);
+      const el = this.renderer.renderer.domElement;
+      this.garage.resize(el.clientWidth || window.innerWidth, el.clientHeight || window.innerHeight);
+    }
+    this.garage.reducedMotion = this.reducedMotion;
+    this.garage.setShadows(this.renderer.profile.shadows);
+    this.garage.setVehicle(this.vehicleDef, peekVehicleAsset(this.baseVehicle.id));
+    this.garage.resetView();
     this.rig.setShowcase(true);
     this.rig.snap();
     this.ui.showGarage(this.garageModel());
@@ -1385,6 +1410,14 @@ export class Game {
     if (state === 'finished') this.nav.pollGamepad(now);
 
     const body = this.rt.body;
+    if (this.garageActive() && this.garage) {
+      // The garage has its own scene: the world, weather and effects behind the menus are not updated or drawn.
+      this.garage.update(dt);
+      this.renderer.renderScene(this.garage.scene, this.garage.camera);
+      this.afterFrame(dt, state);
+      this.cpuMs += (performance.now() - t0 - this.cpuMs) * 0.08;
+      return;
+    }
     this.model.sync(body, alpha, this.course, this.time, this.currentRpm());
     if (state === 'playing' && this.rt.session.phase === 'countdown') {
       this.rig.intro = clamp(this.rt.session.countdown / 3, 0, 1);
@@ -1738,6 +1771,9 @@ export class Game {
           loaner: this.loaner,
           lights: this.world?.env.lightsOn ?? false,
           detailedModel: this.model?.detailed ?? false,
+          scene: this.garageActive() ? 'garage' : 'world',
+          garageVehicle: this.garage?.shownVehicleId ?? null,
+          garageView: this.garage?.view ?? null,
         };
       },
       /** Teleport onto the road at a distance (for tests). It does not change what the mission requires. */
@@ -1790,6 +1826,7 @@ export class Game {
     this.audio.dispose();
     this.disposeLevel();
     this.model?.dispose();
+    this.garage?.dispose();
     this.effects.dispose();
     this.snow.dispose();
     this.rain.dispose();

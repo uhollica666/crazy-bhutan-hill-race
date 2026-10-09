@@ -283,6 +283,16 @@ export class VehicleModel {
     this.blob.renderOrder = 1;
   }
 
+  /** Wheels at their resting mounts, straight and still: the garage turntable pose. */
+  poseStatic(): void {
+    let i = 0;
+    for (const axle of this.def.axles) {
+      for (const side of [-1, 1]) {
+        this.pivots[i++].position.set(side * axle.halfTrack, axle.y - this.def.suspension.rest, axle.z);
+      }
+    }
+  }
+
   /** Scales reflections with the available light (a studio reflection on a night road would glow). */
   setReflection(k: number): void {
     for (const m of this.mats) {
