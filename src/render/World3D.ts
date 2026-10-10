@@ -17,6 +17,7 @@ export class World3D {
   readonly gates: Gates;
   private readonly terrain: Group;
   private rivers: RiverMesh | null = null;
+  private lastTime = -1;
 
   constructor(
     private readonly scene: Scene,
@@ -61,13 +62,16 @@ export class World3D {
     });
   }
 
-  setConditions(weather: WeatherKind, time: TimeOfDay): void {
-    this.env.setConditions(weather, time);
+  setConditions(weather: WeatherKind, time: TimeOfDay, smooth = false): void {
+    this.env.setConditions(weather, time, undefined, smooth);
     this.scenery.setLamps(this.env.lightsOn && time !== 'day');
   }
 
   update(time: number, camera: Vector3, focus: Vector3, progress: number): void {
     this.rivers?.update(time);
+    const dt = this.lastTime < 0 ? 0 : Math.min(0.1, Math.max(0, time - this.lastTime));
+    this.lastTime = time;
+    this.env.tick(dt);
     this.scenery.update(time);
     this.gates.update(time);
     this.env.setProgress(progress);

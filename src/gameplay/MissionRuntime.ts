@@ -168,8 +168,11 @@ export class MissionRuntime {
     this.hazards?.reset();
     this.traffic?.reset();
     this.rival?.reset();
+    // A restart begins in the mission's own conditions again, not wherever the last run's weather fronts left them.
+    if (level.weatherZones) this.conditions = level.conditions[clamp(opts.conditions ?? 0, 0, level.conditions.length - 1)];
     this.weather.set(this.conditions);
     course.wetness = this.weather.wetness;
+    this.brakeHeat = 0;
     this.motion.reset();
     this.serviceRequest = null;
     this.recoverCount = 0;
@@ -188,6 +191,31 @@ export class MissionRuntime {
     this.motion.reset();
     this.recoverCount++;
     this.events.emit('recovered', undefined);
+  }
+
+  /** 0..1 brake temperature on long descents (only levels with `brakeFade` heat their brakes). */
+  brakeHeat = 0;
+
+  /** Brakes heat when braked hard at speed (more on a downhill) and cool when released; hot brakes lose up to ~40% of their force. */
+  private updateBrakes(dt: number): void {
+    const mod = this.body.mod;
+    if (!this.level.brakeFade) {
+      mod.brake = 1;
+      return;
+    }
+    const speedN = Math.min(1, Math.abs(this.body.speed) / 22);
+    const down = Math.max(0, -this.gradeAhead());
+    const gain = this.body.braking * speedN * (0.7 + down * 9) * 0.09;
+    const cool = 0.018 + 0.03 * speedN;
+    this.brakeHeat = clamp(this.brakeHeat + (gain - cool) * dt, 0, 1);
+    const t = clamp((this.brakeHeat - 0.55) / 0.45, 0, 1);
+    mod.brake = 1 - 0.42 * t * t * (3 - 2 * t);
+  }
+
+  /** A weather front moves in: the road soaks and the rain builds gradually (the sky and fog follow in the renderer). */
+  transitionWeather(weather: ConditionsDef['weather']): void {
+    this.conditions = { ...this.conditions, weather };
+    this.weather.transitionTo(weather);
   }
 
   /** Changes weather and time of day during a run (the training route does this lesson by lesson). */
@@ -221,6 +249,8 @@ export class MissionRuntime {
 
     status.waterDepth = course.ford || course.rivers.length ? course.waterDepthAt(body.position.x, body.position.z) : 0;
     status.applyTo(body.mod);
+    this.updateBrakes(dt);
+    if (this.traffic && this.level.traffic?.slowInFog) this.traffic.visibilityScale = clamp(0.55 + 0.45 * Math.min(1, weather.visibility / 0.62), 0.55, 1);
 
     body.step(dt, input, course);
 

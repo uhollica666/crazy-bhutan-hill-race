@@ -22,6 +22,7 @@ import { peekEnvKit } from './envKit';
 import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
 import { bridgeGeometry, cliffGeometry, plazaGeometry, retainWallGeometry, runwayGeometry, signpostGeometry, stallGeometry, trolleyGeometry, viewpointGeometry } from './trafficBodies';
+import { chortenRingGeometry, lodgeGeometry, shelterGeometry } from './stormBodies';
 import { coveredBridgeGeometry, dzongComplexGeometry, footbridgeGeometry, paddyGeometry, picnicGeometry, trussBridgeGeometry } from './valleyBodies';
 import { buddhaGeometry, busShelterGeometry, gateArchGeometry, hotelGeometry, officeGeometry, planterGeometry, policeBoothGeometry, railingGeometry, restaurantGeometry } from './cityBodies';
 import {
@@ -510,6 +511,9 @@ export class Scenery {
     const coveredBridges: Matrix4[] = [];
     const dzongComplexes: Matrix4[] = [];
     const picnics: Matrix4[] = [];
+    const chortenRings: Matrix4[] = [];
+    const shelterHuts: Matrix4[] = [];
+    const lodges: Matrix4[] = [];
     const runways: Matrix4[] = [];
     const trolleys: Matrix4[] = [];
     const offices: Matrix4[] = [];
@@ -650,6 +654,15 @@ export class Scenery {
         case 'picnic':
           picnics.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
           break;
+        case 'chortenRing':
+          chortenRings.push(compose(x, y - 0.2, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'shelter':
+          shelterHuts.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'lodge':
+          lodges.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
         case 'runway':
           // Long axis parallel to the road.
           runways.push(compose(x, y - 0.4, z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2 + (l.rotation ?? 0), sc));
@@ -776,6 +789,9 @@ export class Scenery {
     this.registerInstanced(coveredBridgeGeometry(), coveredBridges, material, false);
     this.registerInstanced(dzongComplexGeometry(), dzongComplexes, material, false);
     this.registerInstanced(picnicGeometry(), picnics, material, false);
+    this.registerInstanced(chortenRingGeometry(), chortenRings, material, false);
+    this.registerInstanced(shelterGeometry(), shelterHuts, material, false);
+    this.registerInstanced(lodgeGeometry(), lodges, material, false);
     this.registerInstanced(runwayGeometry(), runways, material, false);
     this.registerInstanced(trolleyGeometry(), trolleys, material, false);
     this.registerInstanced(officeGeometry(), offices, material, false);

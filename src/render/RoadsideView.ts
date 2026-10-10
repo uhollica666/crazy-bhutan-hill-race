@@ -10,6 +10,7 @@ import {
   InstancedMesh,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   PlaneGeometry,
   Points,
@@ -26,6 +27,8 @@ import { TRAFFIC_KINDS } from '../gameplay/Traffic';
 import type { TrafficControl } from '../gameplay/Traffic';
 import { bicycleGeometry, birdGeometry, coneGeometry, busGeometry, deliveryGeometry, minibusGeometry, motoGeometry, scooterGeometry, suvGeometry, truckGeometry, walkerGeometry } from './trafficBodies';
 import { yakGeometry } from './Scenery';
+import { makeFlowTexture } from './RiverMesh';
+import { GeoBuilder } from './geo';
 import { tractorGeometry } from './valleyBodies';
 import { trafficCarGeometry } from './vehicleBodies';
 
@@ -98,6 +101,8 @@ interface Flock {
 const MAX_WALKERS = 72;
 const MAX_PEDS = 12;
 const MAX_BIRDS = 24;
+const MAX_MARKERS = 260;
+const MAX_DRAIN_ROWS = 360;
 
 /**
  * Everything beside the road that is not traffic: villagers and tourists on the verge, people standing at bus stops and
@@ -119,6 +124,9 @@ export class RoadsideView {
   private readonly flocks: Flock[] = [];
   private readonly birdMesh: InstancedMesh | null = null;
   private readonly coneMesh: InstancedMesh | null = null;
+  private readonly markerMesh: InstancedMesh | null = null;
+  private readonly drainMesh: Mesh | null = null;
+  private readonly drainTex: CanvasTexture | null = null;
   private traffic: { controls: TrafficControl[] } | null = null;
   private confetti: { points: Points; pos: Float32Array; vel: Float32Array; life: number; n: number } | null = null;
   private flags: { group: Group; items: { mesh: Mesh; phase: number; baseY: number }[]; t: number } | null = null;
@@ -318,6 +326,80 @@ export class RoadsideView {
       this.disposables.push(geo, mat, this.coneMesh);
     }
 
+    // Reflective marker posts along both edges (fog and storm stretches): unlit, so they glow through the murk.
+    const markerSpots: { x: number; z: number; side: number; yaw: number }[] = [];
+    for (const m of rs.markers ?? []) {
+      const s0 = course.startS + m.from * span;
+      const s1 = course.startS + m.to * span;
+      for (let s = s0; s <= s1 && markerSpots.length < MAX_MARKERS; s += m.spacing ?? 18) {
+        road.at(s, this.pose);
+        for (const side of [-1, 1]) {
+          const lat = side * (road.halfWidthAtS(s) + 0.3);
+          markerSpots.push({ x: this.pose.x - this.pose.tz * lat, z: this.pose.z + this.pose.tx * lat, side, yaw: Math.atan2(this.pose.tx, this.pose.tz) });
+        }
+      }
+    }
+    if (markerSpots.length) {
+      const geo = new GeoBuilder().box(0.09, 1.05, 0.09, 0x4a4a50, { y: 0.52 }).box(0.13, 0.24, 0.13, 0xffffff, { y: 0.95 }).build();
+      const mat = new MeshBasicMaterial({ vertexColors: true });
+      this.markerMesh = new InstancedMesh(geo, mat, markerSpots.length);
+      this.markerMesh.frustumCulled = false;
+      markerSpots.forEach((m, i) => {
+        this.m4.compose(this.pos.set(m.x, course.terrain.heightAt(m.x, m.z), m.z), this.q.setFromAxisAngle(UP, m.yaw), this.scl);
+        this.markerMesh!.setMatrixAt(i, this.m4);
+        // Left-hand edge posts glow orange, right-hand edge posts pale yellow-white.
+        this.markerMesh!.setColorAt(i, this.col.setHex(m.side < 0 ? 0xff8a2a : 0xfff4b8));
+      });
+      this.markerMesh.instanceMatrix.needsUpdate = true;
+      if (this.markerMesh.instanceColor) this.markerMesh.instanceColor.needsUpdate = true;
+      scene.add(this.markerMesh);
+      this.disposables.push(geo, mat, this.markerMesh);
+    }
+
+    // Runoff channels: a thin ribbon of moving water in the gutter beside the road.
+    if (rs.drains?.length) {
+      const pos: number[] = [];
+      const uv: number[] = [];
+      const idx: number[] = [];
+      let rows = 0;
+      let dist = 0;
+      for (const d of rs.drains) {
+        const s0 = course.startS + d.from * span;
+        const s1 = course.startS + d.to * span;
+        const first = rows;
+        for (let s = s0; s <= s1 && rows - first < MAX_DRAIN_ROWS; s += 4, rows++) {
+          road.at(s, this.pose);
+          const lat = d.side * (road.halfWidthAtS(s) + 0.38);
+          for (const w of [-0.3, 0.3]) {
+            const l = lat + w;
+            const x = this.pose.x - this.pose.tz * l;
+            const z = this.pose.z + this.pose.tx * l;
+            pos.push(x, course.terrain.heightAt(x, z) + 0.11, z);
+          }
+          uv.push(0, dist / 2, 1, dist / 2);
+          dist += 4;
+          if (rows > first) {
+            const a = (rows - 1) * 2;
+            idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+          }
+        }
+      }
+      if (rows > 1) {
+        const geo = new BufferGeometry();
+        geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+        geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        this.drainTex = makeFlowTexture();
+        const mat = new MeshLambertMaterial({ map: this.drainTex, color: 0xc8e0ea, transparent: true, opacity: 0.85, depthWrite: false, side: DoubleSide });
+        this.drainMesh = new Mesh(geo, mat);
+        this.drainMesh.frustumCulled = false;
+        this.drainMesh.renderOrder = 2;
+        scene.add(this.drainMesh);
+        this.disposables.push(geo, mat, this.drainTex);
+      }
+    }
+
     // Parked vehicles: one instanced mesh per kind used; a single obstacle circle each if they stand inside the parapet.
     const byKind = new Map<TrafficKind, { s: number; lat: number; yaw: number; color: number }[]>();
     for (const p of rs.parked ?? []) {
@@ -495,6 +577,7 @@ export class RoadsideView {
   }
 
   update(time: number, dt: number, px = 0, pz = 0): void {
+    if (this.drainTex) this.drainTex.offset.y = -time * 0.55;
     const road = this.course.road;
     const mesh = this.walkerMesh;
     this.cheer += ((this.celebrating ? 1 : 0) - this.cheer) * Math.min(1, dt * 4);
@@ -670,7 +753,7 @@ export class RoadsideView {
     this.removeConfetti();
     this.removeFlags();
     for (const id of this.obstacleIds) this.course.obstacles.remove(id);
-    for (const m of [this.walkerMesh, this.pedMesh, this.yakMesh, this.birdMesh, this.coneMesh, ...this.parkedMeshes]) if (m) this.scene.remove(m);
+    for (const m of [this.walkerMesh, this.pedMesh, this.yakMesh, this.birdMesh, this.coneMesh, this.markerMesh, this.drainMesh, ...this.parkedMeshes]) if (m) this.scene.remove(m);
     for (const o of this.officers) this.scene.remove(o.group);
     this.disposables.forEach((d) => d.dispose());
   }

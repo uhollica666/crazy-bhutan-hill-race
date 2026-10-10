@@ -14,7 +14,7 @@ import {
 import type { Course } from '../world/Course';
 import type { TimeOfDay, WeatherKind } from '../data/types';
 import { TIME, WEATHER } from '../data/weather';
-import { lerp } from '../core/math';
+import { clamp, lerp } from '../core/math';
 import { buildMountainRing } from './mountains';
 import { PAL } from './palette';
 import type { QualityProfile } from './quality';
@@ -187,8 +187,10 @@ export class Environment {
   }
 
   /** Applies weather and time of day: sky, light, fog distance and colour. Cheap enough to call on change only. */
-  setConditions(weather: WeatherKind, time: TimeOfDay, baseFogFar?: number): void {
+  setConditions(weather: WeatherKind, time: TimeOfDay, baseFogFar?: number, smooth = false): void {
     const w = WEATHER[weather];
+    // Visibility currently in effect, so a front can roll in over a few seconds instead of snapping.
+    const effectiveBefore = this.weatherVis * this.visLag;
     const t = TIME[time];
     const grey = new Color(0x8a929c);
     const tint = (base: Color, to: number, mix: number, out: Color): Color => {
@@ -218,9 +220,24 @@ export class Environment {
     if (baseFogFar !== undefined) this.baseFogFar = baseFogFar * this.visibility * this.weatherVis;
     else this.baseFogFar = (this.baseFogFar / Math.max(0.01, this.prevWeatherVis)) * this.weatherVis;
     this.prevWeatherVis = this.weatherVis;
+    this.visLag = smooth ? clamp(effectiveBefore / Math.max(0.01, this.weatherVis), 0.15, 8) : 1;
     this.applyFog();
   }
 
+  /** Eases the fog toward the current weather (called every frame). */
+  tick(dt: number): void {
+    if (Math.abs(this.visLag - 1) < 0.003) {
+      if (this.visLag !== 1) {
+        this.visLag = 1;
+        this.applyFog();
+      }
+      return;
+    }
+    this.visLag += (1 - this.visLag) * (1 - Math.exp(-dt / 2.2));
+    this.applyFog();
+  }
+
+  private visLag = 1;
   private sunHeight = 1;
   private prevWeatherVis = 1;
 
@@ -240,8 +257,9 @@ export class Environment {
   }
 
   private applyFog(): void {
-    this.fog.near = lerp(120 * this.visibility * this.weatherVis, 14, this.mist);
-    this.fog.far = lerp(this.baseFogFar, 230 * Math.min(1, this.weatherVis + 0.25), this.mist);
+    const lag = this.visLag;
+    this.fog.near = lerp(120 * this.visibility * this.weatherVis * lag, 14, this.mist);
+    this.fog.far = lerp(this.baseFogFar * lag, 230 * Math.min(1, this.weatherVis * lag + 0.25), this.mist);
     this.fog.color.copy(this.fogColor).lerp(this.mistColor, this.mist);
     if (this.flashLevel > 0) this.fog.color.lerp(this.scratch.setHex(0xe8eeff), this.flashLevel * 0.5);
     (this.scene.background as Color).copy(this.fog.color);

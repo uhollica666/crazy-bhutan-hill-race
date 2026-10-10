@@ -24,7 +24,7 @@ const MAX_ROCKS = 180;
 const FLOW = 0.16;
 
 /** Soft streaks that run along the current, with pale foam flecks. Tiles along V (the river's length). */
-function makeFlowTexture(): CanvasTexture {
+export function makeFlowTexture(): CanvasTexture {
   const w = 128;
   const h = 256;
   const c = document.createElement('canvas');

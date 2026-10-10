@@ -130,6 +130,16 @@ const MISSION_LABEL: Record<LevelDef['mission']['kind'], string> = {
  * Composition root. Owns the loop and wires input -> MissionRuntime (physics + rules) -> render/audio/UI.
  * Mission rules live in MissionRuntime and the gameplay modules; this class only coordinates.
  */
+/** What the player is told as a weather front arrives (title, hint). */
+const ZONE_NOTICE: Partial<Record<import('../data/types').WeatherKind, [string, string]>> = {
+  clear: ['The storm is easing', 'A clearer road ahead'],
+  cloudy: ['Wind is rising', 'Clouds are rolling in over the road'],
+  rain: ['Rain on the road', 'Less grip: brake early'],
+  heavyRain: ['Storm!', 'Heavy rain: puddles, runoff and long braking distances'],
+  fog: ['Fog bank ahead', 'Slow down: less grip and less to see'],
+  denseFog: ['Dense fog', 'Almost nothing to see: crawl and follow the markers'],
+};
+
 export class Game {
   readonly flow = new GameFlow();
   readonly store: SaveStore;
@@ -675,10 +685,10 @@ export class Game {
   }
 
   /** Weather and time of day for the selected conditions, on the world, the particles and the sound. */
-  private applyConditions(): void {
+  private applyConditions(smooth = false): void {
     if (!this.world) return;
     const c = this.academy || (this.inRun && this.level.weatherZones && this.weatherZone >= 0) ? this.rt.conditions : this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
-    this.world.setConditions(c.weather, c.time);
+    this.world.setConditions(c.weather, c.time, smooth);
     this.model?.setHeadlights(this.world.env.lightsOn);
     this.model?.setReflection(this.world.env.brightness);
     const q = this.quality();
@@ -2130,9 +2140,14 @@ export class Game {
       if (idx !== this.weatherZone) {
         this.weatherZone = idx;
         const base = level.conditions[0];
-        rt.setConditions({ weather: idx >= 0 ? zones[idx].weather : base.weather, time: base.time });
-        this.applyConditions();
-        if (idx >= 0) this.ui.flash(zones[idx].weather === 'fog' ? 'Fog bank ahead' : level.mission.kind === 'tour' ? 'Sudden rain!' : 'Rain on the road', 'Slow down: less grip and less to see');
+        const next = idx >= 0 ? zones[idx].weather : base.weather;
+        // A front moves in: the road soaks, the rain builds and the fog thickens over a few seconds.
+        rt.transitionWeather(next);
+        this.applyConditions(true);
+        if (idx >= 0 || next !== 'clear') {
+          const note = ZONE_NOTICE[next];
+          if (note) this.ui.flash(next === 'rain' && level.mission.kind === 'tour' ? 'Sudden rain!' : note[0], note[1]);
+        }
       }
     }
     if (level.mission.timerStyle === 'deadline') {
@@ -2143,7 +2158,9 @@ export class Game {
           const airport = level.mission.kind === 'airport';
           const jokes = airport
             ? ['Is that a mountain? We are taking photos.', 'My passport is in the suitcase. Which suitcase?', 'Faster! Or slower! Faster!', 'We can see the plane. It can see us.']
-            : ['The light is perfect. For about four more minutes.', 'Is the dzong still there? Please say it is still there.', 'We skipped lunch for this. Do not skip the dzong.', 'The sun is leaving. We would like to leave with it.'];
+            : level.mission.kind === 'descent'
+              ? ['Is that thunder, or the engine?', 'The clouds were much nicer from above.', 'We would like to see the lodge before the lightning does.', 'Was that the road, or a river?']
+              : ['The light is perfect. For about four more minutes.', 'Is the dzong still there? Please say it is still there.', 'We skipped lunch for this. Do not skip the dzong.', 'The sun is leaving. We would like to leave with it.'];
           this.ui.flash(`${airport ? 'Check-in closes in' : level.mission.timerLabel} ${secs >= 60 ? `${secs / 60} min` : `${secs} s`}`, cast && rt.stops.onboard > 0 ? `${cast.name}: "${jokes[i]}"` : 'Keep moving');
           this.audio.warning();
         }
@@ -2192,6 +2209,7 @@ export class Game {
       out.push({ text: '4x4 recommended', tone: 'info' });
     }
     if (wetRoad && speed > 14 && out.length < 2) out.push({ text: 'Wet road', tone: 'info' });
+    if (rt.brakeHeat > 0.55) out.unshift({ text: 'Brakes fading: ease off', tone: 'warn' });
     h.alerts = out.slice(0, 2);
     const road = rt.course.road;
     road.at(rt.s, this.roadPose);

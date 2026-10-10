@@ -79,7 +79,7 @@ export class HazardSystem {
         def,
         phase: def.kind === 'brokenTruck' ? 'static' : 'dormant',
         s: course.stretchToS(def.at),
-        side: rng() < 0.5 ? -1 : 1,
+        side: def.side ?? (rng() < 0.5 ? -1 : 1),
         boulders: [],
         creature: null,
         herd: null,

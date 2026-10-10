@@ -217,6 +217,9 @@ export class TrafficSystem {
     this.reset();
   }
 
+  /** 0.5..1: how much the traffic eases off in poor visibility (set by the mission when the level asks for it). */
+  visibilityScale = 1;
+
   get count(): number {
     return this.cars.length;
   }
@@ -435,7 +438,7 @@ export class TrafficSystem {
       }
       const kappa = curvatureAhead(c, car.s, this.poseA, this.poseB);
       const curveCap = kappa > 1e-3 ? Math.max(6, Math.sqrt(4.2 / kappa)) : car.cruise;
-      let desired = Math.min(car.cruise, curveCap);
+      let desired = Math.min(car.cruise, curveCap) * this.visibilityScale;
       if (TRAFFIC_KINDS[car.kind].climb) {
         // Heavy vehicles labour uphill: up to 40% slower on a steep grade.
         const grade = ((this.poseB.y - this.poseA.y) / 14) * car.dir;

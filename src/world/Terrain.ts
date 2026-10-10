@@ -159,6 +159,36 @@ export class Terrain {
     }
 
     const base = createRoadBase(def);
+    // A long mountain descent: the land falls away with the road. The road's height above the plain terrain is sampled every ~100 m and
+    // blended (inverse distance) into the ground, so the road runs along a slope instead of sinking into a trench.
+    let follow: ((x: number, z: number) => number) | null = null;
+    if (def.followRoad) {
+      const px: number[] = [];
+      const pz: number[] = [];
+      const pr: number[] = [];
+      const stepI = Math.max(1, Math.round(100 / (road.ss[1] - road.ss[0] || 2)));
+      for (let i = 0; i < road.count; i += stepI) {
+        px.push(road.xs[i]);
+        pz.push(road.zs[i]);
+        pr.push(road.ys[i] - base(road.xs[i], road.zs[i]));
+      }
+      const strength = def.followRoad;
+      follow = (x, z) => {
+        let sw = 0;
+        let sr = 0;
+        for (let q = 0; q < px.length; q++) {
+          const dx = x - px[q];
+          const dz = z - pz[q];
+          const d2 = dx * dx + dz * dz;
+          if (d2 > 810000) continue;
+          const q2 = d2 + 3600;
+          const w = 1 / (q2 * Math.sqrt(q2));
+          sw += w;
+          sr += w * pr[q];
+        }
+        return sw > 0 ? (sr / sw) * strength : 0;
+      };
+    }
     const cx = (b.minX + b.maxX) / 2;
     const cz = (b.minZ + b.maxZ) / 2;
     const hx = (b.maxX - b.minX) / 2;
@@ -179,7 +209,7 @@ export class Terrain {
       for (let i = 0; i < this.nx; i++) {
         const x = this.minX + i * this.cell;
         const z = this.minZ + j * this.cell;
-        let h = natural(x, z);
+        let h = natural(x, z) + (follow ? follow(x, z) : 0);
         let d = 999;
         const dr = def.drop;
         if (dr) {

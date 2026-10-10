@@ -56,6 +56,8 @@ export interface BodyModifiers {
   /** Wind acceleration in world X/Z (m/s^2); only tall vehicles feel it. */
   windX: number;
   windZ: number;
+  /** 0..1 multiplier on braking force (overheated brakes fade). */
+  brake: number;
 }
 
 export class VehicleBody {
@@ -88,7 +90,7 @@ export class VehicleBody {
   private drivenCount = 1;
   private noiseT = 0;
   private readonly windFactor: number;
-  readonly mod: BodyModifiers = { power: 1, topSpeed: 1, grip: 1, steerNoise: 0, windX: 0, windZ: 0 };
+  readonly mod: BodyModifiers = { power: 1, topSpeed: 1, grip: 1, steerNoise: 0, windX: 0, windZ: 0, brake: 1 };
   driveMode: Drivetrain;
   private readonly restHeight: number;
   private readonly wheelbase: number;
@@ -407,7 +409,7 @@ export class VehicleBody {
       let fx = 0;
       if (w.driven) fx += driveTotal / this.drivenCount;
       if (brake > 0) {
-        const bmax = (d.engine.brakeForce / nWheels) * brake;
+        const bmax = (d.engine.brakeForce / nWheels) * brake * this.mod.brake;
         fx += clamp((-vf * wheelMass) / dt, -bmax, bmax);
       }
       fx -= (vf * d.engine.rollingResistance) / nWheels;

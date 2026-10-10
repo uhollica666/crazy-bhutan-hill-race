@@ -23,26 +23,6 @@ function dress(kinds: LandmarkDef['kind'][], count: number, from = 0.04, to = 0.
 }
 
 export const EXTENSIONS: Record<string, Stretch> = {
-  'dochula-storm': {
-    at: 0.72,
-    path: [
-      { turn: 90, radius: 24 }, { straight: 150 }, { turn: -180, radius: 24 }, { straight: 150 }, { turn: 90, radius: 24 },
-      { turn: 90, radius: 24 }, { straight: 150 }, { turn: -180, radius: 24 }, { straight: 150 }, { turn: 90, radius: 24 },
-      { turn: 90, radius: 24 }, { straight: 150 }, { turn: -180, radius: 24 }, { straight: 150 }, { turn: 90, radius: 24 },
-      { turn: 90, radius: 24 }, { straight: 150 }, { turn: -180, radius: 24 }, { straight: 150 }, { turn: 90, radius: 24 },
-    ],
-    note: 'A second flight of hairpins winds down through the cloud forest before the valley floor.',
-    timeLimit: 440,
-    medals: { gold: 255, silver: 305, bronze: 375 },
-    stops: [{ id: 'tea-2', kind: 'service', t: 0.5, label: 'Cloud-forest tea stall', side: 1, services: ['refuel', 'repair'], optional: true }],
-    checkpoints: [
-      { t: 0.25, label: 'Cloud forest' },
-      { t: 0.55, label: 'Hairpin shrine' },
-      { t: 0.85, label: 'Valley mist' },
-    ],
-    hazards: [{ id: 'slide-2', kind: 'landslide', t: 0.45, seed: 4417, label: 'Second slip on the lower road' }],
-    landmarks: [...dress(['lungta', 'chorten', 'flagSpan', 'prayerWheelHouse'], 12, 0.04, 0.96, 16)],
-  },
   'chelela-climb': {
     at: 0.35,
     path: [

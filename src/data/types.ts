@@ -216,6 +216,8 @@ export interface HazardDef {
   reactive?: boolean;
   /** herd: how many animals cross together (default 4). */
   count?: number;
+  /** Which side of the road it happens on (-1 left, +1 right); by default chosen from the seed. */
+  side?: -1 | 1;
 }
 
 /** A shallow puddle lying on the road: tyres splash and lose some grip, but it never stalls a car. */
@@ -266,6 +268,8 @@ export interface TrafficDef {
   controls?: TrafficControlDef[];
   /** Chance (0..1) that a car approaching a side street turns into it. */
   turnChance?: number;
+  /** Traffic slows down in fog and heavy rain (up to about 40% in dense fog). */
+  slowInFog?: boolean;
   /** Cars alive at once (hard cap). */
   count: number;
   /** Cruise speed range (m/s). */
@@ -336,7 +340,10 @@ export type LandmarkKind =
   | 'trussBridge'
   | 'coveredBridge'
   | 'dzongComplex'
-  | 'picnic';
+  | 'picnic'
+  | 'chortenRing'
+  | 'shelter'
+  | 'lodge';
 
 export interface LandmarkDef {
   kind: LandmarkKind;
@@ -421,6 +428,10 @@ export interface RoadsideDef {
   standing?: { at: number; side: -1 | 1; count: number; offset?: number }[];
   /** Traffic officers (a pavilion and a figure that signals the phase of the junction's control). */
   police?: { at: number; side: -1 | 1 }[];
+  /** Reflective roadside marker posts along both edges (fog and storm stretches): fractions of the stretch, spacing in metres. */
+  markers?: { from: number; to: number; spacing?: number }[];
+  /** Runoff channels beside the road with water running down them (fractions of the stretch). */
+  drains?: { from: number; to: number; side: -1 | 1 }[];
   /** Perched birds that take off when the car comes near. */
   birds?: { at: number; side: -1 | 1; offset: number; count: number }[];
 }
@@ -482,6 +493,8 @@ export interface LevelDef {
   junctions?: JunctionDef[];
   /** Rivers beside and under the road (see RiverDef). */
   rivers?: RiverDef[];
+  /** Long steep descents heat the brakes: hard braking at speed fades them, and releasing the pedal lets them cool. */
+  brakeFade?: boolean;
   /** Shallow puddles on the road (training route and wet stretches). */
   puddles?: PuddleDef[];
   /** Optional ford: the road dips under water between these fractions of the road. */
@@ -503,6 +516,8 @@ export interface LevelDef {
     valleyZ: number;
     valleyDepth: number;
     waterLevel: number;
+    /** 0..1: the ground follows the road's own rises and falls (a long mountain descent) instead of staying level; 0 or omitted = off. */
+    followRoad?: number;
     /**
      * The ground falls away from the road: a shelf above a river valley or a cliff drop. Applied outside the
      * road corridor, optionally on one side only (+1 right of travel, -1 left, omitted = both).
