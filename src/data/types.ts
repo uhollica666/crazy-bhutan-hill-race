@@ -483,7 +483,8 @@ export interface LevelDef {
   subtitle: string;
   description: string;
   objective: string;
-  difficulty: 1 | 2 | 3 | 4 | 5;
+  /** Author-authored route rating, including expedition ratings 8–10; does not control physics. */
+  difficulty: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
   /** Campaign chapter the mission is listed under on the mission map. */
   region: string;
   mission: MissionDef;

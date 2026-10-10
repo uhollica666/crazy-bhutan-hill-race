@@ -94,7 +94,7 @@ export function renderMapPreview(c: LevelCardModel, canGo: boolean): string {
       <span class="tags">${tags}</span>
     </div>
     <div class="pv-side">
-      <span class="dots" title="Difficulty ${c.difficulty} of 5">${'&#9670;'.repeat(c.difficulty)}<span class="off">${'&#9670;'.repeat(5 - c.difficulty)}</span></span>
+      <span class="dots" title="Route difficulty ${c.difficulty}">${'&#9670;'.repeat(Math.min(5, Math.max(0, c.difficulty)))}<span class="off">${'&#9670;'.repeat(Math.max(0, 5 - c.difficulty))}</span></span>
       ${state}
       <p class="muted">Best with ${esc(c.recommended)}</p>
       <button class="btn primary" id="btn-map-go" type="button" data-go="${esc(c.id)}"${canGo ? '' : ' disabled'}>${c.locked ? 'Locked' : 'Choose vehicle'}</button>
