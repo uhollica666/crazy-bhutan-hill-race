@@ -103,7 +103,7 @@ export interface PedState {
 export type ControlPhase = 'go' | 'stop';
 
 export interface TrafficControl {
-  kind: 'police' | 'crossing';
+  kind: 'police' | 'crossing' | 'bridge';
   /** Distance along the road (m). */
   s: number;
   /** police: `stop` halts the main road (cross traffic flows); crossing: always `go`. */
@@ -121,6 +121,10 @@ export interface TrafficControl {
   /** Half the crossing's reach (kerb distance from the centre line). */
   reach: number;
   warnCool: number;
+  /** bridge: nobody may enter right now (the bridge is emptying before the direction changes), and what shows next. */
+  clear: boolean;
+  clearTimer: number;
+  next: ControlPhase;
 }
 
 type TrafficEvents = {
@@ -205,8 +209,11 @@ export class TrafficSystem {
         junction,
         crossLeft: 0,
         crossTimer: 0,
-        reach,
+        reach: c.kind === 'bridge' ? c.span ?? 20 : reach,
         warnCool: 0,
+        clear: false,
+        clearTimer: 0,
+        next: 'go',
       });
     }
     this.keepClear = [
@@ -238,6 +245,8 @@ export class TrafficSystem {
     for (const ctl of this.controls) {
       ctl.phase = 'go';
       ctl.timer = ctl.goTime * 0.5;
+      ctl.clear = false;
+      ctl.clearTimer = 0;
       ctl.yieldNow = false;
       ctl.crossLeft = 0;
       ctl.crossTimer = 0;
@@ -388,9 +397,11 @@ export class TrafficSystem {
     }
     // Stop lines: a police signal showing red, or pedestrians on (or about to step onto) a crossing.
     for (const ctl of this.controls) {
-      const stopping = ctl.kind === 'police' ? ctl.phase === 'stop' : ctl.yieldNow;
+      const bridge = ctl.kind === 'bridge';
+      // A one-lane bridge: with-the-road traffic goes on `go`, oncoming traffic on `stop`, and nobody while the bridge empties.
+      const stopping = bridge ? ctl.clear || (car.dir === 1 ? ctl.phase !== 'go' : ctl.phase !== 'stop') : ctl.kind === 'police' ? ctl.phase === 'stop' : ctl.yieldNow;
       if (!stopping) continue;
-      const line = ctl.s - car.dir * STOP_LINE;
+      const line = ctl.s - car.dir * (bridge ? ctl.reach + STOP_LINE : STOP_LINE);
       const g = (line - car.s) * car.dir - spec.len * 0.5;
       if (g > -1.5 && g < 60 && g < gap) {
         gap = g;
@@ -465,6 +476,11 @@ export class TrafficSystem {
       // A driver stuck behind something for a while leans on the horn (rarely, and only if the player can hear it).
       if (!car.holding && car.speed < 0.4 && lead.gap < 9) car.waited += dt;
       else car.waited = 0;
+      // Stuck behind something solid (a rockfall, a stalled lorry) for a very long time and well away from the player: drive off the road.
+      if (car.waited > 25 && Math.abs(player.s - car.s) > 85) {
+        this.removeCar(i);
+        continue;
+      }
       if (car.waited > 4.5 && car.honkCool <= 0 && this.honkGlobal <= 0 && Math.abs(player.s - car.s) < 110) {
         car.honkCool = 15;
         car.waited = 2;
@@ -532,11 +548,67 @@ export class TrafficSystem {
     return true;
   }
 
+  /**
+   * A one-lane bridge: the signal gives the road to one direction at a time, with a short all-red gap so the bridge empties before
+   * the other side goes. If the player is waiting at a red and nothing is coming the other way, it gives way early, so patience is
+   * rewarded rather than punished.
+   */
+  private updateBridge(ctl: TrafficControl, dt: number, player: { s: number; lateral: number; speed: number }): void {
+    const entry = ctl.s - ctl.reach - 2;
+    if (ctl.clear) {
+      ctl.clearTimer -= dt;
+      if (ctl.clearTimer <= 0 && this.bridgeEmpty(ctl, player)) {
+        ctl.clear = false;
+        ctl.phase = ctl.next;
+        ctl.timer = ctl.phase === 'go' ? ctl.goTime : ctl.stopTime;
+        this.events.emit('phase', ctl);
+      }
+    } else {
+      ctl.timer -= dt;
+      let flip = ctl.timer <= 0;
+      const waiting = player.s < entry - 4 && player.s > entry - 80 && Math.abs(player.speed) < 3;
+      if (!flip && ctl.phase === 'stop' && waiting && ctl.timer < ctl.stopTime - 3 && !this.oncomingNear(ctl)) flip = true;
+      if (flip) {
+        ctl.next = ctl.phase === 'go' ? 'stop' : 'go';
+        ctl.clear = true;
+        ctl.clearTimer = 3.5;
+        this.events.emit('phase', ctl);
+      }
+    }
+    // The player drives onto the bridge against the signal.
+    const green = !ctl.clear && ctl.phase === 'go';
+    if (!green && ctl.warnCool <= 0 && this.prevPlayerS <= entry && player.s > entry && player.s < ctl.s) {
+      ctl.warnCool = 8;
+      this.events.emit('violation', ctl);
+    }
+  }
+
+  /** True when no vehicle is on (or about to leave) the bridge. */
+  private bridgeEmpty(ctl: TrafficControl, player: { s: number; speed: number }): boolean {
+    for (const o of this.cars) {
+      if (o.cross || o.turn) continue;
+      if (Math.abs(o.s - ctl.s) < ctl.reach + 4 && o.speed > 0.3) return false;
+    }
+    return !(Math.abs(player.s - ctl.s) < ctl.reach && Math.abs(player.speed) > 1);
+  }
+
+  /** An oncoming vehicle on or close to the bridge (or waiting to cross it). */
+  private oncomingNear(ctl: TrafficControl): boolean {
+    for (const o of this.cars) {
+      if (o.dir === -1 && !o.cross && !o.turn && o.s > ctl.s - ctl.reach - 10 && o.s < ctl.s + ctl.reach + 90) return true;
+    }
+    return false;
+  }
+
   private updateControls(dt: number, player: { s: number; lateral: number; speed: number }): void {
     const ob = this.course.obstacles;
     const road = this.course.road;
     for (const ctl of this.controls) {
       ctl.warnCool = Math.max(0, ctl.warnCool - dt);
+      if (ctl.kind === 'bridge') {
+        this.updateBridge(ctl, dt, player);
+        continue;
+      }
       if (ctl.kind === 'police') {
         ctl.timer -= dt;
         if (ctl.timer <= 0) {

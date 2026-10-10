@@ -41,24 +41,6 @@ export const EXTENSIONS: Record<string, Stretch> = {
     hazards: [{ id: 'rockfall-2', kind: 'landslide', t: 0.5, seed: 8821, label: 'Loose scree above the snowline' }],
     landmarks: [...dress(['lungta', 'chorten', 'flagSpan', 'yak'], 9, 0.04, 0.96, 16)],
   },
-  'trongsa-gorge': {
-    at: 0.2,
-    path: [
-      { turn: -55, radius: 90 }, { straight: 60 }, { turn: 110, radius: 90 }, { straight: 60 }, { turn: -55, radius: 90 },
-      { turn: -55, radius: 90 }, { straight: 60 }, { turn: 110, radius: 90 }, { straight: 60 }, { turn: -55, radius: 90 },
-      { turn: -55, radius: 90 }, { straight: 60 }, { turn: 110, radius: 90 }, { straight: 60 }, { turn: -55, radius: 90 },
-    ],
-    note: 'The gorge road now clings to the cliff for a second, longer shelf before the final bend.',
-    timeLimit: 325,
-    medals: { gold: 180, silver: 220, bronze: 270 },
-    stops: [{ id: 'chai-2', kind: 'service', t: 0.5, label: 'Gorge-edge chai stall', side: -1, services: ['refuel', 'repair'], optional: true }],
-    checkpoints: [
-      { t: 0.3, label: 'Cliff shelf' },
-      { t: 0.7, label: 'Narrow arch' },
-    ],
-    hazards: [{ id: 'rocks-2', kind: 'landslide', t: 0.55, seed: 3109, label: 'Fallen rocks on the shelf' }],
-    landmarks: [...dress(['chorten', 'lungta', 'flagSpan', 'house'], 8, 0.04, 0.96, 12)],
-  },
   'bumthang-night': {
     at: 0.72,
     path: [

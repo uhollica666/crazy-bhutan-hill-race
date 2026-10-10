@@ -86,7 +86,7 @@ export const bumthangNight: LevelDef = {
   medals: { gold: 114, silver: 142, bronze: 178 },
   pace: { 'tourist-coaster': 1.1 },
   comfortMedals: { gold: 85, silver: 70, bronze: 50 },
-  unlock: { levelId: 'trongsa-gorge', requirement: 'finish' },
+  unlock: { levelId: 'chelela-climb', requirement: 'finish' },
   look: {
     skyTop: 0x4d667f,
     skyMid: 0x8da0aa,

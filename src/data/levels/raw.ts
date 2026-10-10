@@ -11,7 +11,7 @@ import { thimphuPickup } from './thimphu-pickup';
 import { trongsaGorge } from './trongsa-gorge';
 
 /** The ten mission definitions as authored (before `extensions.ts` lengthens them), in campaign order. */
-export const RAW_LEVELS: LevelDef[] = [passRun, thimphuPickup, airportDash, punakhaValley, dochulaStorm, chelelaClimb, trongsaGorge, bumthangNight, remoteExpedition, gmcPlains];
+export const RAW_LEVELS: LevelDef[] = [passRun, thimphuPickup, airportDash, punakhaValley, dochulaStorm, trongsaGorge, chelelaClimb, bumthangNight, remoteExpedition, gmcPlains];
 
 export const getRaw = (id: string): LevelDef => {
   const l = RAW_LEVELS.find((x) => x.id === id);

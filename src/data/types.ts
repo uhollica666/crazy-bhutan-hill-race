@@ -237,11 +237,13 @@ export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike' | 't
 /** A traffic officer directing a junction, or a zebra crossing that traffic yields at. `at` is a fraction of the stretch. */
 export interface TrafficControlDef {
   at: number;
-  kind: 'police' | 'crossing';
-  /** police: seconds of green / red for the main road. crossing: how many pedestrians cross together. */
+  kind: 'police' | 'crossing' | 'bridge';
+  /** police: seconds of green / red for the main road. crossing: how many pedestrians cross together. bridge: seconds each direction may cross. */
   go?: number;
   stop?: number;
   peds?: number;
+  /** bridge: half the length (m) of the one-lane stretch; traffic stops this far (plus a few metres) either side of `at`. */
+  span?: number;
 }
 
 /** A side street joining the main road (drawn and drivable by cross traffic and turning cars). */

@@ -101,7 +101,7 @@ export const chelelaClimb: LevelDef = {
   timeLimit: 200,
   medals: { gold: 105, silver: 125, bronze: 155 },
   comfortMedals: { gold: 85, silver: 70, bronze: 50 },
-  unlock: { levelId: 'airport-dash', requirement: 'finish' },
+  unlock: { levelId: 'trongsa-gorge', requirement: 'finish' },
   look: {
     skyTop: 0x62768a,
     skyMid: 0xb4c7d8,

@@ -41,7 +41,7 @@ describe('turtle path', () => {
 describe('lengthened missions', () => {
   it('every campaign mission has a stretch, and a stretch that does not end on its heading is refused', () => {
     for (const l of RAW_LEVELS) expect(EXTENSIONS[l.id], l.id).toBeDefined();
-    expect(() => extendLevel(RAW_LEVELS[5], { ...EXTENSIONS['chelela-climb'], path: [{ turn: 30, radius: 50 }] })).toThrow(/heading/);
+    expect(() => extendLevel(RAW_LEVELS[6], { ...EXTENSIONS['chelela-climb'], path: [{ turn: 30, radius: 50 }] })).toThrow(/heading/);
   });
 
   it('each mission is now 1.6 to 2.4 times as long as it was', () => {

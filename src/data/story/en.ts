@@ -121,6 +121,30 @@ export const EN: StoryBook = {
         'Heavy rain means long braking distances and slippery corners.',
       ],
     },
+    'trongsa-gorge': {
+      headline: 'The Road With the Drop',
+      stamp: 'Gorge run',
+      quick: { problem: 'Tourists need Trongsa, and the only road is a ledge above a gorge.', goal: 'Run the gorge: collect, drop and collect again, then deliver the group to the Trongsa Dzong viewpoint.', challenge: 'Narrow cliffs, a one-lane bridge, rockfalls, brake fade and a rough climb.' },
+      ending: { done: 'The dzong came out of the cloud, the guests came out of the car, and nobody mentioned the cliff.', failed: 'The gorge won this time. Find a calmer line.' },
+      text: [
+        'The tourists have a booking at Trongsa, one of the great dzongs, and the road there is narrow, patched and not entirely sure it wants to be a road. It begins at a mountain lodge and winds along the high ridge, then clings to a cliff with the river a very long way below.',
+        'Take them down the gorge on a long descent that will cook your brakes, wait your turn at the one-lane bridge, pick your way through the rockfall corridor, then climb the rough road out the other side, with mud and loose stone, to the town above.',
+        'Drop one guest at the viewpoint for a photograph, another at a gorge-side hamlet, and collect two more who have been stranded by the rocks. Everyone is delighted by the views, and increasingly interested in the handbrake.',
+      ],
+      passengers: ['sunrise-hikers', 'archery-fan', 'grandparents'],
+      objectives: [
+        'Pick up the group at the mountain lodge and the guide at the village junction.',
+        'Drop a guest at the cliff viewpoint, and another at the gorge-side hamlet.',
+        'Collect the stranded travellers after the rockfall corridor.',
+        'Stop in the Trongsa dzong parking so the guests can get out.',
+      ],
+      watchOut: [
+        'Hot brakes fade on the long gorge descent: brake in short bursts and let them cool.',
+        'The bridge is one lane: wait for the green signal, and do not push in against oncoming traffic.',
+        'Rocks fall near the warning signs. Every blockage leaves a gap, but the cliff edge does not forgive.',
+        'The climb is rough and muddy: 4x4 helps, but patience and a steady throttle will do it.',
+      ],
+    },
     'chelela-climb': {
       headline: 'The Cheese Emergency',
       stamp: 'Hill climb',

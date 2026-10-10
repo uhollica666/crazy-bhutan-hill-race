@@ -121,6 +121,9 @@ export class RoadsideView {
   private readonly grazers: Grazer[] = [];
   private readonly obstacleIds: number[] = [];
   private readonly officers: Officer[] = [];
+  /** Signal lamps at the two ends of a one-lane bridge: red or green for the traffic arriving from that end. */
+  private readonly signals: { red: Mesh; green: Mesh; dir: 1 | -1; ctl: number }[] = [];
+  private readonly signalGroups: Group[] = [];
   private readonly flocks: Flock[] = [];
   private readonly birdMesh: InstancedMesh | null = null;
   private readonly coneMesh: InstancedMesh | null = null;
@@ -269,6 +272,43 @@ export class RoadsideView {
       this.officers.push({ group, arm, s });
       this.disposables.push(geo, mat, armGeo, armMat);
     }
+
+    // One-lane bridge signals: a post with a red and a green lamp at each end, on the left-hand verge facing the approaching traffic.
+    (level.traffic?.controls ?? []).forEach((c, ci) => {
+      if (c.kind !== 'bridge') return;
+      const half = c.span ?? 20;
+      const poleGeo = new BoxGeometry(0.12, 3.0, 0.12);
+      const poleMat = new MeshLambertMaterial({ color: 0x4a4a50 });
+      const boxGeo = new BoxGeometry(0.55, 1.15, 0.3);
+      const lampGeo = new CylinderGeometry(0.17, 0.17, 0.12, 12);
+      const redMat = new MeshBasicMaterial({ color: 0xff3a2a });
+      const greenMat = new MeshBasicMaterial({ color: 0x3aff6a });
+      this.disposables.push(poleGeo, poleMat, boxGeo, lampGeo, redMat, greenMat);
+      for (const dir of [1, -1] as const) {
+        const s = course.startS + c.at * span - dir * (half + 6);
+        road.at(s, this.pose);
+        const lat = -(road.halfWidthAtS(s) + 0.9);
+        const x = this.pose.x - this.pose.tz * lat;
+        const z = this.pose.z + this.pose.tx * lat;
+        const group = new Group();
+        const pole = new Mesh(poleGeo, poleMat);
+        pole.position.y = 1.5;
+        const box = new Mesh(boxGeo, poleMat);
+        box.position.y = 2.7;
+        const red = new Mesh(lampGeo, redMat);
+        const green = new Mesh(lampGeo, greenMat);
+        red.rotation.x = green.rotation.x = Math.PI / 2;
+        red.position.set(0, 3.05, -0.17 * dir);
+        green.position.set(0, 2.5, -0.17 * dir);
+        group.add(pole, box, red, green);
+        group.position.set(x, course.terrain.heightAt(x, z), z);
+        // The lamps face the traffic arriving at this end.
+        group.rotation.y = Math.atan2(-this.pose.tx * dir, -this.pose.tz * dir) + Math.PI;
+        scene.add(group);
+        this.signalGroups.push(group);
+        this.signals.push({ red, green, dir, ctl: ci });
+      }
+    });
 
     // Perched birds: roof ridges and wires; they take off when the car comes near.
     const birds = rs.birds ?? [];
@@ -672,6 +712,16 @@ export class RoadsideView {
       }
     }
 
+    if (tr && this.signals.length) {
+      for (const sg of this.signals) {
+        const ctl = tr.controls[sg.ctl];
+        if (!ctl) continue;
+        const green = !ctl.clear && (sg.dir === 1 ? ctl.phase === 'go' : ctl.phase === 'stop');
+        sg.green.visible = green;
+        sg.red.visible = !green;
+      }
+    }
+
     this.updateBirds(time, dt, px, pz);
 
     const fl = this.flags;
@@ -755,6 +805,7 @@ export class RoadsideView {
     for (const id of this.obstacleIds) this.course.obstacles.remove(id);
     for (const m of [this.walkerMesh, this.pedMesh, this.yakMesh, this.birdMesh, this.coneMesh, this.markerMesh, this.drainMesh, ...this.parkedMeshes]) if (m) this.scene.remove(m);
     for (const o of this.officers) this.scene.remove(o.group);
+    for (const g of this.signalGroups) this.scene.remove(g);
     this.disposables.forEach((d) => d.dispose());
   }
 }

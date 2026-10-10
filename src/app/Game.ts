@@ -132,7 +132,7 @@ const MISSION_LABEL: Record<LevelDef['mission']['kind'], string> = {
  */
 /** What the player is told as a weather front arrives (title, hint). */
 const ZONE_NOTICE: Partial<Record<import('../data/types').WeatherKind, [string, string]>> = {
-  clear: ['The storm is easing', 'A clearer road ahead'],
+  clear: ['Clearer skies', 'A clearer road ahead'],
   cloudy: ['Wind is rising', 'Clouds are rolling in over the road'],
   rain: ['Rain on the road', 'Less grip: brake early'],
   heavyRain: ['Storm!', 'Heavy rain: puddles, runoff and long braking distances'],
@@ -764,10 +764,11 @@ export class Game {
       });
       tr.events.on('phase', (ctl) => {
         const d = Math.abs(rt.s - ctl.s);
-        if (d < 90) audio.whistle(clamp(1 - d / 90, 0, 1));
+        if (ctl.kind === 'police' && d < 90) audio.whistle(clamp(1 - d / 90, 0, 1));
       });
-      tr.events.on('violation', () => {
-        ui.flash('Police: wait for the signal!', 'Cross traffic has the road');
+      tr.events.on('violation', (ctl) => {
+        if (ctl.kind === 'bridge') ui.flash('One-lane bridge: wait for green!', 'Traffic is coming the other way');
+        else ui.flash('Police: wait for the signal!', 'Cross traffic has the road');
         audio.whistle(1);
         if (rt.session.comfort) rt.session.comfort.value = Math.max(0, rt.session.comfort.value - 10);
       });
