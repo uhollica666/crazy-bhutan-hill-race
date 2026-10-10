@@ -4,6 +4,13 @@ import type { InstancedMesh, Material, WebGLProgramParametersWithUniforms } from
 const declarations = /* glsl */ `
 attribute vec2 actorGait;
 uniform float actorTime;
+vec3 actorShape(vec3 p) {
+  float build=fract(actorGait.x*0.371+0.23);
+  float head=step(1.51,p.y);
+  p.x*=mix(.92,1.07,build)*mix(1.0,mix(.94,1.04,fract(build*3.71)),head);
+  p.z+=.027*build*step(.92,p.y)*(1.0-step(1.39,p.y));
+  return p;
+}
 mat3 actorRotation() {
   float side = position.x < 0.0 ? -1.0 : 1.0;
   float phase = actorTime * 6.5 + actorGait.x;
@@ -34,7 +41,7 @@ export function animateCrowd(mesh: InstancedMesh) {
       .replace('#include <common>', `#include <common>\n${declarations}`)
       .replace(
         '#include <begin_vertex>',
-        `#include <begin_vertex>\nvec3 pivot=actorPivot(); transformed=actorRotation()*(transformed-pivot)+pivot;`,
+        `#include <begin_vertex>\ntransformed=actorShape(transformed);vec3 pivot=actorShape(actorPivot()); transformed=actorRotation()*(transformed-pivot)+pivot;`,
       )
       .replace(
         '#include <beginnormal_vertex>',
@@ -47,11 +54,11 @@ export function animateCrowd(mesh: InstancedMesh) {
     previous(shader, renderer);
     inject(shader);
   };
-  material.customProgramCacheKey = () => 'cbhr-crowd-joints-v2';
+  material.customProgramCacheKey = () => 'cbhr-crowd-joints-v3';
   material.needsUpdate = true;
   const depth = new MeshDepthMaterial({ depthPacking: RGBADepthPacking });
   depth.onBeforeCompile = inject;
-  depth.customProgramCacheKey = () => 'cbhr-crowd-depth-v2';
+  depth.customProgramCacheKey = () => 'cbhr-crowd-depth-v3';
   mesh.customDepthMaterial = depth;
   return {
     set(index: number, phase: number, stride: number) {

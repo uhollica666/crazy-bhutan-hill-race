@@ -1,6 +1,7 @@
 import { branch } from './organic';
 import { seatedDriver } from './people';
-import { BufferGeometry, Float32BufferAttribute, Group, Mesh, MeshStandardMaterial, MeshPhysicalMaterial, TorusGeometry } from 'three';
+import { BufferGeometry, Group, Mesh, MeshStandardMaterial, MeshPhysicalMaterial, TorusGeometry, Vector3, DoubleSide } from 'three';
+import { HeroBuilder, crown, pane, surface } from './heroSurfaces';
 import type { VehicleDef } from '../data/types';
 import { GeoBuilder, loft } from './geo';
 import type { Ring } from './geo';
@@ -34,7 +35,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   const accent = mat('accent', d.livery.accent, 0.4, 0.25);
   const trim = mat('trim', d.livery.trim, 0.55, 0.12);
   const glass = mat('glass', 0x263b47, 0.13, 0.12);
-  glass.transparent = true; glass.opacity = 0.38; glass.depthWrite = false;
+  glass.transparent = true; glass.opacity = 0.24; glass.depthWrite = false; glass.side = DoubleSide;
   const cabin = mat('cabin', 0x363b42, 0.95);
   const head = mat('light_head', 0xffecc8, 0.22);
   head.emissive.setHex(0xffe2ac); head.emissiveIntensity = 0.35;
@@ -45,7 +46,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   const indicators = [-1, 1].map((side) => { const m = mat(side<0?'indicator_left':'indicator_right', 0xdb8a21, 0.3); m.emissive.setHex(0xff990c); return m; });
   const batches = new Map<MeshStandardMaterial, GeoBuilder>();
   const batch = (m: MeshStandardMaterial): GeoBuilder => {
-    let b = batches.get(m); if (!b) { b = new GeoBuilder(); batches.set(m, b); } return b;
+    let b = batches.get(m); if (!b) { b = new HeroBuilder(low); batches.set(m, b); } return b;
   };
   const add = (g: BufferGeometry, m: MeshStandardMaterial, target = body): void => {
     geometries.push(g); const mesh = new Mesh(g, m); mesh.castShadow = true; mesh.receiveShadow = true; target.add(mesh);
@@ -59,38 +60,37 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   const roofBack = back - (hatch ? 0.37 : 0.12);
   const topWidth = w * (bus ? 0.93 : expedition ? 0.89 : 0.82);
   // Narrow central tub leaves actual wheel wells open. Outer wings follow circular arch cutouts.
-  batch(paint).add(loft([[-l / 2, w * 0.62, bottom + 0.07, belt - 0.07], [-l / 2 + 0.25, w * 0.67, bottom, belt],
-    [l / 2 - 0.2, w * 0.67, bottom, belt], [l / 2, w * 0.62, bottom + 0.08, belt - 0.06]]), white);
-  const stations = new Set<number>([-l / 2, -l / 2 + 0.18, l / 2 - 0.18, l / 2]);
-  for (const axle of d.axles) for (let i = 0; i <= 16; i++) stations.add(axle.z + Math.cos(i * Math.PI / 16) * (d.wheelRadius + 0.12));
-  const zs = [...stations].filter(z => z >= -l / 2 && z <= l / 2).sort((a, b) => a - b);
+  batch(paint).add(loft([[-l / 2, w * 0.62, bottom + 0.07, belt - 0.16], [-l / 2 + 0.25, w * 0.67, bottom, belt-.16],
+    [l / 2 - 0.2, w * 0.67, bottom, belt-.16], [l / 2, w * 0.62, bottom + 0.08, belt - 0.16]]), white);
   for (const side of [-1, 1]) {
-    const p: number[] = [];
     const lower = (z: number): number => {
       let y = bottom;
       for (const axle of d.axles) { const r = d.wheelRadius + 0.12, dz = z - axle.z;
         if (Math.abs(dz) < r) y = Math.max(y, axle.y - d.suspension.rest + Math.sqrt(r * r - dz * dz)); }
       return y;
     };
-    for (let i = 0; i < zs.length - 1; i++) {
-      const a = zs[i], b = zs[i + 1], ya = lower(a), yb = lower(b);
-      // Exterior winding is opposite on each side.
-      const widthAt = (z:number):number => w * (1 - 0.12 * Math.pow(Math.abs(z)/(l/2),8));
-      const pts = [[side * widthAt(a), ya, a], [side * widthAt(a), belt, a], [side * widthAt(b), belt, b], [side * widthAt(b), yb, b]];
-      for (const k of side === 1 ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2]) p.push(...pts[k]);
-      batch(paint).box(w * 0.32, 0.065, b - a + 0.008, white, { x: side * w * 0.83, y: belt - 0.025, z: (a + b) / 2 });
-    }
-    const panel = new BufferGeometry(); panel.setAttribute('position', new Float32BufferAttribute(p, 3)); panel.computeVertexNormals();
-    batch(paint).add(panel, white);
+      // A continuous shoulder crown and lower tumble-in create broad flowing reflections.
+      batch(paint).add(surface(low?80:200, low ? 3 : 16, (u,v) => {
+        const z=-l/2+l*u, lo=lower(z);
+        const taper=1-0.1*Math.pow(Math.abs(z)/(l/2),8);
+        const flare=d.axles.reduce((amount,axle)=>Math.max(amount,Math.exp(-Math.pow((z-axle.z)/(d.wheelRadius*1.25),4))),0);
+        const contour=0.945+0.045*Math.sin(v*Math.PI)+0.01*flare-0.028*Math.pow(v,8);
+        return new Vector3(side*w*taper*contour,lo+(belt-lo)*v,z);
+      }, side > 0),white);
+      batch(paint).add(surface(low?40:100,4,(u,v)=>{
+        const z=-l/2+l*u,taper=1-0.1*Math.pow(Math.abs(z)/(l/2),8);
+        return new Vector3(side*w*taper*(0.917-0.2*v),belt+0.035*Math.sin(v*Math.PI),z);
+      },side>0),white);
     for (const axle of d.axles) {
       const r = d.wheelRadius + 0.14, cy = axle.y - d.suspension.rest;
       batch(rubber).add(new TorusGeometry(r,0.028,low?4:8,low?12:40,Math.PI),white,{x:side*(w+0.012),y:cy,z:axle.z,ry:Math.PI/2});
     }
   }
   // Bonnet and rear shoulder taper into the glazed cabin rather than stacked boxes.
-  if (!bus) batch(paint).add(loft([[-l / 2 + 0.04, w * 0.85, belt - 0.08, belt + 0.055],
-    [-l/2+0.25,w*0.91,belt-0.06,belt+0.12], [front-0.28,w*0.94,belt-0.05,belt+0.155],
-    [front,w*0.92,belt-0.05,belt+0.12]]), white);
+  if (!bus) batch(paint).add(crown(-l/2+0.05,front,w*0.917,belt+0.025,belt+0.12,hatch?0.085:expedition?0.055:0.09,low),white);
+  else batch(paint).add(crown(-l/2+.025,front,w*.917,belt+.025,belt+.1,.025,low),white);
+  batch(paint).add(crown(back-.025,l/2-.035,w*.917,belt+.095,belt+.035,.025,low),white);
+  batch(paint).add(loft([[l/2-.11,w*.86,bottom+.22,belt+.04],[l/2,w*.85,bottom+.25,belt+.025]]),white);
   // Front air dam, inset fascia and lower cooling apertures visibly break up the tall front panel.
   batch(paint).add(loft([[-l/2-0.014,w*0.84,bottom+0.25,belt-0.08],[-l/2+0.2,w*0.91,bottom+0.2,belt]]),white);
   batch(rubber).box(w*1.05,0.19,0.05,white,{y:bottom+0.34,z:-l/2-0.052});
@@ -98,17 +98,27 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     batch(rubber).box(0.25,0.16,0.065,white,{x:side*w*0.66,y:bottom+0.34,z:-l/2-0.052});
     batch(head).cylinder(0.055,0.055,0.016,white,12,{x:side*w*0.66,y:bottom+0.34,z:-l/2-0.093,rx:Math.PI/2});
   }
-  batch(glass).add(loft([[front, w * 0.94, belt + 0.07, belt + 0.1], [roofFront, topWidth, belt + 0.07, roof - 0.08],
-    [roofBack, topWidth, belt + 0.07, roof - 0.08], [back, w * 0.94, belt + 0.07, belt + 0.12]]), white);
-  batch(paint).add(loft([[roofFront - 0.05, topWidth - 0.02, roof - 0.09, roof],
-    [roofFront + 0.15, topWidth, roof - 0.06, roof + 0.025], [roofBack - 0.1, topWidth, roof - 0.06, roof + 0.025],
-    [roofBack + 0.04, topWidth - 0.02, roof - 0.09, roof]]), white);
+  // Individual glass sheets leave the cabin open, with no glass bottom or overlapping roof prism.
+  const v=(x:number,y:number,z:number)=>new Vector3(x,y,z);
+  batch(glass).add(pane(v(-w*.9,belt+.13,front),v(w*.9,belt+.13,front),v(topWidth*.96,roof-.09,roofFront),v(-topWidth*.96,roof-.09,roofFront)),white);
+  batch(glass).add(pane(v(w*.9,belt+.1,back),v(-w*.9,belt+.1,back),v(-topWidth*.96,roof-.09,roofBack),v(topWidth*.96,roof-.09,roofBack)),white);
+  for(const side of [-1,1]) {
+    const count=bus?6:hatch?2:3;
+    for(let i=0;i<count;i++) {
+      const a=roofFront+(roofBack-roofFront)*i/count+.035,b=roofFront+(roofBack-roofFront)*(i+1)/count-.035;
+      const lowerA=i===0?front+.035:a,lowerB=i===count-1?back-.035:b;
+      batch(glass).add(pane(v(side*w*.918,belt+.09,lowerA),v(side*w*.918,belt+.09,lowerB),v(side*topWidth,roof-.1,b),v(side*topWidth,roof-.1,a),side>0),white);
+    }
+  }
+  batch(paint).add(crown(roofFront-.05,roofBack+.06,topWidth,roof-.012,roof-.012,bus?.075:hatch?.065:.045,low),white);
+  // Rolled roof edge and seals follow the same tapered silhouette.
+  for(const side of [-1,1]) branch(batch(paint),[side*topWidth,roof-.015,roofFront-.04],[side*topWidth,roof-.015,roofBack+.045],.022,white);
   for (const side of [-1, 1]) {
     // Sloping A/C pillars, vertical window dividers and shallow stamped door seams.
     for (const [z0, z1] of [[front, roofFront], [back, roofBack]]) {
       branch(batch(paint),[side*w*0.94,belt+0.1,z0],[side*topWidth,roof-0.07,z1],bus?0.058:0.043,white);
     }
-    const count = bus ? 6 : 3;
+    const count = bus ? 6 : hatch ? 2 : 3;
     for (let i = 1; i < count; i++) {
       const z = roofFront + (roofBack - roofFront) * i / count;
       batch(rubber).box(0.035, roof - belt - 0.08, bus ? 0.075 : 0.095, white, { x: side * (w + topWidth) / 2, y: (roof + belt) / 2, z });
@@ -120,8 +130,8 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     batch(accent).box(0.016, bus ? 0.16 : 0.055, l * 0.82, white, { x: side * (w + 0.012), y: belt - 0.2 });
     batch(rubber).box(0.06, 0.08, l * 0.54, white, { x: side * w, y: bottom + 0.06 });
     batch(rubber).box(0.09, 0.035, 0.15, white, { x: side * (w + 0.07), y: belt + 0.21, z: front + 0.1 });
-    batch(paint).box(bus ? 0.17 : 0.15, bus ? 0.28 : 0.15, 0.23, white, { x: side * (w + 0.12), y: belt + 0.27, z: front + 0.08 });
-    batch(metal).box(0.012, bus ? 0.21 : 0.1, 0.18, white, { x: side * (w + 0.21), y: belt + 0.27, z: front + 0.08 });
+    batch(paint).sphere(0.13,white,{x:side*(w+.11),y:belt+.27,z:front+.08,sx:.7,sy:bus?1.3:.62,sz:1.05},low?10:24);
+    batch(metal).sphere(0.115,white,{x:side*(w+.195),y:belt+.27,z:front+.08,sx:.075,sy:bus?1.28:.62,sz:1.02},low?10:24);
   }
   for (const end of [-1, 1]) {
     batch(rubber).add(loft([[end * (l / 2 - 0.14), w * 0.92, bottom + 0.04, bottom + 0.24],
@@ -134,10 +144,18 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     { y: lights.y - 0.09 + i * 0.04, z: -l / 2 - 0.039 });
   for (const side of [-1, 1]) {
     const lampWidth=expedition?0.36:bus?0.31:0.38;
-    batch(rubber).box(lampWidth+0.04,0.19,0.075,white,{x:side*lights.hx,y:lights.y,z:-l/2-0.035});
-    batch(metal).box(lampWidth,0.16,0.016,white,{x:side*lights.hx,y:lights.y,z:-l/2-0.075});
-    for(const offset of [-0.065,0.065])batch(head).cylinder(0.055,0.055,0.02,white,low?8:16,{x:side*lights.hx+offset,y:lights.y,z:-l/2-0.09,rx:Math.PI/2});
-    batch(head).box(lampWidth,0.027,0.023,white,{x:side*lights.hx,y:lights.y-0.055,z:-l/2-0.092});
+    if(hatch) {
+      batch(rubber).sphere(lampWidth*.55,white,{x:side*lights.hx,y:lights.y,z:-l/2-.035,sx:1,sy:.49,sz:.27},low?12:28);
+      batch(metal).sphere(lampWidth*.5,white,{x:side*lights.hx,y:lights.y,z:-l/2-.068,sx:1,sy:.48,sz:.16},low?12:28);
+    } else if(expedition) {
+      batch(rubber).cylinder(.124,.124,.074,white,low?16:40,{x:side*lights.hx,y:lights.y,z:-l/2-.035,rx:Math.PI/2});
+      batch(metal).add(new TorusGeometry(.108,.012,low?5:10,low?16:48),white,{x:side*lights.hx,y:lights.y,z:-l/2-.078});
+    } else {
+      batch(rubber).box(lampWidth+0.04,bus?.21:.19,0.075,white,{x:side*lights.hx,y:lights.y,z:-l/2-0.035});
+      batch(metal).box(lampWidth,0.16,0.016,white,{x:side*lights.hx,y:lights.y,z:-l/2-0.075});
+    }
+    for(const offset of expedition?[0]:[-0.065,0.065])batch(head).cylinder(expedition?.092:.055,expedition?.092:.055,0.02,white,low?12:32,{x:side*lights.hx+offset,y:lights.y,z:-l/2-0.09,rx:Math.PI/2});
+    if(!expedition)batch(head).box(lampWidth,0.027,0.023,white,{x:side*lights.hx,y:lights.y-0.055,z:-l/2-0.092});
     batch(tail).box(bus || expedition ? 0.15 : 0.25, bus || expedition ? 0.3 : 0.17, 0.045, white,
       { x: side * lights.tailHx, y: lights.tailY, z: l / 2 + 0.018 });
     batch(reverse).box(0.12, 0.055, 0.048, white, { x: side * lights.tailHx, y: lights.tailY - 0.05, z: l / 2 + 0.025 });
@@ -148,6 +166,18 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   // Visible seats and dash; no glass transmission pass or extra interior light.
   batch(cabin).box(w * 1.65, 0.14, 0.34, white, { y: belt + 0.08, z: front + 0.22 });
   const rows = bus ? 5 : 2;
+  if(!low) {
+    batch(cabin).box(w*1.72,.035,back-front-.3,white,{y:belt-.11,z:(front+back)/2+.05});
+    batch(cabin).box(topWidth*1.9,.025,roofBack-roofFront-.08,white,{y:roof-.067,z:(roofFront+roofBack)/2});
+    batch(cabin).box(.23,.13,.72,white,{y:belt-.012,z:roofFront+.66});
+    for(const side of [-1,1]) {
+      batch(cabin).box(.028,.19,roofBack-roofFront,white,{x:side*w*.89,y:belt-.025,z:(roofFront+roofBack)/2});
+      batch(metal).box(.035,.025,.12,white,{x:side*w*.875,y:belt+.06,z:roofFront+.42});
+    }
+    const instrument=mat('instrument',0x111a1e,.7);instrument.emissive.setHex(0x326c61);instrument.emissiveIntensity=.25;
+    batch(instrument).box(.18,.075,.018,white,{y:belt+.175,z:front+.398});
+    for(let i=0;i<6;i++)batch(metal).sphere(.009,white,{x:(i%3-1)*.05,y:belt+.07+Math.floor(i/3)*.035,z:front+.399,sz:.4},12);
+  }
   for (let row = 0; row < rows; row++) for (const side of [-1, 1]) {
     const z = roofFront + 0.38 + row * (bus ? 0.84 : 0.9);
     if (z > roofBack - 0.15) continue;
@@ -225,20 +255,31 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     batch(rubber).add(steering,white,{x:w*0.46,y:belt+0.17,z:roofFront+0.15,rx:-0.45});
   }
   // Optional cosmetic meshes are shared by both LODs; no physics attachments.
+  const panelX=(side:number,y:number,z:number):number=>{
+    let lo=bottom,flare=0;
+    for(const axle of d.axles){const r=d.wheelRadius+.12,dz=z-axle.z;if(Math.abs(dz)<r)lo=Math.max(lo,axle.y-d.suspension.rest+Math.sqrt(r*r-dz*dz));flare=Math.max(flare,Math.exp(-Math.pow(dz/(d.wheelRadius*1.25),4)));}
+    const v=Math.min(1,Math.max(0,(y-lo)/(belt-lo)));
+    return side*(w*(1-.1*Math.pow(Math.abs(z)/(l/2),8))*(.945+.045*Math.sin(v*Math.PI)+.01*flare-.028*Math.pow(v,8))+.003);
+  };
   const stripe = new Group(); stripe.name = 'cosmetic_stripe';
   const summit = new Group(); summit.name = 'cosmetic_summit';
   for (const side of [-1, 1]) {
-    const stripeGeo = new GeoBuilder().box(0.015, 0.095, l * 0.72, white, {x: side * (w + 0.027), y: belt - 0.16}).build();
+    const stripeGeo = new GeoBuilder().add(surface(low?20:80,2,(u,v)=>{const z=(u-.5)*l*.72,y=belt-.16+(v-.5)*.095;return new Vector3(panelX(side,y,z),y,z);},side>0),white).build();
     add(stripeGeo, accent, stripe);
     const graphic = new GeoBuilder();
-    for (let i=0;i<5;i++) graphic.box(0.016, 0.16 + i * 0.025, 0.11, white, {x: side * (w + 0.03), y: belt - 0.18, z: 0.15 + i * 0.18, rx: -0.45});
+    for (let i=0;i<5;i++) graphic.add(surface(4,4,(u,v)=>{const y=belt-.3+v*(.16+i*.025),z=.15+i*.18+u*.11-v*.065;return new Vector3(panelX(side,y,z),y,z);},side>0),white);
     add(graphic.build(), accent, summit);
   }
   const carrier = new Group(); carrier.name = 'cosmetic_carrier';
-  const cargo = new GeoBuilder();
-  cargo.box(w * 1.35, 0.24, Math.min(1.3,l * 0.35), white, {y: roof + 0.26, z: 0.35});
+  const cargo = new HeroBuilder(low);
+  const fabric=mat('cargo_fabric',0x746c54,.94),bags=new HeroBuilder(low);
+  for(const side of [-1,1]) {
+    bags.box(w*.6,.23,Math.min(1.3,l*.35),white,{x:side*w*.33,y:roof+.26,z:.35});
+    cargo.box(.065,.24,Math.min(1.3,l*.35)+.014,white,{x:side*w*.33,y:roof+.26,z:.35});
+  }
   for (const x of [-w * 0.48,w * 0.48]) cargo.box(0.06, 0.26, 1.3, white, {x,y:roof + 0.27,z:0.35});
   add(cargo.build(), rubber, carrier);
+  add(bags.build(),fabric,carrier);
   const lamps = new Group(); lamps.name = 'cosmetic_lamps';
   const lampFrame = new GeoBuilder(), lenses = new GeoBuilder();
   lampFrame.box(w * 1.35, 0.06, 0.09, white, {y:roof + 0.14,z:roofFront + 0.12});
@@ -297,6 +338,14 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     rim.cylinder(r * 0.2, r * 0.2, 0.028, 0x69727a, 12, { x: side * ww * 0.51, rz: Math.PI / 2 });
   }
   add(tire.build(), tyre, wheel);
+  if(!low) {
+    const brakes=new HeroBuilder(false),brakeMat=mat('wheel_brake',0x777c80,.5,.83);
+    for(const side of [-1,1]) {
+      brakes.cylinder(r*.48,r*.48,.012,white,40,{x:side*ww*.27,rz:Math.PI/2});
+      for(let i=0;i<20;i++){const a=i*Math.PI/10;brakes.cylinder(.009,.009,.014,0x32393c,6,{x:side*ww*.28,y:Math.cos(a)*r*.38,z:Math.sin(a)*r*.38,rz:Math.PI/2});}
+    }
+    add(brakes.build(),brakeMat,wheel);
+  }
   const touring = new Group(); touring.name='rim_touring'; add(rim.build(),wheelMetal,touring); wheel.add(touring);
   for(const variant of ['steel','sport']) {
     const group = new Group(); group.name=`rim_${variant}`; group.visible=false;
@@ -322,10 +371,10 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     for (const axle of d.axles) for (let i = 0; i < (low ? 3 : 7); i++) {
       const z = Math.min(l / 2 - 0.06, axle.z + d.wheelRadius + 0.15 + i * 0.055);
       mud.box(0.012, 0.055 + i % 3 * 0.025, 0.055, white,
-        { x: side * (w + 0.023), y: bottom + 0.16 + i % 4 * 0.085, z, rx: i * 0.27 });
+        { x: panelX(side,bottom+.16+i%4*.085,z), y: bottom + 0.16 + i % 4 * 0.085, z, rx: i * 0.27 });
     }
     for (let i = 0; i < (low ? 2 : 5); i++) scratch.box(0.009, 0.012, 0.24 + i * 0.045, white,
-      { x: side * (w + 0.025), y: belt - 0.24 - i * 0.036, z: 0.12 + i * 0.13, rx: 0.07 });
+      { x: panelX(side,belt-.24-i*.036,.12+i*.13), y: belt - 0.24 - i * 0.036, z: 0.12 + i * 0.13, rx: 0.07 });
   }
   const mudMat = mat('road_dirt', 0x66503a, 0.98);
   mudMat.transparent = true; mudMat.opacity = 0;

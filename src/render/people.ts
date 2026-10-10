@@ -1,5 +1,6 @@
 import { BufferGeometry, Color, Float32BufferAttribute, MeshStandardMaterial } from 'three';
 import raw from './peopleBase.json?raw';
+import { actorMaterial } from './actorMaterials';
 const base = JSON.parse(raw) as {position:number[];normal:number[];region:number[]};
 /** CC0 Quaternius base, posed and simplified offline. Semantic garment colours preserve skin in crowds. */
 export function humanBase(coat:number, skin:number, hair:number, noSignalArm: boolean | 'both'=false): BufferGeometry {
@@ -7,7 +8,12 @@ export function humanBase(coat:number, skin:number, hair:number, noSignalArm: bo
   const p:number[]=[],n:number[]=[],colors:number[]=[];
   for(let i=0;i<base.region.length;i+=3) {
     if(noSignalArm && [0,1,2].some(j=>(noSignalArm === 'both' ? Math.abs(base.position[(i+j)*3]) : base.position[(i+j)*3])>0.23 && base.position[(i+j)*3+1]>0.76 && base.position[(i+j)*3+1]<1.48)) continue;
-    for(let j=0;j<3;j++) { const index=i+j; p.push(...base.position.slice(index*3,index*3+3));n.push(...base.normal.slice(index*3,index*3+3));const c=palette[base.region[index]];colors.push(c.r,c.g,c.b); }
+    for(let j=0;j<3;j++) { const index=i+j;
+      const x=base.position[index*3],y=base.position[index*3+1],z=base.position[index*3+2];
+      const build=((coat>>>4)%5-2)*.035;
+      const width=1+build*(y>.92&&y<1.48?1:y>1.5?.35:.4);
+      p.push(x*width,y,z+(base.region[index]===1&&Math.abs(x)<.2?build*.2:0));
+      n.push(...base.normal.slice(index*3,index*3+3));const c=palette[base.region[index]];colors.push(c.r,c.g,c.b); }
   }
   const geo=new BufferGeometry();geo.setAttribute('position',new Float32BufferAttribute(p,3));geo.setAttribute('normal',new Float32BufferAttribute(n,3));geo.setAttribute('color',new Float32BufferAttribute(colors,3));return geo;
 }
@@ -26,12 +32,16 @@ export function seatedDriver(): BufferGeometry {
 
 /** Tint only the white garment region of instanced walkers, keeping faces/hands/hair legible. */
 export function crowdMaterial(): MeshStandardMaterial {
-  const mat=new MeshStandardMaterial({vertexColors:true,roughness:0.88});
-  mat.onBeforeCompile=shader=> {
+  const mat=actorMaterial('cloth'),detail=mat.onBeforeCompile.bind(mat);
+  mat.onBeforeCompile=(shader,renderer)=> {
+    detail(shader,renderer);
     shader.vertexShader=shader.vertexShader.replace('#include <color_vertex>',`#include <color_vertex>
       #ifdef USE_INSTANCING_COLOR
         float clothing = step(0.99, min(color.r, min(color.g, color.b)));
         vColor.xyz = color.xyz * mix(vec3(1.0), instanceColor, clothing);
+        float complexion=step(.17,color.r-color.b)*step(.14,color.g);
+        float tone=fract(dot(instanceColor,vec3(7.13,3.71,5.19)));
+        vColor.xyz*=mix(vec3(1.0),mix(vec3(.76,.73,.7),vec3(1.0),tone),complexion);
       #endif
     `);
   };

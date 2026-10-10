@@ -1,10 +1,12 @@
-import { ACESFilmicToneMapping, PCFSoftShadowMap, PMREMGenerator, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
+import { ACESFilmicToneMapping, PCFShadowMap, PMREMGenerator, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import type { PerspectiveCamera, Texture, WebGLRenderTarget } from 'three';
 import { setVehicleEnvMap } from './assets';
 import type { QualityLevel } from '../storage/SaveStore';
@@ -44,6 +46,7 @@ export class GameRenderer {
   private occlusion: SSAOPass | null = null;
   private output: OutputPass | null = null;
   private beauty: RenderPass | null = null;
+  private edgeAA: ShaderPass | null = null;
   profile: QualityProfile;
   /** 0.5..1 multiplier from the adaptive-resolution controller. */
   resolutionScale = 1;
@@ -64,7 +67,7 @@ export class GameRenderer {
     });
     this.level=resolveQuality(level,this.renderer.getContext());
     this.profile=QUALITY[this.level];
-    this.renderer.shadowMap.type = PCFSoftShadowMap;
+    this.renderer.shadowMap.type = PCFShadowMap;
     // Filmic tone mapping keeps highlights from clipping to flat white and lets lighting do the colour work.
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
@@ -102,7 +105,7 @@ export class GameRenderer {
   private loadOutdoorEnvironment(): void {
     if (!this.profile.surfaceDetail || this.hdrLoading || this.outdoorMap) return;
     this.hdrLoading = true;
-    void new RGBELoader().loadAsync(`${import.meta.env.BASE_URL}remaster/rooitou_park.hdr`).then(source => {
+    void new HDRLoader().loadAsync(`${import.meta.env.BASE_URL}remaster/rooitou_park.hdr`).then(source => {
       if (this.disposed) { source.dispose(); return; }
       const generator = new PMREMGenerator(this.renderer);
       this.outdoorTarget = generator.fromEquirectangular(source);
@@ -114,7 +117,8 @@ export class GameRenderer {
   private disposePost(): void {
     // SSAOPass currently omits these allocations from its upstream dispose implementation.
     this.occlusion?.ssaoMaterial.dispose(); this.occlusion?.noiseTexture.dispose();
-    this.occlusion?.dispose(); this.output?.dispose(); this.beauty?.dispose(); this.composer?.dispose();
+    this.occlusion?.dispose(); this.output?.dispose(); this.beauty?.dispose(); this.edgeAA?.dispose(); this.composer?.dispose();
+    this.edgeAA=null;
     this.occlusion = null; this.output = null; this.composer = null; this.beauty = null;
   }
 
@@ -139,26 +143,34 @@ export class GameRenderer {
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(width, height, false);
     // Bound post-process allocations even on 4K/high-DPI displays; direct Low/Medium keep their own ratio.
-    this.composer?.setPixelRatio(Math.min(ratio,this.profile.surfaceDetail>2?1.5:1.25,2048/Math.max(width,height)));
+    const postRatio=Math.min(ratio,this.profile.surfaceDetail>2?1.5:1.25,2048/Math.max(width,height));
+    this.composer?.setPixelRatio(postRatio);
     this.composer?.setSize(width, height);
+    this.edgeAA?.uniforms.resolution.value.set(1/(width*postRatio),1/(height*postRatio));
     return { width, height };
   }
 
   render(camera: PerspectiveCamera): void {
     setVehicleEnvMap(this.profile.surfaceDetail ? this.outdoorMap ?? this.envMap : this.envMap);
-    if (this.profile.surfaceDetail < 2) { this.renderer.render(this.scene, camera); return; }
+    this.renderWithOcclusion(this.scene,camera);
+  }
+
+  private renderWithOcclusion(scene: Scene,camera: PerspectiveCamera):void {
+    if (this.profile.surfaceDetail < 2) { this.renderer.render(scene, camera); return; }
     if (!this.composer) {
       this.composer = new EffectComposer(this.renderer);
-      this.occlusion = new SSAOPass(this.scene, camera);
-      this.occlusion.kernelRadius = 1.4;
+      this.occlusion = new SSAOPass(scene, camera);
+      this.occlusion.kernelRadius = .85;
       this.occlusion.minDistance = 0.002;
-      this.occlusion.maxDistance = 0.08;
+      this.occlusion.maxDistance = 0.045;
       this.output = new OutputPass();
-      this.beauty = new RenderPass(this.scene,camera);
-      this.composer.addPass(this.beauty); this.composer.addPass(this.occlusion); this.composer.addPass(this.output);
+      this.beauty = new RenderPass(scene,camera);
+      this.edgeAA=new ShaderPass(FXAAShader);
+      this.composer.addPass(this.beauty); this.composer.addPass(this.occlusion); this.composer.addPass(this.edgeAA); this.composer.addPass(this.output);
       this.applySize();
     }
     this.occlusion!.camera = camera;
+    this.occlusion!.scene = scene;this.beauty!.scene=scene;
     this.beauty!.camera = camera;
     this.occlusion!.ssaoMaterial.uniforms.cameraProjectionMatrix.value.copy(camera.projectionMatrix);
     this.occlusion!.ssaoMaterial.uniforms.cameraInverseProjectionMatrix.value.copy(camera.projectionMatrixInverse);
@@ -178,7 +190,7 @@ export class GameRenderer {
         if (standard.isMeshStandardMaterial && standard.envMap) standard.envMap = this.envMap;
       }
     });
-    this.renderer.render(scene, camera);
+    this.renderWithOcclusion(scene,camera);
   }
 
   stats(): RenderStats {

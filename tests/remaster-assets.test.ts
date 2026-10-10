@@ -9,8 +9,24 @@ import { listVehicles } from '../src/data/vehicles';
 import { personGeometry } from '../src/render/trafficArt';
 import { createHumanoidRig } from '../src/render/humanoidRig';
 import { readCosmetics, saveCosmetic } from '../src/render/cosmetics';
+import { createQuadrupedRig } from '../src/render/quadrupedRig';
+import { shaggyYak } from '../src/render/worldArt';
 
 describe('remaster delivery contract', () => {
+  it('binds yak hooves and moves the skinned mesh only when movement supplies a stride', () => {
+    const geometry = shaggyYak(),
+      material = new MeshStandardMaterial(),
+      rig = createQuadrupedRig(geometry, material, 'yak');
+    const bones = rig.mesh.skeleton.bones;
+    for (let i = 0; i < 10; i++) rig.update(i * 0.05, 0.05, 0, 0);
+    expect(bones[2].rotation.x).toBe(0);
+    for (let i = 0; i < 10; i++) rig.update(i * 0.05, 0.05, 2, 0);
+    expect(Math.abs(bones[2].rotation.x)).toBeGreaterThan(0.01);
+    expect(bones[6].rotation.x).toBeCloseTo(-bones[2].rotation.x);
+    rig.dispose();
+    geometry.dispose();
+    material.dispose();
+  });
   it('decodes the four compressed heroes with both LODs, wheel choices and functional lamp materials', async () => {
     await MeshoptDecoder.ready;
     const io = new NodeIO()
@@ -18,7 +34,8 @@ describe('remaster delivery contract', () => {
       .registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
     for (const def of listVehicles()) {
       const buffer = readFileSync(`public/remaster/vehicles/${def.id}.glb`);
-      expect(buffer.length).toBeLessThan(500_000);
+      // Curved hero surfaces + both authored LODs/options; bounded below one MiB per car.
+      expect(buffer.length).toBeLessThan(750_000);
       const document = await io.readBinary(buffer),
         names = new Set(
           document

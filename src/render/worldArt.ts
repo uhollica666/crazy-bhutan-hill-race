@@ -1,5 +1,6 @@
 import { branch, foliage } from './organic';
-import { BufferGeometry, Float32BufferAttribute } from 'three';
+import { BufferGeometry, Float32BufferAttribute, TubeGeometry, CatmullRomCurve3, Vector3 } from 'three';
+import { furLock } from './fur';
 import { premiumPineGeometry } from './premiumPine';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
@@ -115,16 +116,17 @@ export function shaggyYak(): BufferGeometry {
     g.sphere(0.033, 0x171a18, { x: side * 0.245, y: 1.34, z: -1.2 }, 10);
     g.sphere(0.01,0xcdd2bd,{x:side*0.272,y:1.35,z:-1.204},6);
     g.sphere(0.032,0x241e1a,{x:side*0.09,y:1.09,z:-1.51,sy:0.6,sz:0.3},8);
-    g.cone(0.07, 0.34, PAL.yakHorn, 6, { x: side * 0.29, y: 1.56, z: -0.98, rz: -side * 0.7 });
-    g.cone(0.045, 0.25, PAL.yakHorn, 6, { x: side * 0.4, y: 1.75, z: -0.98, rz: side * 0.35 });
+    const horn=new CatmullRomCurve3([new Vector3(side*.24,1.5,-.98),new Vector3(side*.43,1.61,-1.04),new Vector3(side*.47,1.8,-1.05),new Vector3(side*.35,1.93,-1.02)]);
+    const tube=new TubeGeometry(horn,16,.05,8,false),positions=tube.getAttribute('position');
+    for(let i=0;i<positions.count;i++){const t=Math.floor(i/9)/16,center=horn.getPointAt(t),v=new Vector3().fromBufferAttribute(positions,i).sub(center).multiplyScalar(1-t*.88).add(center);positions.setXYZ(i,v.x,v.y,v.z);}
+    tube.computeVertexNormals();g.add(tube,PAL.yakHorn);
     g.sphere(0.13, PAL.yak, { x: side * 0.35, y: 1.36, z: -0.95, sx: 1.2, sy: 0.4 }, 6);
     for (const z of [-0.63, 0.62]) {
       g.cylinder(0.075, 0.085, 0.7, 0x30241e, 7, { x: side * 0.31, y: 0.42, z });
       g.sphere(0.1,0x191817,{x:side*0.31,y:0.08,z:z-0.03,sy:0.8,sz:1.25},10);
       g.box(0.012,0.05,0.09,0x4b443c,{x:side*0.31,y:0.055,z:z-0.14});
     }
-    for (let i = 0; i < 9; i++) g.cone(0.13, 0.48 + (i % 3) * 0.07, i % 2 ? PAL.yak : 0x30221d, 5,
-      { x: side * 0.45, y: 0.58, z: -0.8 + i * 0.2, rz: Math.PI });
+    for (let i = 0; i < 45; i++) furLock(g,i%3?PAL.yak:0x30221d,side*(.44+(i%3)*.025),.83+(i%3)*.12,-.9+i*.043,.1,.43+(i%4)*.045,side*Math.PI/2);
   }
   g.cylinder(0.04, 0.06, 0.55, PAL.yak, 6, { y: 0.94, z: 1.15, rx: -0.3 });
   g.sphere(0.14, PAL.yak, { y: 0.64, z: 1.24, sy: 1.4 }, 6);

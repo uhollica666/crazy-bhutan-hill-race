@@ -1,13 +1,15 @@
 // Bake the actual runtime authoring geometry, including hidden cosmetic choices and both LODs.
 // Blender is optional. Reproducible: node scripts/bake-remaster-vehicles.mjs
-import { createServer } from 'vite';
+import { rolldown } from 'rolldown';
+import { resolve, dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { Group } from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { dedup, weld, prune, meshopt } from '@gltf-transform/functions';
 import { MeshoptEncoder, MeshoptDecoder } from 'meshoptimizer';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile, unlink } from 'node:fs/promises';
 
 // GLTFExporter only needs the binary Blob reader for these texture-free, vertex-colored models.
 globalThis.FileReader = class {
@@ -18,10 +20,30 @@ globalThis.FileReader = class {
     });
   }
 };
-const server = await createServer({ server: { middlewareMode: true, watch: null }, appType: 'custom' });
+// A finite authoring bundle avoids Vite's SSR RPC/development-server timeout on a loaded machine.
+const authorFile = resolve('scripts/.remaster-authoring.mjs');
+const bundle = await rolldown({
+  input: 'remaster-authoring',
+  external: (id) => id === 'three' || id.startsWith('three/'),
+  plugins: [
+    {
+      name: 'remaster-authoring',
+      resolveId(id, importer) {
+        if (id === 'remaster-authoring') return '\0remaster-authoring';
+        if (id.endsWith('?raw')) return resolve(dirname(importer), id);
+      },
+      async load(id) {
+        if (id === '\0remaster-authoring')
+          return `export {createCoachwork} from ${JSON.stringify(resolve('src/render/coachwork.ts'))};export {listVehicles} from ${JSON.stringify(resolve('src/data/vehicles/index.ts'))};`;
+        if (id.endsWith('?raw'))
+          return `export default ${JSON.stringify(await readFile(id.slice(0, -4), 'utf8'))};`;
+      },
+    },
+  ],
+});
 try {
-  const { createCoachwork } = await server.ssrLoadModule('/src/render/coachwork.ts');
-  const { listVehicles } = await server.ssrLoadModule('/src/data/vehicles/index.ts');
+  await bundle.write({ file: authorFile, format: 'esm' });
+  const { createCoachwork, listVehicles } = await import(pathToFileURL(authorFile).href);
   await MeshoptEncoder.ready;
   await MeshoptDecoder.ready;
   const io = new NodeIO()
@@ -72,5 +94,6 @@ try {
   }
   await writeFile('assets-src/remaster/vehicles/manifest.json', JSON.stringify(records, null, 2) + '\n');
 } finally {
-  await server.close();
+  await bundle.close();
+  await unlink(authorFile).catch(() => {});
 }

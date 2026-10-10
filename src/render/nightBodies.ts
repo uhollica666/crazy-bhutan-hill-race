@@ -1,8 +1,9 @@
-import { Group, MeshStandardMaterial } from 'three';
+import { Group } from 'three';
 import { createQuadrupedRig } from './quadrupedRig';
 import type { BufferGeometry } from 'three';
 import type { CreatureArt } from './creatureArt';
 import { GeoBuilder } from './geo';
+import { actorMaterial } from './actorMaterials';
 
 /**
  * Creatures and strange sights for the night and wilderness missions: a shambling zombie, a hooded lantern figure, a bear.
@@ -14,13 +15,14 @@ export function bearGeometry(): BufferGeometry {
   const fur = 0x5b3b26;
   const g = new GeoBuilder();
   g.sphere(0.85, fur, { y: 1.05, sx: 1.0, sy: 0.85, sz: 1.5 }, 24);
-  g.sphere(0.55, fur, { y: 1.35, z: -1.35 }, 20);
-  g.sphere(0.28, 0xc9a77c, { y: 1.22, z: -1.8, sx: 1.2, sy: 0.8 }, 16);
+  g.sphere(.61,fur,{y:1.34,z:-.6,sx:1.04,sy:.96,sz:.86},24);
+  g.sphere(0.55, fur, { y: 1.35, z: -1.35,sx:.9,sy:.85,sz:1.1 }, 24);
+  g.sphere(0.28, 0x9c7952, { y: 1.22, z: -1.8, sx: .82, sy: .6,sz:1.25 }, 20);
   g.sphere(0.09, 0x1a1210, { y: 1.3, z: -2.05 }, 5);
   for (const sx of [-1, 1]) {
-    g.sphere(0.16, fur, { x: sx * 0.36, y: 1.82, z: -1.3 }, 6);
+    g.sphere(0.115, fur, { x: sx * 0.36, y: 1.78, z: -1.3,sy:1.05,sz:.65 }, 18);
     g.sphere(0.06, 0x1a1210, { x: sx * 0.2, y: 1.5, z: -1.78 }, 5);
-    g.sphere(0.08,0xc5a88a,{x:sx*0.36,y:1.82,z:-1.35,sy:0.7,sz:0.4},12);
+    g.sphere(0.059,0x9a7755,{x:sx*0.36,y:1.78,z:-1.35,sy:0.7,sz:0.4},16);
     g.sphere(0.024,0xd5c4a2,{x:sx*0.216,y:1.518,z:-1.808,sz:0.3},10);
     for (const z of [-0.8, 0.85]) {
       g.sphere(0.26,fur,{x:sx*0.5,y:0.51,z,sy:1.7},16);
@@ -64,7 +66,7 @@ export function ruinGeometry(): BufferGeometry {
 /** The bear in the same shape as the imported creature art, so the mission view can treat all creatures alike. */
 export function createBearArt(): CreatureArt {
   const geo = bearGeometry();
-  const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+  const mat = actorMaterial('fur');
   const group = new Group();
   const rig = createQuadrupedRig(geo,mat);
   group.add(rig.mesh);

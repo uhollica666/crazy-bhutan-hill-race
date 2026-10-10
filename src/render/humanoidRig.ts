@@ -10,7 +10,7 @@ import {
 } from 'three';
 import type { BufferGeometry, Material } from 'three';
 
-export type ActorPose = 'idle' | 'walk' | 'run' | 'react' | 'chase' | 'flee' | 'attack';
+export type ActorPose = 'idle' | 'walk' | 'run' | 'turn' | 'react' | 'chase' | 'flee' | 'attack';
 /** Original clips and a reusable smooth-weight skeleton for the licensed, adapted human mesh.
  * Geometry/material ownership stays with the caller, allowing all members of a party to share buffers.
  */
@@ -46,6 +46,7 @@ export function prepareHumanoidSkin(geometry: BufferGeometry, scale = 1, arms = 
         bone++;
         blend = Math.min(1, (0.5 - y) / 0.09);
       }
+      if(y<.13) { parent=bone;bone=11+side;blend=Math.min(1,(.13-y)/.05); }
     } else {
       bone = 1;
       parent = 0;
@@ -89,6 +90,7 @@ export function createHumanoidRig(
     const leg = bone(side < 0 ? 'LegL' : 'LegR', pelvis, side * 0.11, -0.05);
     bone(side < 0 ? 'ShinL' : 'ShinR', leg, 0, -0.39);
   }
+  bone('FootL',bones[8],0,-.37,-.025);bone('FootR',bones[10],0,-.37,-.025);
   mesh.updateMatrixWorld(true);
   const skeleton = new Skeleton(bones);
   mesh.bind(skeleton);
@@ -96,7 +98,7 @@ export function createHumanoidRig(
   mesh.frustumCulled = false;
   const mixer = new AnimationMixer(mesh);
   const clips = new Map<ActorPose, AnimationClip>();
-  for (const state of ['idle', 'walk', 'run', 'react', 'chase', 'flee', 'attack'] as ActorPose[]) {
+  for (const state of ['idle', 'walk', 'run', 'turn', 'react', 'chase', 'flee', 'attack'] as ActorPose[]) {
     const moving = ['walk', 'run', 'chase', 'flee'].includes(state),
       fast = ['run', 'chase', 'flee'].includes(state);
     const duration = fast ? 0.65 : moving ? 1 : 3.2;
@@ -117,6 +119,7 @@ export function createHumanoidRig(
     track('ShinR', 'x', [0, 0, 0, -stride * 0.9, 0]);
     track('Spine', 'z', [0, 0.025, 0, -0.025, 0]);
     track('Head', 'y', [0, 0.08, 0, -0.08, 0]);
+    track('Spine','y',state==='turn'?[0,.18,.25,.12,0]:[0,.018,0,-.018,0]);
     track('ArmL', 'x', [0, -stride * 0.75, 0, stride * 0.75, 0]);
     track('ArmR', 'x', state === 'attack' ? [0, 1.1, 0.8, 0.3, 0] : [0, stride * 0.75, 0, -stride * 0.75, 0]);
     if (state === 'react') {
@@ -129,9 +132,10 @@ export function createHumanoidRig(
   let active = mixer.clipAction(clips.get(state)!);
   active.play();
   active.time = phase % active.getClip().duration;
+  let step=phase,locomotion=0;
   return {
     mesh,
-    update(dt: number, next: ActorPose) {
+    update(dt: number, next: ActorPose, speed?: number) {
       if (state !== next) {
         const action = mixer.clipAction(clips.get(next)!);
         action.reset().play();
@@ -139,7 +143,20 @@ export function createHumanoidRig(
         active = action;
         state = next;
       }
-      mixer.update(Math.min(0.1, Math.max(0, dt)));
+      const elapsed=Math.min(.1,Math.max(0,dt));mixer.update(elapsed);
+      const moving=['walk','run','chase','flee'].includes(next),fast=['run','chase','flee'].includes(next);
+      locomotion+=((moving?1:0)-locomotion)*(1-Math.exp(-elapsed*12));
+      step+=elapsed*(speed===undefined?(fast?9.6:6.28):Math.min(12,Math.max(0,speed)*5.2));
+      // Two-link leg IK keeps the stance sole on the rest ground and lifts only the swing foot.
+      for(let side=0;side<2;side++) {
+        const a=step+side*Math.PI,z=Math.cos(a)*(fast?.2:.14),lift=Math.max(0,Math.sin(a))*(fast?.14:.07);
+        const drop=.76-lift,dist=Math.min(.759,Math.hypot(drop,z)),upper=.39,lower=.37;
+        const hip=Math.atan2(-z,drop)-Math.acos(Math.max(-1,Math.min(1,(upper*upper+dist*dist-lower*lower)/(2*upper*dist))));
+        const knee=Math.PI-Math.acos(Math.max(-1,Math.min(1,(upper*upper+lower*lower-dist*dist)/(2*upper*lower))));
+        bones[7+side*2].rotation.x=hip*locomotion;
+        bones[8+side*2].rotation.x=knee*locomotion;
+        bones[11+side].rotation.x=-(hip+knee)*locomotion;
+      }
     },
     dispose() {
       mixer.stopAllAction();

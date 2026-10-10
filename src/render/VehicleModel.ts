@@ -21,6 +21,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { vehicleEnvironment } from './assets';
 import { createCoachwork } from './coachwork';
 import { loadedCoachwork } from './loadedCoachwork';
+import { detailMaterial } from './actorMaterials';
 import type { VehicleAsset } from './assets';
 import type { VehicleDef } from '../data/types';
 import type { VehicleBody } from '../physics/VehicleBody';
@@ -141,6 +142,7 @@ export class VehicleModel {
       this.headMats.push(art.head); this.tailMats.push(art.tail); this.reverseMats.push(art.reverse);
       art.indicators.forEach((m, i) => this.indicatorMats[i].push(m));
       for (const m of art.materials) {
+        if(m.name==='upholstery')detailMaterial(m,'cloth');
         if (vehicleEnvironment() && !m.name.startsWith('light') && m.name !== 'rubber' && m.name !== 'tyre' && m.name !== 'road_dirt' && m.name !== 'scuff' && m.name !== 'cabin') {
           m.envMap = vehicleEnvironment(); m.envMapIntensity = 0.5;
         }
@@ -179,7 +181,7 @@ export class VehicleModel {
     }
     const beamGeo = mergeGeometries(cones, false) as BufferGeometry;
     cones.forEach((c) => c.dispose());
-    const beamMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false, side: DoubleSide });
+    const beamMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.055, depthWrite: false, blending: AdditiveBlending, fog: false, side: DoubleSide, toneMapped: false });
     this.beam = new Mesh(beamGeo, beamMat);
     this.beam.position.y = LIGHT_LAYOUT[def.visual].y;
     this.beam.visible = false;
