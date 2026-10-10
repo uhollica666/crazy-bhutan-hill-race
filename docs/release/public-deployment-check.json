@@ -1,0 +1,30 @@
+{
+  "origin": "https://crazy-bhutan-hill-race.vercel.app",
+  "checkedAt": "2026-10-10T12:39:58.004Z",
+  "publicDownloadPage": true,
+  "confirmedArtifacts": [
+    {
+      "platform": "android",
+      "label": "Download APK",
+      "url": "https://github.com/uhollica666/crazy-bhutan-hill-race/releases/download/v0.4.0-beta.1/CBHR_0.4.0-beta.1_android_arm64.apk",
+      "bytes": 103956143,
+      "sha256": "39f783b8739168edad202b983bf44e41680cb9c0889e26271808123e4d2e8b90"
+    },
+    {
+      "platform": "windows",
+      "label": "Download MSI",
+      "url": "https://github.com/uhollica666/crazy-bhutan-hill-race/releases/download/v0.4.0-beta.1/CBHR_0.4.0-beta.1_windows_x64.msi",
+      "bytes": 98844672,
+      "sha256": "2841391a86df868f1f71331a5e356ffcc9cb62bd033d920d4480cb82844beab2"
+    },
+    {
+      "platform": "windows",
+      "label": "Download EXE",
+      "url": "https://github.com/uhollica666/crazy-bhutan-hill-race/releases/download/v0.4.0-beta.1/CBHR_0.4.0-beta.1_windows_x64_setup.exe",
+      "bytes": 98384458,
+      "sha256": "defd6e96fd9b5e32bcf6e1f5a00b568d2aaf0bc1574358568ffefccd27b7b7ce"
+    }
+  ],
+  "gameMenuLoaded": true,
+  "errors": []
+}

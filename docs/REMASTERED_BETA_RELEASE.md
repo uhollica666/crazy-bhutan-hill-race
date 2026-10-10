@@ -2,6 +2,8 @@
 
 Version: **0.4.0-beta.1**. Game: https://crazy-bhutan-hill-race.vercel.app/ · Distribution: https://crazy-bhutan-hill-race.vercel.app/download/ · Release: https://github.com/uhollica666/crazy-bhutan-hill-race/releases/tag/v0.4.0-beta.1
 
+Publication confirmed: Vercel production deployment `dpl_EfYrBxbNfnUXnscY8MVjNgZcPU5n` is READY and unprotected, built from main `afd1adc`. GitHub prerelease is published; all three public download URLs returned HTTP 200 with the expected byte lengths, and GitHub's uploaded SHA-256 digests match the local binaries. The final evidence commit changes only documentation/screenshots.
+
 ## Source and integration
 
 The authoritative campaign baseline was `stage-6-integrated-validation` at `e79744b9f167ba1136ea98c407229145d5a1420c`, including `stage-6-final-three-levels` at `1992969`. The remaster was `update-2-visual-remaster` at `d2003b1`, including all Stage 8A/8B follow-ups. `stage-6-visual-remake` at `f82dffc` was already in the campaign history and was not imported twice.
