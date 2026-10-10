@@ -6,7 +6,7 @@ import { Environment } from './Environment';
 import { Gates } from './Gates';
 import { Scenery } from './Scenery';
 import type { QualityProfile } from './quality';
-import { buildFordWater, buildPuddles, buildRoadMeshes, buildTerrainMesh, buildWater, setTerrainCoarse } from './WorldMesh';
+import { buildFordWater, buildJunctions, buildPuddles, buildRoadMeshes, buildTerrainMesh, buildWater, setTerrainCoarse } from './WorldMesh';
 
 /** Everything visible that belongs to a level, created from a Course and removable as a unit. */
 export class World3D {
@@ -28,6 +28,8 @@ export class World3D {
     if (course.terrain.waterLevel > course.terrain.minHeight) this.root.add(buildWater(course));
     const ford = buildFordWater(course);
     if (ford) this.root.add(ford);
+    const junctions = buildJunctions(course);
+    if (junctions) this.root.add(junctions);
     const puddles = buildPuddles(course);
     if (puddles) this.root.add(puddles);
     this.scenery = new Scenery(course, quality.propDensity, quality.windSway);

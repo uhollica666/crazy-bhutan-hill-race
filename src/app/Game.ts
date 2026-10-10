@@ -15,6 +15,7 @@ import type { RaceResult, RaceSession } from '../gameplay/RaceSession';
 import { campaignStatus, challengeTags, justCompletedCampaign, nextUnplayed } from '../gameplay/campaign';
 import { EngineSim } from '../gameplay/EngineSim';
 import { STOP_RADIUS } from '../gameplay/Stops';
+import { TRAFFIC_KINDS } from '../gameplay/Traffic';
 import {
   availableVehicles,
   canBuyVehicle,
@@ -157,6 +158,9 @@ export class Game {
   private academy: TutorialController | null = null;
   private academyOffered = false;
   /** The results screen waiting behind the arrival celebration (skippable). */
+  /** Traffic vehicles that have already been heard passing the player. */
+  private readonly heardPass = new Set<number>();
+  private nextPassSound = 0;
   private pendingFinish: { show: () => void; timer: number } | null = null;
   private stuckFor = 0;
   private stuckCooldown = 0;
@@ -624,7 +628,7 @@ export class Game {
       rival: true,
       trafficScale: this.quality().trafficScale,
     });
-    this.view = new MissionView(this.renderer.scene, this.rt);
+    this.view = new MissionView(this.renderer.scene, this.rt, clamp(this.quality().trafficScale, 0.3, 1));
     this.wireRuntime(this.rt);
     this.acc = 0;
     this.effects.reset();
@@ -676,12 +680,13 @@ export class Game {
     this.rain.setIntensity(WEATHER[c.weather].rain, q.rainDrops);
     this.audio.setAmbient({
       wind: snowing ? 0.9 : 0.4,
-      birds: c.weather === 'clear' || c.weather === 'cloudy',
+      birds: c.weather === 'clear' || c.weather === 'cloudy' || !!this.level.roadside?.birds,
       aircraft: this.level.mission.kind === 'airport',
       night: c.time === 'night',
       water: !!this.level.ford || this.level.terrain.valleyDepth > 0,
       forest: clamp(this.level.scenery.trees / 700, 0, 1),
       bells: this.level.region !== undefined && c.time !== 'night' && this.level.mission.kind !== 'circuit',
+      city: this.level.traffic?.controls ? 0.7 : 0,
       fog: c.weather === 'denseFog' ? 1 : c.weather === 'fog' ? 0.8 : c.weather === 'snow' ? 0.3 : 0,
     });
     this.audio.setWeather(WEATHER[c.weather].rain, WEATHER[c.weather].wind / 4);
@@ -730,6 +735,29 @@ export class Game {
       ui.flash(`${party} guest${party === 1 ? '' : 's'} dropped off`, cast ? `${cast.name}: "Thank you!"` : 'Have a lovely visit');
       audio.pickup();
     });
+    // The city: horns, the officer's whistle, and what happens when the player ignores a signal or a crossing.
+    const tr = rt.traffic;
+    if (tr) {
+      tr.events.on('honk', (car) => {
+        const d = Math.hypot(car.x - rt.body.position.x, car.z - rt.body.position.z);
+        const heavy = car.kind === 'bus' || car.kind === 'truck' || car.kind === 'minibus' || car.kind === 'delivery';
+        const light = car.kind === 'moto' || car.kind === 'scooter';
+        audio.honk(clamp(1 - d / 110, 0, 1), heavy ? 0.72 : light ? 1.45 : 1, Math.random() < 0.3);
+      });
+      tr.events.on('phase', (ctl) => {
+        const d = Math.abs(rt.s - ctl.s);
+        if (d < 90) audio.whistle(clamp(1 - d / 90, 0, 1));
+      });
+      tr.events.on('violation', () => {
+        ui.flash('Police: wait for the signal!', 'Cross traffic has the road');
+        audio.whistle(1);
+        if (rt.session.comfort) rt.session.comfort.value = Math.max(0, rt.session.comfort.value - 10);
+      });
+      tr.events.on('yieldPedestrians', () => {
+        ui.flash('Give way to pedestrians', 'Slow down at the crossing');
+        if (rt.session.comfort) rt.session.comfort.value = Math.max(0, rt.session.comfort.value - 6);
+      });
+    }
     e.on('missed', () =>
       ui.toast(
         'You drove past the pickup. Turn back and stop in the yellow zone.',
@@ -1506,6 +1534,7 @@ export class Game {
   /** Starts (or restarts) the run from the grid. Builds a fresh mission so hazards, traffic and fuel are exact. */
   private beginRun(): void {
     this.cancelPendingFinish();
+    this.heardPass.clear();
     if (this.flow.state === 'menu') this.flow.dispatch('start');
     else this.flow.dispatch('restart');
     this.inRun = true;
@@ -2037,6 +2066,7 @@ export class Game {
         h.comfort = null;
       }
       if (this.academy && s.phase === 'running') this.academy.update(dt, this.cmd);
+      this.trafficSounds();
       this.ui.updateHud(h);
       this.serviceSound(dt);
       this.minimapTimer += dt;
@@ -2069,6 +2099,25 @@ export class Game {
         ].join('\n'),
       );
     }
+  }
+
+  /** Vehicles passing close to the player are heard once each (a swell, a hiss of tyres, a scooter's buzz). */
+  private trafficSounds(): void {
+    const tr = this.rt.traffic;
+    if (!tr || this.time < this.nextPassSound) return;
+    const p = this.rt.body.position;
+    for (const car of tr.cars) {
+      if (this.heardPass.has(car.id)) continue;
+      const d = Math.hypot(car.x - p.x, car.z - p.z);
+      if (d < 11 && (car.speed > 2 || Math.abs(this.rt.body.speed) > 4)) {
+        this.heardPass.add(car.id);
+        const sound = TRAFFIC_KINDS[car.kind].sound;
+        if (sound) this.audio.trafficPass(sound, 1 - d / 12);
+        this.nextPassSound = this.time + 0.5;
+        break;
+      }
+    }
+    if (this.heardPass.size > 60) this.heardPass.clear();
   }
 
   /** Short, contextual chips: only what the player can act on right now (at most two). */

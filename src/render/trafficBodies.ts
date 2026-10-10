@@ -220,3 +220,55 @@ export function plazaGeometry(): BufferGeometry {
   for (let i = -6; i <= 6; i++) g.box(1.2, 0.8, 0.05, [0x2f6fd0, 0xf4efe2, 0xc8352b, 0x3f8f4e, 0xe3a72f][(i + 6) % 5], { x: i * 2, y: 7.1, z: 1.5 });
   return g.build();
 }
+
+/** A Coaster-style minibus: shorter than the coach, high roof, window band. */
+export function minibusGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(2.1, 1.9, 6.4, W, { y: 1.5 });
+  g.box(2.14, 0.7, 5.6, GLASS, { y: 2.0, z: 0.2 });
+  g.box(2.0, 0.1, 6.2, 0xe8e6dc, { y: 2.5 });
+  g.box(2.14, 0.18, 6.2, 0x2f6fd0, { y: 1.3 });
+  for (const sx of [-1, 1]) for (const z of [-2.1, 2.1]) g.cylinder(0.42, 0.42, 0.3, TYRE, 10, { x: sx * 0.98, y: 0.42, z, rz: Math.PI / 2 });
+  g.box(1.5, 0.14, 0.08, 0xfff1b8, { y: 0.9, z: -3.22 });
+  g.box(1.5, 0.14, 0.08, 0xd8262a, { y: 0.9, z: 3.22 });
+  return g.build();
+}
+
+/** A box delivery truck: tinted cab, tall plain box body. */
+export function deliveryGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(2.2, 0.35, 6.0, 0x2a2a2e, { y: 0.8 });
+  g.box(2.2, 1.6, 1.8, W, { y: 1.75, z: -2.1 });
+  g.box(2.0, 0.6, 0.1, GLASS, { y: 2.1, z: -3.02 });
+  g.box(2.3, 2.1, 4.0, 0xf1efe8, { y: 2.1, z: 1.1 });
+  g.box(2.34, 0.2, 4.0, 0x6b7f3f, { y: 3.2, z: 1.1 });
+  g.box(2.34, 0.4, 3.9, 0xd6322b, { y: 1.6, z: 1.1 });
+  for (const sx of [-1, 1]) for (const z of [-2.0, 1.9]) g.cylinder(0.48, 0.48, 0.32, TYRE, 10, { x: sx * 1.0, y: 0.48, z, rz: Math.PI / 2 });
+  g.box(1.5, 0.14, 0.08, 0xfff1b8, { y: 1.0, z: -3.02 });
+  return g.build();
+}
+
+/** A small scooter with a rider (smaller and lighter than the motorcycle). */
+export function scooterGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  for (const z of [-0.6, 0.6]) g.cylinder(0.22, 0.22, 0.12, TYRE, 10, { y: 0.22, z, rz: Math.PI / 2 });
+  g.box(0.3, 0.34, 1.1, W, { y: 0.5 });
+  g.box(0.5, 0.05, 0.05, 0x2a2a2e, { y: 1.0, z: -0.48 });
+  g.cylinder(0.19, 0.21, 0.55, 0xd6322b, 7, { y: 1.15, z: 0.12 });
+  g.sphere(0.15, 0xe8c09a, { y: 1.6, z: 0.1 }, 6);
+  g.sphere(0.18, 0xf1f1ec, { y: 1.66, z: 0.1, sy: 0.8 }, 6);
+  g.cylinder(0.04, 0.04, 0.45, 0xd6322b, 5, { x: -0.2, y: 1.15, z: -0.18, rx: 1.0 });
+  g.cylinder(0.04, 0.04, 0.45, 0xd6322b, 5, { x: 0.2, y: 1.15, z: -0.18, rx: 1.0 });
+  return g.build();
+}
+
+/** A small city bird (a dove or crow): body, head and two swept wings. */
+export function birdGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.sphere(0.16, 0xdadada, { sz: 1.5 }, 5);
+  g.sphere(0.1, 0xdadada, { y: 0.08, z: -0.24 }, 5);
+  g.box(0.5, 0.03, 0.2, 0x8f8f94, { x: -0.3, y: 0.03, rz: 0.25 });
+  g.box(0.5, 0.03, 0.2, 0x8f8f94, { x: 0.3, y: 0.03, rz: -0.25 });
+  g.box(0.1, 0.03, 0.2, 0x6b6b70, { z: 0.3 });
+  return g.build();
+}

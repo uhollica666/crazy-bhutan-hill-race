@@ -68,6 +68,9 @@ export class Road {
   readonly hws: Float32Array;
   readonly wls: Float32Array;
 
+  /** Gaps in the parapet where a side street joins the road: distance range along the road and which side (-1 / +1). */
+  readonly openings: { from: number; to: number; side: number }[] = [];
+
   private readonly grid = new Map<number, number[]>();
   private readonly minX: number;
   private readonly minZ: number;
@@ -297,7 +300,7 @@ export class Road {
     }
     const lat = Math.abs(h.lateral);
     const wall = this.wallAtS(h.s);
-    if (lat > wall) {
+    if (lat > wall && !this.inOpening(h.s, Math.sign(h.lateral))) {
       out.depth = lat - wall;
       const sgn = h.lateral > 0 ? -1 : 1;
       out.nx = -h.tz * sgn;
@@ -305,6 +308,12 @@ export class Road {
       return true;
     }
     out.depth = 0;
+    return false;
+  }
+
+  /** True where the parapet is open for a side street on `side` at distance `s`. */
+  inOpening(s: number, side: number): boolean {
+    for (const o of this.openings) if (o.side === side && s >= o.from && s <= o.to) return true;
     return false;
   }
 

@@ -22,6 +22,7 @@ import { peekEnvKit } from './envKit';
 import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
 import { plazaGeometry, retainWallGeometry, signpostGeometry, stallGeometry, viewpointGeometry } from './trafficBodies';
+import { buddhaGeometry, busShelterGeometry, gateArchGeometry, hotelGeometry, officeGeometry, planterGeometry, policeBoothGeometry, railingGeometry, restaurantGeometry } from './cityBodies';
 import {
   broadleafGeometry,
   dzongGeometry,
@@ -496,6 +497,15 @@ export class Scenery {
     const signposts: Matrix4[] = [];
     const stalls: Matrix4[] = [];
     const plazas: Matrix4[] = [];
+    const hotels: Matrix4[] = [];
+    const offices: Matrix4[] = [];
+    const restaurants: Matrix4[] = [];
+    const shelters: Matrix4[] = [];
+    const booths: Matrix4[] = [];
+    const railings: Matrix4[] = [];
+    const arches: Matrix4[] = [];
+    const buddhas: Matrix4[] = [];
+    const planters: Matrix4[] = [];
     const nearHit = createRoadHit();
     const cloth = new ClothBuilder();
     const poles = new GeoBuilder();
@@ -596,6 +606,35 @@ export class Scenery {
         case 'plaza':
           plazas.push(compose(x, y - 0.05, z, faceRoad, sc));
           break;
+        case 'hotel':
+          hotels.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'office':
+          offices.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'restaurant':
+          restaurants.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'busShelter':
+          shelters.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'policeBooth':
+          booths.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'railing':
+          // Long axis along the road.
+          railings.push(compose(x, y, z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2, sc));
+          break;
+        case 'gateArch':
+          // Spans the road: centred on the road, facing along it.
+          arches.push(compose(pose.x, pose.y, pose.z, Math.atan2(pose.tx, pose.tz) + Math.PI, sc));
+          break;
+        case 'buddha':
+          buddhas.push(compose(x, y - 0.3, z, faceRoad, sc));
+          break;
+        case 'planter':
+          planters.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
         case 'yak':
           yaks.push(compose(x, y, z, rng() * 6.28, 1.05 + rng() * 0.2));
           break;
@@ -677,6 +716,15 @@ export class Scenery {
     this.registerInstanced(signpostGeometry(), signposts, material, false);
     this.registerInstanced(stallGeometry(), stalls, material, false);
     this.registerInstanced(plazaGeometry(), plazas, material, false);
+    this.registerInstanced(hotelGeometry(), hotels, material, false);
+    this.registerInstanced(officeGeometry(), offices, material, false);
+    this.registerInstanced(restaurantGeometry(), restaurants, material, false);
+    this.registerInstanced(busShelterGeometry(), shelters, material, false);
+    this.registerInstanced(policeBoothGeometry(), booths, material, false);
+    this.registerInstanced(railingGeometry(), railings, material, false);
+    this.registerInstanced(gateArchGeometry(), arches, material, false);
+    this.registerInstanced(buddhaGeometry(), buddhas, material, false);
+    this.registerInstanced(planterGeometry(), planters, material, false);
     this.addLamps(lamps);
 
     if (poleCount > 0) {

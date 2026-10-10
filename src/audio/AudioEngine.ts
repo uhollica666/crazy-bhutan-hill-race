@@ -55,6 +55,8 @@ export interface AmbientDef {
   bells?: boolean;
   /** 0..1: fog muffles the highs of the whole environment. */
   fog?: number;
+  /** 0..1: a busy town: distant traffic, chatter, the odd far-off horn. */
+  city?: number;
 }
 
 /** A snapshot of the mixer, for the debug overlay and tests (what the engineer would otherwise have to guess). */
@@ -142,6 +144,8 @@ export class AudioEngine {
   private nextAircraft = 0;
   private nextBell = 0;
   private nextOwl = 0;
+  private nextCityHorn = 0;
+  private nextChatter = 0;
   private nextNote = 0;
   private musicOn = false;
   private rpm = 0.2;
@@ -483,9 +487,11 @@ export class AudioEngine {
     this.ambLP.frequency.setTargetAtTime(lerp(20000, 1700, clamp(a.fog ?? 0, 0, 1)), t, 0.8);
     this.wind.gain.gain.setTargetAtTime(0.02 + (a.wind + this.windExtra) * 0.07 + speedFrac * 0.05, t, 0.4);
     this.wind.lp.frequency.setTargetAtTime(380 + speed * 22 + this.windExtra * 300, t, 0.3);
-    this.forestLayer?.gain.gain.setTargetAtTime((a.forest ?? 0) * (0.012 + 0.04 * (a.wind + this.windExtra)), t, 0.6);
-    this.forestLayer?.bp.frequency.setTargetAtTime(1500 + (a.wind + this.windExtra) * 900, t, 0.5);
-    this.river?.gain.gain.setTargetAtTime(a.water ? 0.1 : 0, t, 0.8);
+    const cityAmt = clamp(a.city ?? 0, 0, 1);
+    // A town reuses the foliage layer as a murmur of voices and the river layer as the low rumble of distant traffic.
+    this.forestLayer?.gain.gain.setTargetAtTime((a.forest ?? 0) * (0.012 + 0.04 * (a.wind + this.windExtra)) + cityAmt * 0.011, t, 0.6);
+    this.forestLayer?.bp.frequency.setTargetAtTime(cityAmt > 0 ? 850 + Math.sin(t * 0.45) * 260 : 1500 + (a.wind + this.windExtra) * 900, t, 0.5);
+    this.river?.gain.gain.setTargetAtTime(a.water ? 0.1 : cityAmt * 0.035, t, 0.8);
     if (this.crickets) {
       const lvl = a.night && this.rainLevel < 0.4 ? 0.011 : 0;
       this.crickets.gain.gain.setTargetAtTime(lvl, t, 0.5);
@@ -590,6 +596,19 @@ export class AudioEngine {
       const f = [392, 440, 523.25][Math.floor(Math.random() * 3)];
       this.tone(f, now, 2.4, 0.018, 'sine', this.bus.ambience);
       this.tone(f * 2.76, now, 1.2, 0.006, 'sine', this.bus.ambience);
+    }
+    if ((a.city ?? 0) > 0) {
+      // Far-off horns and the bark of a shop radio: sparse, soft, never close.
+      if (now >= this.nextCityHorn) {
+        this.nextCityHorn = now + 7 + Math.random() * 12;
+        const f = 380 + Math.random() * 80;
+        this.tone(f, now, 0.22, 0.006 * (a.city ?? 0), 'sawtooth', this.bus.ambience);
+        this.tone(f * 1.25, now, 0.22, 0.005 * (a.city ?? 0), 'sawtooth', this.bus.ambience);
+      }
+      if (now >= this.nextChatter) {
+        this.nextChatter = now + 2.5 + Math.random() * 4;
+        this.noiseBurst(now, 0.5 + Math.random() * 0.5, 0.012 * (a.city ?? 0), 'bandpass', 700 + Math.random() * 500, 500 + Math.random() * 400, this.bus.ambience);
+      }
     }
     if (a.aircraft && now >= this.nextAircraft) {
       this.nextAircraft = now + 30 + Math.random() * 30;
@@ -722,6 +741,50 @@ export class AudioEngine {
       this.tone(f, t + i * 0.11, 0.9, 0.17, 'triangle');
       this.tone(f * 2, t + i * 0.11, 0.5, 0.04, 'sine');
     });
+  }
+
+  /**
+   * A car horn: two short blasts of a two-tone chord, kept far below engine and alert level. `volume` is 0..1 and already
+   * scaled for distance by the caller; it plays on the ambience bus, so the Environment slider and ducking apply.
+   */
+  honk(volume: number, pitch = 1, double = false): void {
+    const ctx = this.ready();
+    if (!ctx || volume <= 0.04) return;
+    const t = ctx.currentTime;
+    const g = 0.035 * clamp(volume, 0, 1);
+    this.tone(410 * pitch, t, 0.3, g, 'sawtooth', this.bus.ambience);
+    this.tone(515 * pitch, t, 0.3, g * 0.8, 'sawtooth', this.bus.ambience);
+    if (double) {
+      this.tone(410 * pitch, t + 0.42, 0.26, g, 'sawtooth', this.bus.ambience);
+      this.tone(515 * pitch, t + 0.42, 0.26, g * 0.8, 'sawtooth', this.bus.ambience);
+    }
+  }
+
+  /** A traffic officer's whistle: two short trills. */
+  whistle(volume: number): void {
+    const ctx = this.ready();
+    if (!ctx || volume <= 0.04) return;
+    const t = ctx.currentTime;
+    const g = 0.03 * clamp(volume, 0, 1);
+    this.tone(2650, t, 0.16, g, 'sine', this.bus.ambience, 2900);
+    this.tone(2750, t + 0.22, 0.34, g, 'sine', this.bus.ambience, 3000);
+  }
+
+  /** A vehicle passing close by: a low swell (heavy), a hiss of tyres (light) or a thin buzz (scooters and motorbikes). */
+  trafficPass(sound: 'heavy' | 'light' | 'bike', amount: number): void {
+    const ctx = this.ready();
+    if (!ctx || amount <= 0.05) return;
+    const t = ctx.currentTime;
+    const a = clamp(amount, 0, 1);
+    if (sound === 'heavy') {
+      this.noiseBurst(t, 1.2, 0.04 * a, 'lowpass', 460, 110, this.bus.ambience);
+      this.tone(64, t, 1.0, 0.018 * a, 'sawtooth', this.bus.ambience, 46);
+    } else if (sound === 'light') {
+      this.noiseBurst(t, 0.8, 0.026 * a, 'bandpass', 950, 320, this.bus.ambience);
+    } else {
+      this.tone(220, t, 0.7, 0.012 * a, 'sawtooth', this.bus.ambience, 150);
+      this.noiseBurst(t, 0.6, 0.014 * a, 'bandpass', 1500, 600, this.bus.ambience);
+    }
   }
 
   /** A crowd cheering and clapping: a swell of band-passed noise with a scatter of claps. Short, and ducks the music. */

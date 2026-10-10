@@ -18,7 +18,8 @@ export function createRoadBase(t: TerrainDef): (x: number, z: number) => number 
   return (x, z) =>
     -t.slope * z +
     t.hillHeight * fbm2(x / 150, z / 150, t.seed, 2) -
-    t.valleyDepth * smoothstep(t.valleyZ, t.valleyZ + 90, z);
+    t.valleyDepth * smoothstep(t.valleyZ, t.valleyZ + 90, z) +
+    (t.uplift ? t.uplift.height * (1 - smoothstep(0, t.uplift.radius, Math.hypot(x - t.uplift.x, z - t.uplift.z))) : 0);
 }
 
 /**

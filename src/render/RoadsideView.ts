@@ -1,13 +1,21 @@
 import {
+  BoxGeometry,
   BufferGeometry,
+  CanvasTexture,
   Color,
+  CylinderGeometry,
+  DoubleSide,
   Float32BufferAttribute,
+  Group,
   InstancedMesh,
   Matrix4,
+  Mesh,
   MeshLambertMaterial,
+  PlaneGeometry,
   Points,
   PointsMaterial,
   Quaternion,
+  SRGBColorSpace,
   Vector3,
 } from 'three';
 import type { Scene } from 'three';
@@ -15,7 +23,8 @@ import type { TrafficKind } from '../data/types';
 import { mulberry32 } from '../core/math';
 import type { Course } from '../world/Course';
 import { TRAFFIC_KINDS } from '../gameplay/Traffic';
-import { bicycleGeometry, busGeometry, motoGeometry, suvGeometry, truckGeometry, walkerGeometry } from './trafficBodies';
+import type { TrafficControl } from '../gameplay/Traffic';
+import { bicycleGeometry, birdGeometry, busGeometry, deliveryGeometry, minibusGeometry, motoGeometry, scooterGeometry, suvGeometry, truckGeometry, walkerGeometry } from './trafficBodies';
 import { yakGeometry } from './Scenery';
 import { trafficCarGeometry } from './vehicleBodies';
 
@@ -31,6 +40,10 @@ const GEO: Record<TrafficKind, () => BufferGeometry> = {
   truck: truckGeometry,
   moto: motoGeometry,
   bike: bicycleGeometry,
+  taxi: trafficCarGeometry,
+  minibus: minibusGeometry,
+  scooter: scooterGeometry,
+  delivery: deliveryGeometry,
 };
 
 interface Walker {
@@ -43,21 +56,54 @@ interface Walker {
   color: number;
   scale: number;
   idle: boolean;
+  /** Part of the destination crowd: cheers (bounces) at the celebration. */
+  cheers: boolean;
 }
 
+interface Officer {
+  group: Group;
+  arm: Group;
+  s: number;
+}
+
+interface Flock {
+  x: number;
+  y: number;
+  z: number;
+  count: number;
+  /** perched | flying | away (waiting to come back). */
+  state: 'perched' | 'flying' | 'away';
+  timer: number;
+  dirx: number;
+  dirz: number;
+  first: number;
+}
+
+const MAX_WALKERS = 72;
+const MAX_PEDS = 12;
+const MAX_BIRDS = 24;
+
 /**
- * Everything beside the road that is not traffic: villagers and tourists on the verge, parked vehicles, a market stall or two, the
- * crowd at the destination and the confetti. Lightweight on purpose: a few instanced meshes, no physics for people (they stay on
- * the shoulder or behind the parapet, never on the asphalt), and one obstacle circle per vehicle parked inside the verge.
+ * Everything beside the road that is not traffic: villagers and tourists on the verge, people standing at bus stops and
+ * market stalls, pedestrians using the crossings (driven by the traffic's crossing controls), traffic officers, perched
+ * birds that take off as the car passes, parked vehicles, the crowd at the destination, confetti and checkered flags.
+ * Lightweight on purpose: a few instanced meshes, no physics for people (they stay on the verge or behind the parapet),
+ * and one obstacle circle per vehicle parked inside the verge.
  */
 export class RoadsideView {
   private readonly disposables: { dispose(): void }[] = [];
   private readonly walkerMesh: InstancedMesh | null = null;
   private readonly walkers: Walker[] = [];
+  private readonly pedMesh: InstancedMesh | null = null;
   private readonly parkedMeshes: InstancedMesh[] = [];
   private readonly yakMesh: InstancedMesh | null = null;
   private readonly obstacleIds: number[] = [];
+  private readonly officers: Officer[] = [];
+  private readonly flocks: Flock[] = [];
+  private readonly birdMesh: InstancedMesh | null = null;
+  private traffic: { controls: TrafficControl[] } | null = null;
   private confetti: { points: Points; pos: Float32Array; vel: Float32Array; life: number; n: number } | null = null;
+  private flags: { group: Group; items: { mesh: Mesh; phase: number; baseY: number }[]; t: number } | null = null;
   private readonly m4 = new Matrix4();
   private readonly q = new Quaternion();
   private readonly pos = new Vector3();
@@ -71,6 +117,8 @@ export class RoadsideView {
   constructor(
     private readonly scene: Scene,
     private readonly course: Course,
+    /** 0..1 population scale from the graphics quality (Low = fewer people and birds). */
+    density = 1,
   ) {
     const level = course.level;
     const rs = level.roadside;
@@ -85,10 +133,11 @@ export class RoadsideView {
       const lat = wall - hw >= 1.8 ? Math.min(hw + 1.5 + offset, wall - 0.4) : wall + 1.2 + offset;
       return side * lat;
     };
+    const scaled = (n: number): number => Math.max(1, Math.round(n * density));
 
     for (const w of rs.walkers ?? []) {
       const s = course.startS + w.at * span;
-      for (let i = 0; i < w.count; i++) {
+      for (let i = 0; i < scaled(w.count); i++) {
         this.walkers.push({
           s: s + (rng() - 0.5) * 6,
           span: w.span / 2,
@@ -98,6 +147,25 @@ export class RoadsideView {
           color: COATS[Math.floor(rng() * COATS.length)],
           scale: 0.9 + rng() * 0.18,
           idle: false,
+          cheers: false,
+        });
+      }
+    }
+    // People standing about: bus stops, taxi queues, shopkeepers, small groups chatting.
+    for (const g of rs.standing ?? []) {
+      const s = course.startS + g.at * span;
+      for (let i = 0; i < scaled(g.count); i++) {
+        const along = (i - (g.count - 1) / 2) * 0.95 + (rng() - 0.5) * 0.5;
+        this.walkers.push({
+          s: s + along,
+          span: 0,
+          lat: lateralFor(s + along, g.side, (g.offset ?? 0) + rng() * 0.6),
+          phase: rng() * 6.28,
+          speed: 0,
+          color: COATS[Math.floor(rng() * COATS.length)],
+          scale: 0.9 + rng() * 0.18,
+          idle: true,
+          cheers: false,
         });
       }
     }
@@ -115,20 +183,87 @@ export class RoadsideView {
           color: COATS[Math.floor(rng() * COATS.length)],
           scale: 0.92 + rng() * 0.16,
           idle: true,
+          cheers: true,
         });
       }
     }
     if (this.walkers.length) {
       const geo = walkerGeometry();
       const mat = new MeshLambertMaterial({ vertexColors: true });
-      this.walkerMesh = new InstancedMesh(geo, mat, Math.min(64, this.walkers.length));
+      this.walkerMesh = new InstancedMesh(geo, mat, Math.min(MAX_WALKERS, this.walkers.length));
       this.walkerMesh.frustumCulled = false;
       this.walkers.forEach((w, i) => {
-        if (i < 64) this.walkerMesh!.setColorAt(i, this.col.setHex(w.color).lerp(new Color(SKIN_TINTS[i % SKIN_TINTS.length]), 0.25));
+        if (i < MAX_WALKERS) this.walkerMesh!.setColorAt(i, this.col.setHex(w.color).lerp(new Color(SKIN_TINTS[i % SKIN_TINTS.length]), 0.25));
       });
       scene.add(this.walkerMesh);
       this.disposables.push(geo, mat, this.walkerMesh);
       this.confettiCount = rs.crowd ? 1 : 0;
+    }
+
+    // Pedestrians for the crossings (their state machine lives in the traffic system).
+    const nCrossPeds = (level.traffic?.controls ?? []).filter((c) => c.kind === 'crossing').reduce((n, c) => n + Math.max(1, Math.min(4, c.peds ?? 3)), 0);
+    if (nCrossPeds > 0) {
+      const geo = walkerGeometry();
+      const mat = new MeshLambertMaterial({ vertexColors: true });
+      this.pedMesh = new InstancedMesh(geo, mat, Math.min(MAX_PEDS, nCrossPeds));
+      this.pedMesh.frustumCulled = false;
+      for (let i = 0; i < Math.min(MAX_PEDS, nCrossPeds); i++) this.pedMesh.setColorAt(i, this.col.setHex(COATS[(i * 3 + 1) % COATS.length]));
+      scene.add(this.pedMesh);
+      this.disposables.push(geo, mat, this.pedMesh);
+    }
+
+    // Traffic officers: a figure in a pale uniform whose arm shows the state of the junction.
+    for (const pl of rs.police ?? []) {
+      const s = course.startS + pl.at * span;
+      const hw = road.halfWidthAtS(s);
+      const lat = pl.side * (hw + 1.1);
+      road.at(s, this.pose);
+      const x = this.pose.x - this.pose.tz * lat;
+      const z = this.pose.z + this.pose.tx * lat;
+      const group = new Group();
+      const geo = walkerGeometry();
+      const mat = new MeshLambertMaterial({ vertexColors: true, color: 0xc9d6f2 });
+      const body = new Mesh(geo, mat);
+      body.scale.setScalar(1.05);
+      group.add(body);
+      const armGeo = new BoxGeometry(0.1, 0.12, 0.8);
+      const armMat = new MeshLambertMaterial({ color: 0xf6f6f2 });
+      const arm = new Group();
+      const armMesh = new Mesh(armGeo, armMat);
+      armMesh.position.set(0, 0, -0.4);
+      arm.add(armMesh);
+      arm.position.set(0.28, 1.5, 0);
+      group.add(arm);
+      group.position.set(x, course.terrain.heightAt(x, z), z);
+      group.rotation.y = Math.atan2(pl.side * -this.pose.tz, pl.side * this.pose.tx);
+      scene.add(group);
+      this.officers.push({ group, arm, s });
+      this.disposables.push(geo, mat, armGeo, armMat);
+    }
+
+    // Perched birds: roof ridges and wires; they take off when the car comes near.
+    const birds = rs.birds ?? [];
+    if (birds.length) {
+      const geo = birdGeometry();
+      const mat = new MeshLambertMaterial({ vertexColors: true });
+      this.birdMesh = new InstancedMesh(geo, mat, MAX_BIRDS);
+      this.birdMesh.count = 0;
+      this.birdMesh.frustumCulled = false;
+      scene.add(this.birdMesh);
+      this.disposables.push(geo, mat, this.birdMesh);
+      let first = 0;
+      for (const b of birds) {
+        const s = course.startS + b.at * span;
+        road.at(s, this.pose);
+        const lat = b.side * (road.wallAtS(s) + b.offset);
+        const x = this.pose.x - this.pose.tz * lat;
+        const z = this.pose.z + this.pose.tx * lat;
+        const count = Math.min(Math.max(2, scaled(b.count)), MAX_BIRDS - first);
+        if (count <= 0) break;
+        // They flee away from the road.
+        this.flocks.push({ x, y: course.terrain.heightAt(x, z) + 6 + rng() * 3, z, count, state: 'perched', timer: 0, dirx: -this.pose.tz * b.side, dirz: this.pose.tx * b.side, first });
+        first += count;
+      }
     }
 
     // Parked vehicles: one instanced mesh per kind used; a single obstacle circle each if they stand inside the parapet.
@@ -138,8 +273,9 @@ export class RoadsideView {
       const spec = TRAFFIC_KINDS[p.kind];
       const hw = road.halfWidthAtS(s);
       const wall = road.wallAtS(s);
-      const inside = wall - hw >= spec.radius * 2 + 0.7;
-      const lat = p.side * (inside ? hw + spec.radius + 0.35 + (p.offset ?? 0) : wall + spec.radius + 0.8 + (p.offset ?? 0));
+      // `edge`: half on the carriageway, half on the verge (a tight squeeze); otherwise on a broad verge, or behind the parapet.
+      const inside = p.edge === true || wall - hw >= spec.radius * 2 + 0.7;
+      const lat = p.side * (p.edge === true ? hw + 0.35 + (p.offset ?? 0) : inside ? hw + spec.radius + 0.35 + (p.offset ?? 0) : wall + spec.radius + 0.8 + (p.offset ?? 0));
       const list = byKind.get(p.kind) ?? [];
       list.push({ s, lat, yaw: p.rotation ?? 0, color: PARKED_COLORS[Math.floor(rng() * PARKED_COLORS.length)] });
       byKind.set(p.kind, list);
@@ -194,16 +330,23 @@ export class RoadsideView {
     }
   }
 
+  /** Lets the crossing pedestrians and the officers follow the traffic system's state. */
+  attach(traffic: { controls: TrafficControl[] } | null): void {
+    this.traffic = traffic;
+  }
+
   /**
    * Starts (or stops) the arrival celebration. `intensity` 0 = no confetti (Low graphics, reduced motion), 1 = full.
-   * The crowd cheers whenever `on` is true, whatever the intensity.
+   * The crowd cheers whenever `on` is true, whatever the intensity; checkered flags go up where the level asks for them.
    */
   celebrate(on: boolean, intensity: number): void {
     this.celebrating = on ? 1 : 0;
     if (!on) {
       this.removeConfetti();
+      this.removeFlags();
       return;
     }
+    if (this.course.level.celebrateFlags) this.raiseFlags();
     if (intensity <= 0 || !this.confettiCount) return;
     const n = Math.round(150 * intensity);
     const pos = new Float32Array(n * 3);
@@ -243,12 +386,67 @@ export class RoadsideView {
     this.confetti = null;
   }
 
-  update(time: number, dt: number): void {
+  /** Black-and-white checkered flags on poles along both sides of the drop-off area. */
+  private raiseFlags(): void {
+    if (this.flags) return;
+    const road = this.course.road;
+    const group = new Group();
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 96;
+    const g = c.getContext('2d')!;
+    for (let y = 0; y < 3; y++) {
+      for (let x = 0; x < 4; x++) {
+        g.fillStyle = (x + y) % 2 === 0 ? '#111114' : '#f6f6f2';
+        g.fillRect(x * 32, y * 32, 32, 32);
+      }
+    }
+    const tex = new CanvasTexture(c);
+    tex.colorSpace = SRGBColorSpace;
+    const flagMat = new MeshLambertMaterial({ map: tex, side: DoubleSide });
+    const poleMat = new MeshLambertMaterial({ color: 0xe9e6dc });
+    const flagGeo = new PlaneGeometry(2.2, 1.6);
+    const poleGeo = new CylinderGeometry(0.05, 0.07, 5.2, 6);
+    const items: { mesh: Mesh; phase: number; baseY: number }[] = [];
+    const finish = this.course.finishS;
+    let k = 0;
+    for (const side of [-1, 1]) {
+      for (const ds of [-34, -26, -18, -10]) {
+        const s = finish + ds;
+        const hw = road.halfWidthAtS(s);
+        const wall = road.wallAtS(s);
+        const lat = side * Math.min(hw + 0.9, wall - 0.3);
+        road.at(s, this.pose);
+        const x = this.pose.x - this.pose.tz * lat;
+        const z = this.pose.z + this.pose.tx * lat;
+        const gy = this.course.terrain.heightAt(x, z);
+        const pole = new Mesh(poleGeo, poleMat);
+        pole.position.set(x, gy + 2.6, z);
+        const flag = new Mesh(flagGeo, flagMat);
+        // The flag streams along the road from the pole (its local X axis lies along the road).
+        flag.position.set(x + this.pose.tx * 1.1, gy + 4.4, z + this.pose.tz * 1.1);
+        flag.rotation.y = Math.atan2(-this.pose.tz, this.pose.tx);
+        group.add(pole, flag);
+        items.push({ mesh: flag, phase: k++ * 0.7, baseY: gy + 4.4 });
+      }
+    }
+    this.scene.add(group);
+    this.flags = { group, items, t: 0 };
+    this.disposables.push(tex, flagMat, poleMat, flagGeo, poleGeo);
+  }
+
+  private removeFlags(): void {
+    if (!this.flags) return;
+    this.scene.remove(this.flags.group);
+    this.flags = null;
+  }
+
+  update(time: number, dt: number, px = 0, pz = 0): void {
     const road = this.course.road;
     const mesh = this.walkerMesh;
     this.cheer += ((this.celebrating ? 1 : 0) - this.cheer) * Math.min(1, dt * 4);
     if (mesh) {
-      const n = Math.min(64, this.walkers.length);
+      const n = Math.min(MAX_WALKERS, this.walkers.length);
       for (let i = 0; i < n; i++) {
         const w = this.walkers[i];
         let s = w.s;
@@ -259,13 +457,16 @@ export class RoadsideView {
           s = w.s + Math.sin(ph) * w.span;
           dir = Math.cos(ph) >= 0 ? 1 : -1;
           bob = Math.abs(Math.sin(time * 5 + w.phase)) * 0.05;
-        } else {
+        } else if (w.cheers) {
           bob = Math.abs(Math.sin(time * (3 + this.cheer * 5) + w.phase)) * (0.03 + this.cheer * 0.22);
+        } else {
+          // Standing chatter: a gentle sway.
+          bob = Math.abs(Math.sin(time * 1.4 + w.phase)) * 0.015;
         }
         road.at(s, this.pose);
         const x = this.pose.x - this.pose.tz * w.lat;
         const z = this.pose.z + this.pose.tx * w.lat;
-        // Walkers face along the road; the crowd turns to face the road.
+        // Walkers face along the road; people standing face the road.
         const face = w.idle ? Math.atan2(-this.pose.tz * Math.sign(w.lat), this.pose.tx * Math.sign(w.lat)) : Math.atan2(-this.pose.tx * dir, -this.pose.tz * dir);
         this.q.setFromAxisAngle(UP, face);
         this.m4.compose(this.pos.set(x, this.course.terrain.heightAt(x, z) + bob, z), this.q, this.scl.setScalar(w.scale));
@@ -274,6 +475,51 @@ export class RoadsideView {
       this.scl.setScalar(1);
       mesh.instanceMatrix.needsUpdate = true;
     }
+
+    const tr = this.traffic;
+    if (this.pedMesh && tr) {
+      let i = 0;
+      for (const ctl of tr.controls) {
+        if (ctl.kind !== 'crossing') continue;
+        for (const p of ctl.peds) {
+          if (i >= MAX_PEDS) break;
+          road.at(ctl.s + p.along, this.pose);
+          const x = this.pose.x - this.pose.tz * p.lat;
+          const z = this.pose.z + this.pose.tx * p.lat;
+          // Facing the way they will walk (toward the far kerb).
+          const dx = -this.pose.tz * p.dir;
+          const dz = this.pose.tx * p.dir;
+          this.q.setFromAxisAngle(UP, Math.atan2(-dx, -dz));
+          const bob = p.state === 'cross' ? Math.abs(Math.sin(time * 7 + i)) * 0.07 : 0;
+          this.m4.compose(this.pos.set(x, this.course.terrain.heightAt(x, z) + bob, z), this.q, this.scl);
+          this.pedMesh.setMatrixAt(i++, this.m4);
+        }
+      }
+      this.pedMesh.count = i;
+      this.pedMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    // Officers: arm out (still) while the main road is stopped, a sweeping beckon while it flows.
+    if (tr) {
+      for (const o of this.officers) {
+        const ctl = tr.controls.find((c) => c.kind === 'police' && Math.abs(c.s - o.s) < 8);
+        const stopped = ctl ? ctl.phase === 'stop' : false;
+        o.arm.rotation.set(0, stopped ? 0 : Math.sin(time * 4) * 0.9, stopped ? 0 : -0.5);
+      }
+    }
+
+    this.updateBirds(time, dt, px, pz);
+
+    const fl = this.flags;
+    if (fl) {
+      fl.t += dt;
+      const rise = Math.min(1, fl.t / 0.9);
+      for (const it of fl.items) {
+        it.mesh.position.y = it.baseY - (1 - rise) * 3.2;
+        it.mesh.rotation.z = Math.sin(time * 5 + it.phase) * 0.12;
+      }
+    }
+
     const cf = this.confetti;
     if (cf) {
       cf.life -= dt;
@@ -290,10 +536,61 @@ export class RoadsideView {
     }
   }
 
+  /** Birds sit on rooftops until the car comes within 24 m, then scatter upward and away; they return later. */
+  private updateBirds(time: number, dt: number, px: number, pz: number): void {
+    const mesh = this.birdMesh;
+    if (!mesh) return;
+    let n = 0;
+    for (const f of this.flocks) {
+      if (f.state === 'perched') {
+        if (Math.hypot(px - f.x, pz - f.z) < 24) {
+          f.state = 'flying';
+          f.timer = 0;
+        }
+      } else if (f.state === 'flying') {
+        f.timer += dt;
+        if (f.timer > 4.5) {
+          f.state = 'away';
+          f.timer = 26;
+        }
+      } else {
+        f.timer -= dt;
+        if (f.timer <= 0) f.state = 'perched';
+      }
+      if (f.state === 'away') continue;
+      for (let b = 0; b < f.count; b++) {
+        const idx = f.first + b;
+        if (n >= MAX_BIRDS) break;
+        const ang = (b / f.count) * 6.28;
+        let x = f.x + Math.cos(ang) * 0.9;
+        let y = f.y;
+        let z = f.z + Math.sin(ang) * 0.9;
+        let yaw = ang;
+        let flap = 0;
+        if (f.state === 'flying') {
+          const t = f.timer;
+          x += f.dirx * t * (4 + (b % 3)) + Math.sin(t * 2 + b) * 1.2;
+          z += f.dirz * t * (4 + (b % 3)) + Math.cos(t * 2 + b) * 1.2;
+          y += t * (2.4 + (b % 2) * 0.8);
+          yaw = Math.atan2(-f.dirx, -f.dirz);
+          flap = Math.sin(time * 22 + idx) * 0.45;
+        }
+        this.q.setFromAxisAngle(UP, yaw);
+        this.m4.compose(this.pos.set(x, y, z), this.q, this.scl.set(1, 1 + flap, 1));
+        mesh.setMatrixAt(n++, this.m4);
+      }
+    }
+    this.scl.setScalar(1);
+    mesh.count = n;
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+
   dispose(): void {
     this.removeConfetti();
+    this.removeFlags();
     for (const id of this.obstacleIds) this.course.obstacles.remove(id);
-    for (const m of [this.walkerMesh, this.yakMesh, ...this.parkedMeshes]) if (m) this.scene.remove(m);
+    for (const m of [this.walkerMesh, this.pedMesh, this.yakMesh, this.birdMesh, ...this.parkedMeshes]) if (m) this.scene.remove(m);
+    for (const o of this.officers) this.scene.remove(o.group);
     this.disposables.forEach((d) => d.dispose());
   }
 }

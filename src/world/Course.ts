@@ -37,7 +37,11 @@ export class Course implements PhysicsWorld {
   readonly finishS: number;
   /** Distance along the road of each checkpoint, in required order. */
   readonly checkpointS: number[];
-  readonly obstacles = new ObstacleSet(64);
+  /** Side streets joining the road (world distance along the road, length, width, sides). */
+  readonly junctions: { s: number; arm: number; width: number; sides: (-1 | 1)[]; zebra: boolean }[] = [];
+  /** Distances along the road of zebra crossings (junction crossings and the traffic's pedestrian crossings). */
+  readonly zebras: number[] = [];
+  readonly obstacles: ObstacleSet;
   readonly ford: FordInfo | null;
   /** 0..1 how wet the roads are right now (set by the weather system). */
   wetness = 0;
@@ -50,6 +54,8 @@ export class Course implements PhysicsWorld {
   private readonly rh = createRoadHit();
 
   constructor(readonly level: LevelDef) {
+    // City routes carry more moving obstacles (traffic, pedestrians at crossings, parked vehicles).
+    this.obstacles = new ObstacleSet(level.traffic?.controls || level.traffic?.scripted ? 96 : 64);
     this.road = new Road(level.road, createRoadBase(level.terrain));
     this.ford = level.ford ? this.road.carveFord(level.ford.from, level.ford.to, level.ford.depth) : null;
     this.terrain = new Terrain(level.terrain, this.road);
@@ -61,6 +67,13 @@ export class Course implements PhysicsWorld {
       if (this.checkpointS[i] <= this.checkpointS[i - 1])
         throw new Error(`Level ${level.id}: checkpoints must ascend`);
     }
+    for (const j of level.junctions ?? []) {
+      const js = this.startS + j.at * span;
+      this.junctions.push({ s: js, arm: j.arm, width: j.width, sides: j.sides, zebra: j.zebra === true });
+      for (const side of j.sides) this.road.openings.push({ from: js - j.width / 2, to: js + j.width / 2, side });
+      if (j.zebra) this.zebras.push(js - 11);
+    }
+    for (const c of level.traffic?.controls ?? []) if (c.kind === 'crossing') this.zebras.push(this.startS + c.at * span);
     for (const p of level.puddles ?? []) this.puddles.push({ s: this.startS + p.at * span, lateral: p.lateral, r: p.radius });
     this.shoulderSurface = level.shoulder ?? 'gravel';
     this.sampleSurface = new Uint8Array(this.road.count);
@@ -100,6 +113,13 @@ export class Course implements PhysicsWorld {
     let id: SurfaceId;
     if (Math.abs(h.lateral) > this.road.halfWidthAtS(h.s)) {
       id = Math.abs(h.lateral) > this.road.wallAtS(h.s) + 1 ? 'grass' : this.shoulderSurface;
+      // A side street joining the road is asphalt too.
+      for (const j of this.junctions) {
+        if (Math.abs(h.s - j.s) < j.width / 2 && j.sides.includes(h.lateral > 0 ? 1 : -1) && Math.abs(h.lateral) < this.road.wallAtS(j.s) + j.arm) {
+          id = 'asphalt';
+          break;
+        }
+      }
     } else {
       const i = Math.min(this.road.count - 1, Math.max(0, Math.round((h.s / this.road.length) * (this.road.count - 1))));
       id = this.surfaceIds[this.sampleSurface[i]];

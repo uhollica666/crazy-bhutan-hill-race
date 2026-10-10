@@ -9,6 +9,7 @@ import {
   Group,
   LinearMipmapLinearFilter,
   Mesh,
+  MeshBasicMaterial,
   MeshLambertMaterial,
   PlaneGeometry,
   RepeatWrapping,
@@ -474,7 +475,7 @@ export function buildRoadMeshes(course: Course): Group {
     const pos: number[] = [];
     const col: number[] = [];
     const idx: number[] = [];
-    const gc = new Color(PAL.gravel);
+    const gc = new Color(course.level.look.shoulder ?? PAL.gravel);
     for (const side of [-1, 1]) {
       const base = pos.length / 3;
       for (let i = 0; i < n; i++) {
@@ -536,6 +537,8 @@ export function buildRoadMeshes(course: Course): Group {
         push(xo, y0 - 0.5, zo, c); // 3 outer bottom (sunk, hides gaps on slopes)
       }
       for (let i = 0; i < n - 1; i++) {
+        // A gap in the parapet where a side street joins the road.
+        if (road.inOpening(road.ss[i], side)) continue;
         const a = base + i * 4;
         const b = a + 4;
         const quad = (p: number, q: number, flip: boolean): void => {
@@ -602,6 +605,94 @@ export function buildFordWater(course: Course): Mesh | null {
   mesh.name = 'ford-water';
   mesh.renderOrder = 2;
   return mesh;
+}
+
+/** Side streets joining the main road (asphalt strips on the ground) and zebra crossings (white bars across it). */
+export function buildJunctions(course: Course): Group | null {
+  if (!course.junctions.length && !course.zebras.length) return null;
+  const group = new Group();
+  group.name = 'junctions';
+  const road = course.road;
+  const terrain = course.terrain;
+  const pose = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
+  const lift = 0.085;
+
+  if (course.junctions.length) {
+    const pos: number[] = [];
+    const uv: number[] = [];
+    const idx: number[] = [];
+    for (const j of course.junctions) {
+      road.at(j.s, pose);
+      const rx = -pose.tz;
+      const rz = pose.tx;
+      const halfW = j.width / 2;
+      for (const side of j.sides) {
+        const from = road.halfWidthAtS(j.s) - 0.4;
+        const to = road.wallAtS(j.s) + j.arm;
+        const steps = Math.max(2, Math.ceil((to - from) / 5));
+        const base = pos.length / 3;
+        for (let k = 0; k <= steps; k++) {
+          const lat = from + ((to - from) * k) / steps;
+          const cx = pose.x + rx * side * lat;
+          const cz = pose.z + rz * side * lat;
+          for (const e of [-1, 1]) {
+            const x = cx + pose.tx * halfW * e;
+            const z = cz + pose.tz * halfW * e;
+            pos.push(x, terrain.heightAt(x, z) + lift, z);
+            uv.push(e < 0 ? 0 : 1, lat / 10);
+          }
+          if (k > 0) {
+            const a = base + (k - 1) * 2;
+            idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+          }
+        }
+      }
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const mat = new MeshLambertMaterial({ map: makeRoadTexture(), side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    const mesh = new Mesh(geo, mat);
+    mesh.receiveShadow = true;
+    mesh.name = 'side-streets';
+    group.add(mesh);
+  }
+
+  if (course.zebras.length) {
+    const pos: number[] = [];
+    const idx: number[] = [];
+    for (const s of course.zebras) {
+      road.at(s, pose);
+      const rx = -pose.tz;
+      const rz = pose.tx;
+      const hw = road.halfWidthAtS(s);
+      for (let lat = -hw + 0.7; lat <= hw - 0.5; lat += 1.15) {
+        const base = pos.length / 3;
+        for (const [da, dl] of [
+          [-1.7, -0.3],
+          [-1.7, 0.3],
+          [1.7, 0.3],
+          [1.7, -0.3],
+        ] as [number, number][]) {
+          const x = pose.x + pose.tx * da + rx * (lat + dl);
+          const z = pose.z + pose.tz * da + rz * (lat + dl);
+          pos.push(x, terrain.heightAt(x, z) + lift + 0.012, z);
+        }
+        idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+      }
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const mat = new MeshBasicMaterial({ color: 0xf4f2ea, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 });
+    const mesh = new Mesh(geo, mat);
+    mesh.name = 'zebras';
+    group.add(mesh);
+  }
+  return group;
 }
 
 /** Shallow puddles lying on the road: flat rippled discs just above the surface (physics: Course.surfaceIdAt -> water). */

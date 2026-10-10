@@ -23,23 +23,6 @@ function dress(kinds: LandmarkDef['kind'][], count: number, from = 0.04, to = 0.
 }
 
 export const EXTENSIONS: Record<string, Stretch> = {
-  'thimphu-pickup': {
-    at: 0.28,
-    path: [
-      { straight: 140 }, { turn: -90, radius: 18 }, { straight: 200 }, { turn: 90, radius: 18 },
-      { straight: 140 }, { turn: -90, radius: 18 }, { straight: 200 }, { turn: 90, radius: 18 },
-      { straight: 140 }, { turn: -90, radius: 18 }, { straight: 200 }, { turn: 90, radius: 18 },
-    ],
-    note: 'Extra city blocks around the clock tower now sit between the cafe and the market.',
-    timeLimit: 335,
-    medals: { gold: 205, silver: 250, bronze: 300 },
-    stops: [{ id: 'town-fuel-2', kind: 'service', t: 0.55, label: 'Ring-road fuel pump', side: -1, services: ['refuel', 'repair'], optional: true }],
-    checkpoints: [
-      { t: 0.35, label: 'Clock tower roundabout' },
-      { t: 0.75, label: 'Memorial chorten' },
-    ],
-    landmarks: [...dress(['shopRow', 'house', 'streetLamp', 'chorten'], 12, 0.04, 0.96, 14)],
-  },
   'airport-dash': {
     at: 0.2,
     path: [

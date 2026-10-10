@@ -224,13 +224,42 @@ export interface PuddleDef {
   radius: number;
 }
 
-export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike';
+export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike' | 'taxi' | 'minibus' | 'scooter' | 'delivery';
+
+/** A traffic officer directing a junction, or a zebra crossing that traffic yields at. `at` is a fraction of the stretch. */
+export interface TrafficControlDef {
+  at: number;
+  kind: 'police' | 'crossing';
+  /** police: seconds of green / red for the main road. crossing: how many pedestrians cross together. */
+  go?: number;
+  stop?: number;
+  peds?: number;
+}
+
+/** A side street joining the main road (drawn and drivable by cross traffic and turning cars). */
+export interface JunctionDef {
+  at: number;
+  /** Length (m) of the side street beyond the main road's parapet. */
+  arm: number;
+  width: number;
+  /** Which sides the street leaves on (-1 left, +1 right). */
+  sides: (-1 | 1)[];
+  /** A zebra crossing just before the junction. */
+  zebra?: boolean;
+}
 
 export interface TrafficDef {
   /** Share of each kind of road user (default: cars only, as in the older missions). */
   mix?: { kind: TrafficKind; weight: number }[];
-  /** Hand-placed road users: spawned once, as the player approaches `at` (fraction of the stretch), moving with the traffic. */
-  scripted?: { at: number; kind: TrafficKind; speed: number }[];
+  /**
+   * Hand-placed road users: spawned once, as the player approaches `at` (fraction of the stretch). With `hold` they stand still
+   * (a queue, a truck blocking a lane) until the player is within `trigger` metres, then wait `hold` more seconds and drive off.
+   */
+  scripted?: { at: number; kind: TrafficKind; speed: number; hold?: number; trigger?: number }[];
+  /** Signals the traffic obeys: a police-directed junction and pedestrian crossings. */
+  controls?: TrafficControlDef[];
+  /** Chance (0..1) that a car approaching a side street turns into it. */
+  turnChance?: number;
   /** Cars alive at once (hard cap). */
   count: number;
   /** Cruise speed range (m/s). */
@@ -282,7 +311,16 @@ export type LandmarkKind =
   | 'viewpoint'
   | 'signpost'
   | 'stall'
-  | 'plaza';
+  | 'plaza'
+  | 'hotel'
+  | 'office'
+  | 'busShelter'
+  | 'policeBooth'
+  | 'railing'
+  | 'gateArch'
+  | 'buddha'
+  | 'planter'
+  | 'restaurant';
 
 export interface LandmarkDef {
   kind: LandmarkKind;
@@ -337,6 +375,8 @@ export interface LookDef {
   rockFrom?: number;
   snowFrom?: number;
   snowTo?: number;
+  /** Colour of the verge beside the asphalt (default: gravel; a city uses pale paving). */
+  shoulder?: number;
   /** Foliage colour of broadleaf trees and flower colour of shrubs. */
   leaf?: number;
   blossom?: number;
@@ -354,11 +394,17 @@ export interface RoadsideDef {
   /** People strolling back and forth along `span` metres of verge. */
   walkers?: { at: number; side: -1 | 1; count: number; span: number; offset?: number }[];
   /** Vehicles parked on the verge (or behind the parapet where the verge is narrow). */
-  parked?: { at: number; side: -1 | 1; kind: TrafficKind; offset?: number; rotation?: number }[];
+  parked?: { at: number; side: -1 | 1; kind: TrafficKind; offset?: number; rotation?: number; edge?: boolean }[];
   /** The crowd waiting at the destination: `width` metres along the road, `offset` metres onto the verge. */
   crowd?: { at: number; side: -1 | 1; count: number; offset: number; width: number };
   /** Grazing yaks (decoration only). */
   yaks?: { at: number; side: -1 | 1; offset: number }[];
+  /** People standing about: bus stops, taxi queues, shopkeepers, small groups chatting. */
+  standing?: { at: number; side: -1 | 1; count: number; offset?: number }[];
+  /** Traffic officers (a pavilion and a figure that signals the phase of the junction's control). */
+  police?: { at: number; side: -1 | 1 }[];
+  /** Perched birds that take off when the car comes near. */
+  birds?: { at: number; side: -1 | 1; offset: number; count: number }[];
 }
 
 export interface LevelDef {
@@ -394,6 +440,10 @@ export interface LevelDef {
   roadside?: RoadsideDef;
   /** Arrival celebration (confetti, cheering crowd) on a successful delivery. */
   celebrate?: boolean;
+  /** Black-and-white checkered flags are raised at the drop-off during the celebration. */
+  celebrateFlags?: boolean;
+  /** Side streets and zebra crossings on the main road. */
+  junctions?: JunctionDef[];
   /** Shallow puddles on the road (training route and wet stretches). */
   puddles?: PuddleDef[];
   /** Optional ford: the road dips under water between these fractions of the road. */
@@ -409,6 +459,8 @@ export interface LevelDef {
     hillHeight: number;
     /** Extra detail relief that is only applied away from the road (m). */
     detailHeight: number;
+    /** A broad hill: the ground rises toward (x, z), reaching `height` there and nothing at `radius` metres out. */
+    uplift?: { x: number; z: number; radius: number; height: number };
     /** A river valley opens up south of this z. */
     valleyZ: number;
     valleyDepth: number;
