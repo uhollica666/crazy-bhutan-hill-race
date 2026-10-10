@@ -19,7 +19,7 @@ import {
   Vector3,
 } from 'three';
 import type { Object3D } from 'three';
-import type { Course } from '../world/Course';
+import type { Course, FordInfo } from '../world/Course';
 import type { SurfaceId } from '../data/types';
 import { fbm2, lerp, smoothstep } from '../core/math';
 import { PAL } from './palette';
@@ -663,9 +663,15 @@ export function buildRoadMeshes(course: Course): Group {
 }
 
 /** Shallow water lying across the road bed at a ford: a flat strip along the road, above the dipped bed. */
-export function buildFordWater(course: Course): Mesh | null {
-  const ford = course.ford;
-  if (!ford) return null;
+export function buildFordWater(course: Course): Group | null {
+  if (!course.fords.length) return null;
+  const group = new Group();
+  group.name = 'ford-water';
+  for (const f of course.fords) group.add(buildFordMesh(course, f));
+  return group;
+}
+
+function buildFordMesh(course: Course, ford: FordInfo): Mesh {
   const road = course.road;
   const half = road.wallOffset + 7;
   const from = Math.max(0, ford.fromS - 12);

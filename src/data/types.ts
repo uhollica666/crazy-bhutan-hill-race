@@ -356,7 +356,10 @@ export type LandmarkKind =
   | 'shelter'
   | 'lodge'
   | 'flagPoles'
-  | 'ruin';
+  | 'ruin'
+  | 'brokenBridge'
+  | 'tent'
+  | 'campsite';
 
 export interface LandmarkDef {
   kind: LandmarkKind;
@@ -512,6 +515,8 @@ export interface LevelDef {
   puddles?: PuddleDef[];
   /** Optional ford: the road dips under water between these fractions of the road. */
   ford?: { from: number; to: number; depth: number };
+  /** More fords (a river crossed twice, a washed-out stretch, a flooded dip): the same, as many as the route needs. */
+  fords?: { from: number; to: number; depth: number }[];
   terrain: {
     seed: number;
     bounds: { minX: number; maxX: number; minZ: number; maxZ: number };

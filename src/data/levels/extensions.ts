@@ -23,23 +23,6 @@ function dress(kinds: LandmarkDef['kind'][], count: number, from = 0.04, to = 0.
 }
 
 export const EXTENSIONS: Record<string, Stretch> = {
-  'remote-expedition': {
-    at: 0.28,
-    path: [
-      { turn: 40, radius: 90 }, { straight: 120 }, { turn: -80, radius: 90 }, { straight: 120 }, { turn: 40, radius: 90 },
-      { turn: 40, radius: 90 }, { straight: 120 }, { turn: -80, radius: 90 }, { straight: 120 }, { turn: 40, radius: 90 },
-      { turn: 40, radius: 90 }, { straight: 120 }, { turn: -80, radius: 90 }, { straight: 120 }, { turn: 40, radius: 90 },
-    ],
-    note: 'A rutted ridge track now leads out to the festival grounds before the river crossing.',
-    timeLimit: 350,
-    medals: { gold: 185, silver: 235, bronze: 300 },
-    stops: [{ id: 'drum-2', kind: 'service', t: 0.5, label: 'Ridge fuel drum', side: -1, services: ['refuel', 'repair'], optional: true }],
-    checkpoints: [
-      { t: 0.3, label: 'Ridge track' },
-      { t: 0.7, label: 'Shepherds camp' },
-    ],
-    landmarks: [...dress(['yak', 'lungta', 'flagSpan', 'chorten'], 9, 0.04, 0.96, 24)],
-  },
   'gmc-plains': {
     at: 0.58,
     path: [

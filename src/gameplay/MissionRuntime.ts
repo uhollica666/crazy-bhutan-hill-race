@@ -248,7 +248,7 @@ export class MissionRuntime {
     body.mod.windX = this.gust.x;
     body.mod.windZ = this.gust.z;
 
-    status.waterDepth = course.ford || course.rivers.length ? course.waterDepthAt(body.position.x, body.position.z) : 0;
+    status.waterDepth = course.fords.length || course.rivers.length ? course.waterDepthAt(body.position.x, body.position.z) : 0;
     status.applyTo(body.mod);
     this.updateBrakes(dt);
     if (this.traffic && this.level.traffic?.slowInFog) this.traffic.visibilityScale = clamp(0.55 + 0.45 * Math.min(1, weather.visibility / 0.62), 0.55, 1);

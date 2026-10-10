@@ -11,7 +11,7 @@ export function challengeTags(level: LevelDef): string[] {
   const weather: Record<string, string> = { rain: 'Rain', heavyRain: 'Storm', fog: 'Fog', snow: 'Snow', cloudy: '' };
   if (weather[first.weather]) tags.push(weather[first.weather]);
   if (level.startFuel <= 0.35) tags.push('Low fuel');
-  if (level.ford) tags.push('River ford');
+  if (level.ford || level.fords?.length) tags.push('River ford');
   if (level.surfaces?.some((s) => s.surface === 'mud' || s.surface === 'rocky' || s.surface === 'gravel')) tags.push('Off-road');
   if (level.mission.comfort) tags.push('Comfort');
   if (level.stops.filter((s) => s.kind === 'pickup').length > 1) tags.push(`${level.stops.filter((s) => s.kind === 'pickup').length} pickups`);

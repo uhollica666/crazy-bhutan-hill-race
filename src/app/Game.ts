@@ -704,7 +704,7 @@ export class Game {
       birds: c.weather === 'clear' || c.weather === 'cloudy' || !!this.level.roadside?.birds,
       aircraft: this.level.mission.kind === 'airport',
       night: c.time === 'night',
-      water: !!this.level.ford || !!this.level.rivers?.length || this.level.terrain.valleyDepth > 0,
+      water: !!this.level.ford || !!this.level.fords?.length || !!this.level.rivers?.length || this.level.terrain.valleyDepth > 0,
       forest: clamp(this.level.scenery.trees / 700, 0, 1),
       bells: this.level.region !== undefined && c.time !== 'night' && this.level.mission.kind !== 'circuit',
       city: this.level.traffic?.controls ? 0.7 : 0,

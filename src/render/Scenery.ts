@@ -25,6 +25,7 @@ import { bridgeGeometry, cliffGeometry, plazaGeometry, retainWallGeometry, runwa
 import { chortenRingGeometry, lodgeGeometry, shelterGeometry } from './stormBodies';
 import { flagPolesGeometry } from './snowBodies';
 import { ruinGeometry } from './nightBodies';
+import { brokenBridgeGeometry, campsiteGeometry, tentGeometry } from './expeditionBodies';
 import { coveredBridgeGeometry, dzongComplexGeometry, footbridgeGeometry, paddyGeometry, picnicGeometry, trussBridgeGeometry } from './valleyBodies';
 import { buddhaGeometry, busShelterGeometry, gateArchGeometry, hotelGeometry, officeGeometry, planterGeometry, policeBoothGeometry, railingGeometry, restaurantGeometry } from './cityBodies';
 import {
@@ -518,6 +519,9 @@ export class Scenery {
     const lodges: Matrix4[] = [];
     const flagFields: Matrix4[] = [];
     const ruins: Matrix4[] = [];
+    const brokenBridges: Matrix4[] = [];
+    const tents: Matrix4[] = [];
+    const camps: Matrix4[] = [];
     const runways: Matrix4[] = [];
     const trolleys: Matrix4[] = [];
     const offices: Matrix4[] = [];
@@ -667,6 +671,16 @@ export class Scenery {
         case 'lodge':
           lodges.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
           break;
+        case 'brokenBridge':
+          // A collapsed bridge beside the ford, along the road's direction and level with it.
+          brokenBridges.push(compose(x, pose.y, z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2 + (l.rotation ?? 0), sc));
+          break;
+        case 'tent':
+          tents.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'campsite':
+          camps.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
         case 'ruin':
           ruins.push(compose(x, y - 0.1, z, faceRoad + (l.rotation ?? 0), sc));
           break;
@@ -804,6 +818,9 @@ export class Scenery {
     this.registerInstanced(lodgeGeometry(), lodges, material, false);
     this.registerInstanced(flagPolesGeometry(), flagFields, material, false);
     this.registerInstanced(ruinGeometry(), ruins, material, false);
+    this.registerInstanced(brokenBridgeGeometry(), brokenBridges, material, false);
+    this.registerInstanced(tentGeometry(), tents, material, false);
+    this.registerInstanced(campsiteGeometry(), camps, material, false);
     this.registerInstanced(runwayGeometry(), runways, material, false);
     this.registerInstanced(trolleyGeometry(), trolleys, material, false);
     this.registerInstanced(officeGeometry(), offices, material, false);

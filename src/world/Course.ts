@@ -44,7 +44,9 @@ export class Course implements PhysicsWorld {
   /** Distances along the road of zebra crossings (junction crossings and the traffic's pedestrian crossings). */
   readonly zebras: number[] = [];
   readonly obstacles: ObstacleSet;
+  /** The first ford (or null) and every ford on the road. */
   readonly ford: FordInfo | null;
+  readonly fords: FordInfo[];
   /** Rivers carved into the terrain (empty on most levels). */
   readonly rivers: River[];
   /** 0..1 how wet the roads are right now (set by the weather system). */
@@ -63,7 +65,9 @@ export class Course implements PhysicsWorld {
     // City routes carry more moving obstacles (traffic, pedestrians at crossings, parked vehicles).
     this.obstacles = new ObstacleSet(level.traffic?.controls || level.traffic?.scripted ? 96 : 64);
     this.road = new Road(level.road, createRoadBase(level.terrain));
-    this.ford = level.ford ? this.road.carveFord(level.ford.from, level.ford.to, level.ford.depth) : null;
+    const fordDefs = [...(level.ford ? [level.ford] : []), ...(level.fords ?? [])];
+    this.fords = fordDefs.map((f) => this.road.carveFord(f.from, f.to, f.depth));
+    this.ford = this.fords[0] ?? null;
     this.rivers = resolveRivers(level.rivers, this.road);
     this.terrain = new Terrain(level.terrain, this.road, this.rivers);
     this.riverReach = this.rivers.reduce((m, r) => Math.max(m, r.width / 2), 0) + level.terrain.cell;
@@ -116,8 +120,8 @@ export class Course implements PhysicsWorld {
     if (this.rivers.length && this.riverDepthAt(x, z) > 0.05) return 'water';
     const h = this.rh;
     if (!this.road.project(x, z, h)) return 'grass';
-    if (this.ford && h.s >= this.ford.fromS && h.s <= this.ford.toS && Math.abs(h.lateral) < this.road.wallOffset) {
-      return 'water';
+    for (const f of this.fords) {
+      if (h.s >= f.fromS && h.s <= f.toS && Math.abs(h.lateral) < this.road.wallOffset) return 'water';
     }
     let id: SurfaceId;
     if (Math.abs(h.lateral) > this.road.halfWidthAtS(h.s)) {
@@ -157,11 +161,12 @@ export class Course implements PhysicsWorld {
 
   /** Depth of water over the road bed at a point (a ford), or of a river (0 elsewhere). */
   waterDepthAt(x: number, z: number): number {
-    const f = this.ford;
     let depth = 0;
-    if (f) {
+    if (this.fords.length) {
       const h = this.rh;
-      if (this.road.project(x, z, h) && h.s >= f.fromS && h.s <= f.toS && Math.abs(h.lateral) <= this.road.wallOffset) depth = Math.max(0, f.waterY - h.y);
+      if (this.road.project(x, z, h) && Math.abs(h.lateral) <= this.road.wallOffset) {
+        for (const f of this.fords) if (h.s >= f.fromS && h.s <= f.toS) depth = Math.max(depth, f.waterY - h.y);
+      }
     }
     return depth > 0 ? depth : this.riverDepthAt(x, z);
   }
