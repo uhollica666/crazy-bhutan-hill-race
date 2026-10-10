@@ -159,7 +159,7 @@ export interface RoadPointDef {
   dy?: number;
 }
 
-export type SurfaceId = 'asphalt' | 'wetAsphalt' | 'dirt' | 'gravel' | 'rocky' | 'mud' | 'water' | 'grass';
+export type SurfaceId = 'asphalt' | 'wetAsphalt' | 'dirt' | 'gravel' | 'rocky' | 'mud' | 'water' | 'grass' | 'ice';
 
 export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'heavyRain' | 'fog' | 'denseFog' | 'snow';
 export type TimeOfDay = 'day' | 'dusk' | 'night';
@@ -172,7 +172,8 @@ export interface ConditionsDef {
   bonus: number;
 }
 
-export type StopKind = 'pickup' | 'service';
+/** pickup: tourists board; dropoff: some of the tourists on board get out (sequential groups); service: fuel / repairs. */
+export type StopKind = 'pickup' | 'service' | 'dropoff';
 export type ServiceKind = 'refuel' | 'repair';
 
 export interface StopDef {
@@ -183,7 +184,7 @@ export interface StopDef {
   label: string;
   /** Which side of the road the layby / group stands on. */
   side: -1 | 1;
-  /** pickup: how many tourists board here. */
+  /** pickup: how many tourists board here; dropoff: how many get out. */
   party?: number;
   /** service: what is offered. */
   services?: ServiceKind[];
@@ -191,6 +192,8 @@ export interface StopDef {
   optional: boolean;
   /** Story key for the people waiting (portrait set). */
   who?: string;
+  /** service: which building to draw (default: fuel station). */
+  variant?: 'fuel' | 'workshop' | 'kiosk';
 }
 
 export type HazardKind = 'landslide' | 'creature' | 'brokenTruck' | 'herd';
@@ -221,7 +224,13 @@ export interface PuddleDef {
   radius: number;
 }
 
+export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike';
+
 export interface TrafficDef {
+  /** Share of each kind of road user (default: cars only, as in the older missions). */
+  mix?: { kind: TrafficKind; weight: number }[];
+  /** Hand-placed road users: spawned once, as the player approaches `at` (fraction of the stretch), moving with the traffic. */
+  scripted?: { at: number; kind: TrafficKind; speed: number }[];
   /** Cars alive at once (hard cap). */
   count: number;
   /** Cruise speed range (m/s). */
@@ -268,7 +277,12 @@ export type LandmarkKind =
   | 'clockTower'
   | 'streetLamp'
   | 'bridge'
-  | 'station';
+  | 'station'
+  | 'retainWall'
+  | 'viewpoint'
+  | 'signpost'
+  | 'stall'
+  | 'plaza';
 
 export interface LandmarkDef {
   kind: LandmarkKind;
@@ -335,6 +349,18 @@ export interface LookDef {
   treeLine?: number;
 }
 
+/** Life beside the road: nothing here is ever on the asphalt. */
+export interface RoadsideDef {
+  /** People strolling back and forth along `span` metres of verge. */
+  walkers?: { at: number; side: -1 | 1; count: number; span: number; offset?: number }[];
+  /** Vehicles parked on the verge (or behind the parapet where the verge is narrow). */
+  parked?: { at: number; side: -1 | 1; kind: TrafficKind; offset?: number; rotation?: number }[];
+  /** The crowd waiting at the destination: `width` metres along the road, `offset` metres onto the verge. */
+  crowd?: { at: number; side: -1 | 1; count: number; offset: number; width: number };
+  /** Grazing yaks (decoration only). */
+  yaks?: { at: number; side: -1 | 1; offset: number }[];
+}
+
 export interface LevelDef {
   id: string;
   name: string;
@@ -364,6 +390,10 @@ export interface LevelDef {
   surfaces?: { from: number; to: number; surface: SurfaceId }[];
   /** Surface of the shoulder next to the asphalt. */
   shoulder?: SurfaceId;
+  /** Villagers, parked vehicles, the arrival crowd. */
+  roadside?: RoadsideDef;
+  /** Arrival celebration (confetti, cheering crowd) on a successful delivery. */
+  celebrate?: boolean;
   /** Shallow puddles on the road (training route and wet stretches). */
   puddles?: PuddleDef[];
   /** Optional ford: the road dips under water between these fractions of the road. */
@@ -393,6 +423,8 @@ export interface LevelDef {
     width: number;
     /** Gravel strip between asphalt and the stone parapet. */
     shoulder: number;
+    /** Stretches (fractions of the whole road) that are narrower or wider than `width`, with their own shoulder. Blended smoothly. */
+    widthProfile?: { from: number; to: number; width: number; shoulder?: number }[];
     points: RoadPointDef[];
     /** Metres of road before the start line / after the finish line (run-out). */
     startOffset: number;

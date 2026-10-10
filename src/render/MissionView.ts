@@ -37,6 +37,9 @@ import {
 } from './vehicleBodies';
 import { createStaticVehicle } from './VehicleModel';
 import { yakGeometry } from './Scenery';
+import { RoadsideView } from './RoadsideView';
+import { busGeometry, bicycleGeometry, kioskGeometry, motoGeometry, suvGeometry, truckGeometry, workshopGeometry } from './trafficBodies';
+import type { TrafficKind } from '../data/types';
 import type { HazardState } from '../gameplay/Hazards';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
@@ -146,7 +149,8 @@ export class MissionView {
   private readonly signs: { group: Group; dispose: () => void }[] = [];
 
   // Traffic.
-  private cars: InstancedMesh | null = null;
+  private readonly kindMeshes = new Map<TrafficKind, InstancedMesh>();
+  private roadside: RoadsideView | null = null;
   private rival: { group: Group; label: Sprite; dispose: () => void } | null = null;
 
   constructor(
@@ -180,7 +184,7 @@ export class MissionView {
       const rx = -pose.tz;
       const rz = pose.tx;
       const heading = Math.atan2(pose.tx, pose.tz);
-      const isPickup = stop.def.kind === 'pickup';
+      const isPickup = stop.def.kind === 'pickup' || stop.def.kind === 'dropoff';
       const side = stop.def.side;
 
       const zone = new Mesh(zoneGeo, isPickup ? this.zoneMat : this.zoneMatBlue);
@@ -195,7 +199,10 @@ export class MissionView {
       const vis: StopVisual = { stop, people: null, luggage: null, zone, beam, building: null, baseY: 0, px: 0, pz: 0, heading: 0 };
 
       if (isPickup) {
-        const lat = side * (road.wallOffset + 3.4);
+        // Tourists wait on a broad verge or lay-by when there is one, otherwise just behind the parapet.
+        const hwS = road.halfWidthAtS(stop.s);
+        const wlS = road.wallAtS(stop.s);
+        const lat = side * (wlS - hwS >= 3 ? hwS + 2.4 : wlS + 3.4);
         const cx = pose.x + rx * lat;
         const cz = pose.z + rz * lat;
         const cast = getCast(stop.def.who ?? '');
@@ -228,12 +235,18 @@ export class MissionView {
         vis.heading = face;
         this.disposables.push(geo, lugGeo, people.material as MeshLambertMaterial, luggage.material as MeshLambertMaterial);
       } else {
-        const lat = side * (road.wallOffset + 11);
+        const lat = side * (road.wallAtS(stop.s) + 11);
         const bx = pose.x + rx * lat;
         const bz = pose.z + rz * lat;
-        const geo = stationGeometry();
+        const variant = stop.def.variant ?? 'fuel';
+        const geo = variant === 'workshop' ? workshopGeometry() : variant === 'kiosk' ? kioskGeometry() : stationGeometry();
         const mat = new MeshLambertMaterial({ vertexColors: true });
         const b = new Mesh(geo, mat);
+        const board = labelSprite(variant === 'workshop' ? 'REPAIR WORKSHOP' : variant === 'kiosk' ? 'TEA & FUEL' : 'FUEL STATION', variant === 'workshop' ? '#2f5f8f' : variant === 'kiosk' ? '#8c2a20' : '#2a6a45');
+        board.position.set(0, variant === 'workshop' ? 11 : 8.4, 0);
+        board.scale.set(9, 1.9, 1);
+        b.add(board);
+        this.disposables.push({ dispose: () => (board.material as SpriteMaterial).map?.dispose() }, board.material as SpriteMaterial);
         b.position.set(bx, this.ground(bx, bz), bz);
         b.rotation.y = Math.atan2(-side * rx, -side * rz);
         this.group.add(b);
@@ -330,17 +343,26 @@ export class MissionView {
   private buildTraffic(): void {
     const { rt } = this;
     if (rt.traffic) {
-      const geo = trafficCarGeometry();
-      const mat = new MeshLambertMaterial({ vertexColors: true });
-      this.cars = new InstancedMesh(geo, mat, 20);
-      this.cars.count = 0;
-      this.cars.frustumCulled = false;
+      const def = rt.course.level.traffic;
+      const kinds: TrafficKind[] = def?.mix?.length ? def.mix.map((m) => m.kind) : ['car'];
+      for (const s of def?.scripted ?? []) if (!kinds.includes(s.kind)) kinds.push(s.kind);
+      const make: Record<TrafficKind, () => import('three').BufferGeometry> = { car: trafficCarGeometry, suv: suvGeometry, bus: busGeometry, truck: truckGeometry, moto: motoGeometry, bike: bicycleGeometry };
       const palette = [0xd6322b, 0x2f6fd0, 0xe8b53a, 0x2e9c4f, 0xf1f1ec, 0x4a4f5a];
       const c = new Color();
-      for (let i = 0; i < 20; i++) this.cars.setColorAt(i, c.setHex(palette[i % palette.length]));
-      this.group.add(this.cars);
-      this.disposables.push(geo, mat);
+      for (const kind of kinds) {
+        if (this.kindMeshes.has(kind)) continue;
+        const geo = make[kind]();
+        const mat = new MeshLambertMaterial({ vertexColors: true });
+        const mesh = new InstancedMesh(geo, mat, 20);
+        mesh.count = 0;
+        mesh.frustumCulled = false;
+        for (let i = 0; i < 20; i++) mesh.setColorAt(i, c.setHex(palette[i % palette.length]));
+        this.group.add(mesh);
+        this.kindMeshes.set(kind, mesh);
+        this.disposables.push(geo, mat);
+      }
     }
+    if (rt.course.level.roadside) this.roadside = new RoadsideView(this.scene, rt.course);
     if (rt.rival) {
       const def = getVehicle(rt.rival.def.vehicleId);
       const st = createStaticVehicle(def, { body: 0xf5f5f0, accent: 0x2e9c4f, trim: 0x1d2f5c });
@@ -354,20 +376,33 @@ export class MissionView {
 
   // ---------------------------------------------------------------------------- update
 
+  private lastTime = 0;
+  private lastDt = 0.016;
+
+  /** The arrival celebration: the crowd cheers and (unless `intensity` is 0) confetti falls. */
+  celebrate(on: boolean, intensity: number): void {
+    this.roadside?.celebrate(on, intensity);
+  }
+
   update(time: number): void {
+    this.lastDt = Math.min(0.1, Math.max(0, time - this.lastTime));
+    this.lastTime = time;
     const rt = this.rt;
     // Stops: people fade when boarded, the marker beam pulses on the current target.
     const gate = rt.stops.gate;
     const pulse = 0.75 + 0.25 * Math.sin(time * 3.2);
     for (const v of this.stopVisuals) {
       const st = v.stop;
-      const done = st.def.kind === 'pickup' && st.state === 'done';
-      const isTarget = st.def.kind === 'pickup' ? st === gate : true;
+      const people = st.def.kind === 'pickup' || st.def.kind === 'dropoff';
+      const done = people && st.state === 'done';
+      const isTarget = people ? st === gate : true;
       v.zone.visible = !done && (isTarget || st.def.kind === 'service');
-      v.beam.visible = v.zone.visible && (st.def.kind === 'pickup' ? st === gate : false);
+      v.beam.visible = v.zone.visible && (people ? st === gate : false);
       if (v.people) {
-        v.people.visible = !done;
-        if (!done) {
+        // Pickup groups wait until boarded; a dropped-off group appears on the verge once it has got out.
+        const shown = st.def.kind === 'dropoff' ? done : !done;
+        v.people.visible = shown;
+        if (shown) {
           const n = v.people.count;
           for (let i = 0; i < n; i++) {
             // Little hop of impatience while waiting; wave when the car is close.
@@ -380,7 +415,7 @@ export class MissionView {
           v.people.instanceMatrix.needsUpdate = true;
         }
       }
-      if (v.luggage) v.luggage.visible = !done;
+      if (v.luggage) v.luggage.visible = st.def.kind === 'dropoff' ? done : !done;
       v.zone.scale.set(1, 1, 1);
       (v.zone.material as MeshBasicMaterial).opacity = (st.state === 'active' ? 0.4 : 0.22) * pulse + 0.06;
     }
@@ -438,20 +473,28 @@ export class MissionView {
     }
 
     // Traffic.
-    if (this.cars && rt.traffic) {
+    if (this.kindMeshes.size && rt.traffic) {
       const cars = rt.traffic.cars;
-      for (let i = 0; i < cars.length && i < 20; i++) {
-        const c = cars[i];
+      const used = new Map<TrafficKind, number>();
+      for (const c of cars) {
+        const mesh = this.kindMeshes.get(c.kind);
+        if (!mesh) continue;
+        const n = used.get(c.kind) ?? 0;
+        if (n >= 20) continue;
+        used.set(c.kind, n + 1);
         this.v3(c.x, this.ground(c.x, c.z), c.z);
         this.q.setFromAxisAngle(UP, c.heading);
         this.m4.compose(this.pos, this.q, this.scl);
-        this.cars.setMatrixAt(i, this.m4);
-        this.cars.setColorAt(i, COLORS[c.colorIndex % COLORS.length]);
+        mesh.setMatrixAt(n, this.m4);
+        mesh.setColorAt(n, COLORS[c.colorIndex % COLORS.length]);
       }
-      this.cars.count = Math.min(20, cars.length);
-      this.cars.instanceMatrix.needsUpdate = true;
-      if (this.cars.instanceColor) this.cars.instanceColor.needsUpdate = true;
+      for (const [kind, mesh] of this.kindMeshes) {
+        mesh.count = used.get(kind) ?? 0;
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      }
     }
+    this.roadside?.update(time, this.lastDt);
     if (this.rival && rt.rival) {
       const st = rt.rival.state;
       this.rival.group.position.set(st.x, this.ground(st.x, st.z) + 1.35, st.z);
@@ -466,6 +509,8 @@ export class MissionView {
   dispose(): void {
     this.scene.remove(this.group);
     this.signs.forEach((s) => s.dispose());
+    this.roadside?.dispose();
+    this.roadside = null;
     this.rival?.dispose();
     this.disposables.forEach((d) => d.dispose());
     this.group.clear();

@@ -22,7 +22,7 @@ export interface HudState {
   checkpointsDone: number;
   /** What the player should be doing right now. */
   objective: string;
-  objectiveKind: 'pickup' | 'service' | 'checkpoint' | 'finish' | 'unload';
+  objectiveKind: 'pickup' | 'dropoff' | 'service' | 'checkpoint' | 'finish' | 'unload';
   /** Metres to the objective along the road (null when unknown). */
   distance: number | null;
   /** 0..1 progress along the playable route. */
@@ -289,7 +289,7 @@ export class Hud {
     this.text('#hud-timer-label', h.timerLabel);
     this.cls('#hud-clock', 'low', h.lowTime);
     this.text('#hud-obj', h.objective);
-    this.cls('#hud-objective', 'pickup', h.objectiveKind === 'pickup');
+    this.cls('#hud-objective', 'pickup', h.objectiveKind === 'pickup' || h.objectiveKind === 'dropoff');
     this.cls('#hud-objective', 'service', h.objectiveKind === 'service');
     this.text(
       '#hud-dist',

@@ -32,6 +32,8 @@ export const SURFACES: Record<SurfaceId, SurfaceDef> = {
   rocky: { id: 'rocky', name: 'Rocky road', grip: 0.72, rolling: 0.06, looseness: 0.5, dust: 0x9a9388, wet: false, roughness: 1.4, audio: 'gravel' },
   mud: { id: 'mud', name: 'Mud', grip: 0.42, rolling: 0.14, looseness: 0.85, dust: 0x5b4330, wet: true, roughness: 0.2, audio: 'mud' },
   water: { id: 'water', name: 'Shallow water', grip: 0.5, rolling: 0.34, looseness: 0.5, dust: 0xcfe8f2, wet: true, roughness: 0, audio: 'water' },
+  // Packed frost near the pass: slippery but never extreme (grip 0.55), a little more forgiving for capable vehicles.
+  ice: { id: 'ice', name: 'Icy road', grip: 0.55, rolling: 0.012, looseness: 0.35, dust: 0xe4f1f8, wet: false, roughness: 0, audio: 'asphalt' },
   grass: { id: 'grass', name: 'Grass', grip: 0.6, rolling: 0.09, looseness: 0.6, dust: 0x9fbf6a, wet: false, roughness: 0.1, audio: 'dirt' },
 };
 

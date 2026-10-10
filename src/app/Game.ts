@@ -156,6 +156,8 @@ export class Game {
   private readonly tutorialUI: TutorialUI;
   private academy: TutorialController | null = null;
   private academyOffered = false;
+  /** The results screen waiting behind the arrival celebration (skippable). */
+  private pendingFinish: { show: () => void; timer: number } | null = null;
   private stuckFor = 0;
   private stuckCooldown = 0;
   private fuelReported = false;
@@ -578,7 +580,7 @@ export class Game {
     this.minimap.setCourse(this.course);
     this.ui.setRoute(
       def.checkpoints.map((c) => c.at),
-      def.stops.map((s) => ({ at: s.at, kind: s.kind })),
+      def.stops.map((s) => ({ at: s.at, kind: s.kind === 'dropoff' ? ('pickup' as const) : s.kind })),
     );
     this.loadingLevel = false;
     this.ui.hideLoading();
@@ -722,6 +724,11 @@ export class Game {
       );
       audio.pickup();
       this.analytics.track({ name: 'pickup', levelId: level.id, stopId: stop.def.id });
+    });
+    e.on('alighted', ({ stop, party }) => {
+      const cast = getCast(stop.def.who ?? '');
+      ui.flash(`${party} guest${party === 1 ? '' : 's'} dropped off`, cast ? `${cast.name}: "Thank you!"` : 'Have a lovely visit');
+      audio.pickup();
     });
     e.on('missed', () =>
       ui.toast(
@@ -1477,6 +1484,7 @@ export class Game {
 
   /** Leaves a run (pause/finish) back to the menu flow without choosing a menu screen. */
   private leaveRun(): void {
+    this.cancelPendingFinish();
     this.disposeAcademy();
     if (this.flow.state !== 'menu') this.flow.dispatch('quit');
     this.inRun = false;
@@ -1497,6 +1505,7 @@ export class Game {
 
   /** Starts (or restarts) the run from the grid. Builds a fresh mission so hazards, traffic and fuel are exact. */
   private beginRun(): void {
+    this.cancelPendingFinish();
     if (this.flow.state === 'menu') this.flow.dispatch('start');
     else this.flow.dispatch('restart');
     this.inRun = true;
@@ -1622,7 +1631,7 @@ export class Game {
       credits: this.store.credits,
       fuelLeft: r.fuelLeft,
       health: r.health,
-      delivered: rt.stops.onboard,
+      delivered: rt.stops.deliveredTotal,
       party: rt.stops.party,
       rivalLine:
         done && rival
@@ -1646,8 +1655,47 @@ export class Game {
       levels: Object.fromEntries(this.levels.map((l) => [l.id, l.name])),
       vehicles: Object.fromEntries(this.vehicles.map((v) => [v.id, v.name])),
     };
-    this.ui.setFinishLevel(level.id);
-    this.ui.showFinish(level, r, extra, names);
+    const show = (): void => {
+      this.ui.setFinishLevel(level.id);
+      this.ui.showFinish(level, r, extra, names);
+    };
+    if (done && level.celebrate && this.view) {
+      // Arrival celebration: the crowd cheers, confetti falls (none on Low graphics or with reduced motion), then the
+      // results appear. Any key, click or tap skips straight to them.
+      const q = this.store.settings.quality;
+      const intensity = this.reducedMotion || q === 'low' ? 0 : q === 'medium' ? 0.6 : 1;
+      this.view.celebrate(true, intensity);
+      this.audio.cheer();
+      window.setTimeout(() => this.audio.brandSting(), 1800);
+      this.ui.flash('You made it!', level.finishLabel);
+      this.cancelPendingFinish();
+      const run = (): void => {
+        this.cancelPendingFinish();
+        this.view?.celebrate(false, 0);
+        show();
+      };
+      const skip = (): void => run();
+      window.addEventListener('keydown', skip, { once: true });
+      window.addEventListener('pointerdown', skip, { once: true });
+      const timer = window.setTimeout(run, this.reducedMotion ? 1100 : 3000);
+      this.pendingFinish = {
+        show: run,
+        timer,
+      };
+      this.finishSkipCleanup = () => {
+        window.removeEventListener('keydown', skip);
+        window.removeEventListener('pointerdown', skip);
+      };
+    } else show();
+  }
+
+  private finishSkipCleanup: (() => void) | null = null;
+
+  private cancelPendingFinish(): void {
+    if (this.pendingFinish) window.clearTimeout(this.pendingFinish.timer);
+    this.pendingFinish = null;
+    this.finishSkipCleanup?.();
+    this.finishSkipCleanup = null;
   }
 
   private pause(): void {
@@ -1900,9 +1948,9 @@ export class Game {
         if (wheel) {
           const sf = wheel.surface;
           ds.loose = sf.looseness * (sf.id === 'asphalt' || sf.id === 'wetAsphalt' ? 0 : 1);
-          ds.wet = sf.id === 'wetAsphalt';
+          ds.wet = sf.id === 'wetAsphalt' || sf.id === 'ice';
           ds.water = clamp(rt.status.waterDepth / 0.6, 0, 1);
-          ds.surface = sf.id === 'rocky' ? 'gravel' : sf.id === 'grass' ? 'dirt' : sf.id === 'wetAsphalt' ? 'asphalt' : sf.id;
+          ds.surface = sf.id === 'rocky' ? 'gravel' : sf.id === 'grass' ? 'dirt' : sf.id === 'wetAsphalt' || sf.id === 'ice' ? 'asphalt' : sf.id;
         }
       }
       ds.dt = dt;
@@ -2089,10 +2137,10 @@ export class Game {
     const gate = rt.stops.gate;
     if (gate) {
       const d = gate.s - rt.s;
-      if (gate.state === 'active') h.prompt = `Guests boarding... ${Math.round(gate.progress * 100)}%`;
+      if (gate.state === 'active') h.prompt = `${gate.def.kind === 'dropoff' ? 'Guests getting out' : 'Guests boarding'}... ${Math.round(gate.progress * 100)}%`;
       else if (Math.abs(d) < STOP_RADIUS + 1 && speed > 1.6)
         h.prompt = 'Slow down and stop in the yellow zone';
-      else if (d < 90 && d > STOP_RADIUS) h.prompt = 'Pickup ahead: stop in the yellow zone';
+      else if (d < 90 && d > STOP_RADIUS) h.prompt = gate.def.kind === 'dropoff' ? 'Drop-off ahead: stop in the yellow zone' : 'Pickup ahead: stop in the yellow zone';
       return;
     }
     const level = this.level;

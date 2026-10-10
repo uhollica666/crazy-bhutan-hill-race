@@ -1,10 +1,35 @@
-import type { RivalDef, StopDef, HazardDef, TrafficDef } from '../data/types';
+import type { RivalDef, StopDef, HazardDef, TrafficDef, TrafficKind } from '../data/types';
 import { clamp, mulberry32 } from '../core/math';
 import type { Course } from '../world/Course';
 import type { RoadPose } from '../world/Road';
 
+export interface KindSpec {
+  /** Radius (m) of each of the two obstacle circles and how far they sit from the centre. */
+  radius: number;
+  off: number;
+  /** Body length (m), for following gaps. */
+  len: number;
+  /** Absolute cruise range (m/s); otherwise the level's own range. */
+  speed?: [number, number];
+  /** Slows noticeably going uphill (trucks, buses). */
+  climb?: boolean;
+  /** Rides near the edge of the road (cyclists). */
+  edge?: boolean;
+}
+
+export const TRAFFIC_KINDS: Record<TrafficKind, KindSpec> = {
+  car: { radius: 1.15, off: 1.1, len: 4.2 },
+  suv: { radius: 1.2, off: 1.2, len: 4.8 },
+  bus: { radius: 1.5, off: 2.8, len: 9.4, speed: [7.5, 10.5], climb: true },
+  truck: { radius: 1.4, off: 2.6, len: 7.4, speed: [5.5, 8.2], climb: true },
+  moto: { radius: 0.6, off: 0.5, len: 2.0, speed: [11, 15] },
+  bike: { radius: 0.55, off: 0.5, len: 1.9, speed: [3.0, 4.4], edge: true },
+};
+
 export interface TrafficCar {
   id: number;
+  kind: TrafficKind;
+  scripted: boolean;
   s: number;
   /** Lateral offset from the centre line (+ = right of the direction of the road). */
   lane: number;
@@ -21,7 +46,6 @@ export interface TrafficCar {
   alive: boolean;
 }
 
-const CAR_RADIUS = 1.15;
 const SAFE_GAP_BASE = 7;
 const MAX_ACCEL = 2.6;
 const MAX_BRAKE = 8;
@@ -49,6 +73,7 @@ export class TrafficSystem {
   private nextId = 1;
   private respawnIn = 0;
   private readonly keepClear: number[];
+  private readonly scriptedDone = new Set<number>();
 
   constructor(
     private readonly course: Course,
@@ -73,6 +98,7 @@ export class TrafficSystem {
     this.rng = mulberry32(this.def.seed);
     this.nextId = 1;
     this.respawnIn = 0;
+    this.scriptedDone.clear();
     const ob = this.course.obstacles;
     for (const c of this.cars) c.obstacles.forEach((id) => ob.remove(id));
     this.cars.length = 0;
@@ -84,17 +110,42 @@ export class TrafficSystem {
     }
   }
 
-  private spawn(s: number): TrafficCar | null {
-    if (this.cars.length >= this.def.count) return null;
-    for (const k of this.keepClear) if (Math.abs(k - s) < 28) return null;
-    const oncoming = this.rng() < this.def.oncoming;
-    const dir: 1 | -1 = oncoming ? -1 : 1;
+  private pickKind(): TrafficKind {
+    const mix = this.def.mix;
+    if (!mix || !mix.length) return 'car';
+    const total = mix.reduce((n, m) => n + m.weight, 0);
+    let r = this.rng() * total;
+    for (const m of mix) {
+      r -= m.weight;
+      if (r <= 0) return m.kind;
+    }
+    return mix[mix.length - 1].kind;
+  }
+
+  /** Lane centre for a car at its current spot: it follows the road's width as it narrows or widens. */
+  private laneFor(kind: TrafficKind, dir: 1 | -1, s: number): number {
+    const hw = this.course.road.halfWidthAtS(s);
     // Left-hand traffic: with the road direction use the left lane, oncoming use the right lane.
-    const lane = (oncoming ? 1 : -1) * this.course.road.halfWidth * 0.5;
-    for (const o of this.cars) if (o.dir === dir && Math.abs(o.s - s) < 38) return null;
-    const cruise = this.def.speed[0] + this.rng() * (this.def.speed[1] - this.def.speed[0]);
+    const mag = TRAFFIC_KINDS[kind].edge ? Math.max(1.2, hw - 0.95) : hw * 0.5;
+    return (dir === -1 ? 1 : -1) * mag;
+  }
+
+  private spawn(s: number, forceKind?: TrafficKind, forceSpeed?: number, scripted = false): TrafficCar | null {
+    if (!scripted && this.cars.length >= this.def.count) return null;
+    if (this.cars.length >= 16) return null; // hard cap: obstacle slots and draw cost stay bounded
+    for (const k of this.keepClear) if (Math.abs(k - s) < (scripted ? 8 : 28)) return null;
+    const oncoming = scripted ? false : this.rng() < this.def.oncoming;
+    const dir: 1 | -1 = oncoming ? -1 : 1;
+    const kind = forceKind ?? this.pickKind();
+    const spec = TRAFFIC_KINDS[kind];
+    const lane = this.laneFor(kind, dir, s);
+    for (const o of this.cars) if (o.dir === dir && Math.abs(o.s - s) < 38 + (spec.len + TRAFFIC_KINDS[o.kind].len) / 2) return null;
+    const range = spec.speed ?? this.def.speed;
+    const cruise = forceSpeed ?? range[0] + this.rng() * (range[1] - range[0]);
     const car: TrafficCar = {
       id: this.nextId++,
+      kind,
+      scripted,
       s,
       lane,
       dir,
@@ -117,6 +168,7 @@ export class TrafficSystem {
     const p = this.course.road.at(car.s, this.poseA);
     const rx = -p.tz;
     const rz = p.tx;
+    car.lane = this.laneFor(car.kind, car.dir, car.s);
     car.x = p.x + rx * car.lane;
     car.z = p.z + rz * car.lane;
     const hx = p.tx * car.dir;
@@ -125,12 +177,13 @@ export class TrafficSystem {
     const ob = this.course.obstacles;
     const vx = hx * car.speed;
     const vz = hz * car.speed;
+    const spec = TRAFFIC_KINDS[car.kind];
     for (let k = 0; k < 2; k++) {
-      const off = k === 0 ? 1.1 : -1.1;
+      const off = k === 0 ? spec.off : -spec.off;
       const cx = car.x + hx * off;
       const cz = car.z + hz * off;
       if (create)
-        car.obstacles[k] = ob.add(cx, cz, CAR_RADIUS, {
+        car.obstacles[k] = ob.add(cx, cz, spec.radius, {
           vx,
           vz,
           push: 0.55,
@@ -150,7 +203,7 @@ export class TrafficSystem {
     let lspeed = 0;
     for (const o of this.cars) {
       if (o === car || o.dir !== car.dir || Math.abs(o.lane - car.lane) > 1.6) continue;
-      const g = (o.s - car.s) * car.dir - 4.6;
+      const g = (o.s - car.s) * car.dir - ((TRAFFIC_KINDS[o.kind].len + TRAFFIC_KINDS[car.kind].len) / 2 + 0.8);
       if (g > -2 && g < gap) {
         gap = g;
         lspeed = o.speed;
@@ -194,6 +247,11 @@ export class TrafficSystem {
       const kappa = curvatureAhead(c, car.s, this.poseA, this.poseB);
       const curveCap = kappa > 1e-3 ? Math.max(6, Math.sqrt(4.2 / kappa)) : car.cruise;
       let desired = Math.min(car.cruise, curveCap);
+      if (TRAFFIC_KINDS[car.kind].climb) {
+        // Heavy vehicles labour uphill: up to 40% slower on a steep grade.
+        const grade = ((this.poseB.y - this.poseA.y) / 14) * car.dir;
+        desired *= 1 - clamp(grade * 6, 0, 0.4);
+      }
       const lead = this.leader(car, player);
       const safe = SAFE_GAP_BASE + car.speed * 1.5;
       if (lead.gap < safe) {
@@ -216,6 +274,17 @@ export class TrafficSystem {
         car.obstacles.forEach((id) => c.obstacles.remove(id));
         this.cars.splice(i, 1);
         this.respawnIn = Math.min(this.respawnIn, 1.5);
+      }
+    }
+    // Hand-placed road users (a slow truck on the climb): spawned once as the player gets near.
+    const sc = this.def.scripted;
+    if (sc) {
+      for (let i = 0; i < sc.length; i++) {
+        if (this.scriptedDone.has(i)) continue;
+        const at = c.stretchToS(sc[i].at);
+        if (player.s >= at - 230 && player.s <= at - 60) {
+          if (this.spawn(at, sc[i].kind, sc[i].speed, true)) this.scriptedDone.add(i);
+        } else if (player.s > at - 60) this.scriptedDone.add(i);
       }
     }
     // Replace cars well ahead of the player, never inside the player's view.

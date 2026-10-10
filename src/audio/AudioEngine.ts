@@ -724,6 +724,17 @@ export class AudioEngine {
     });
   }
 
+  /** A crowd cheering and clapping: a swell of band-passed noise with a scatter of claps. Short, and ducks the music. */
+  cheer(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.duck(0.55, 2.8);
+    this.noiseBurst(t, 2.2, 0.075, 'bandpass', 600, 1700, this.bus.sfx);
+    this.noiseBurst(t + 0.2, 1.8, 0.05, 'bandpass', 1400, 3000, this.bus.sfx);
+    for (let i = 0; i < 8; i++) this.noiseBurst(t + 0.35 + i * 0.17 + (i % 3) * 0.03, 0.05, 0.06, 'bandpass', 2400, 4200, this.bus.sfx);
+  }
+
   /** Something new opened up (level or vehicle): a bright rising pentatonic phrase. */
   unlockFanfare(): void {
     const ctx = this.ready();

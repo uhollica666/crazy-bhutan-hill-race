@@ -41,6 +41,7 @@ type RuntimeEvents = {
   countdown: number;
   go: undefined;
   boarded: { stop: StopRuntime; party: number; onboard: number };
+  alighted: { stop: StopRuntime; party: number; onboard: number };
   missed: StopRuntime;
   serviceStart: { stop: StopRuntime; kind: ServiceKind };
   serviceDone: { stop: StopRuntime; kind: ServiceKind };
@@ -129,6 +130,7 @@ export class MissionRuntime {
     const e = this.events;
     const st = this.stops.events;
     st.on('boarded', (b) => e.emit('boarded', b));
+    st.on('alighted', (b) => e.emit('alighted', b));
     st.on('missed', (m) => e.emit('missed', m));
     st.on('service', (m) => e.emit('serviceStart', m));
     st.on('serviceDone', (m) => e.emit('serviceDone', m));

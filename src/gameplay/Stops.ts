@@ -17,13 +17,15 @@ type StopEvents = {
   boarded: { stop: StopRuntime; party: number; onboard: number };
   service: { stop: StopRuntime; kind: ServiceKind };
   serviceDone: { stop: StopRuntime; kind: ServiceKind };
+  /** A drop-off completed: tourists got out. */
+  alighted: { stop: StopRuntime; party: number; onboard: number };
   /** The player drove past a required stop without doing it. */
   missed: StopRuntime;
 };
 
 /** What the HUD should say the player is doing right now. */
 export interface Objective {
-  kind: 'pickup' | 'service' | 'checkpoint' | 'finish' | 'unload';
+  kind: 'pickup' | 'dropoff' | 'service' | 'checkpoint' | 'finish' | 'unload';
   label: string;
   /** Metres to go along the road (may be negative = already past, must turn back). */
   distance: number;
@@ -43,6 +45,8 @@ export class StopManager {
   readonly events = new Emitter<StopEvents>();
   readonly stops: StopRuntime[];
   onboard = 0;
+  /** Tourists who have already got out at drop-off stops. */
+  alighted = 0;
   /** The service being performed right now (null when none). */
   active: { stop: StopRuntime; kind: ServiceKind } | null = null;
   private warned = new Set<string>();
@@ -58,9 +62,14 @@ export class StopManager {
     return this.stops.filter((s) => s.def.kind === 'pickup').reduce((n, s) => n + (s.def.party ?? 0), 0);
   }
 
-  /** First required pickup that has not been done yet: nothing beyond it counts. */
+  /** Everyone carried over the whole route: those already dropped off plus those still on board. */
+  get deliveredTotal(): number {
+    return this.alighted + this.onboard;
+  }
+
+  /** First required pickup or drop-off that has not been done yet: nothing beyond it counts. */
   get gate(): StopRuntime | null {
-    return this.stops.find((s) => s.def.kind === 'pickup' && !s.def.optional && s.state !== 'done') ?? null;
+    return this.stops.find((s) => (s.def.kind === 'pickup' || s.def.kind === 'dropoff') && !s.def.optional && s.state !== 'done') ?? null;
   }
 
   /** The largest road distance that currently counts for checkpoints / finish. */
@@ -108,7 +117,7 @@ export class StopManager {
 
     for (const st of this.stops) {
       const inZone = Math.abs(st.s - s) <= STOP_RADIUS && Math.abs(lateral) <= halfWidth + 3;
-      if (st.def.kind === 'pickup') {
+      if (st.def.kind === 'pickup' || st.def.kind === 'dropoff') {
         if (st.state === 'done') continue;
         if (!st.def.optional && st !== this.gate) continue;
         if (inZone && stopped) {
@@ -117,8 +126,15 @@ export class StopManager {
           st.progress = Math.min(1, st.progress + dt / BOARD_SECONDS);
           if (st.progress >= 1) {
             st.state = 'done';
-            this.onboard += st.def.party ?? 0;
-            this.events.emit('boarded', { stop: st, party: st.def.party ?? 0, onboard: this.onboard });
+            if (st.def.kind === 'pickup') {
+              this.onboard += st.def.party ?? 0;
+              this.events.emit('boarded', { stop: st, party: st.def.party ?? 0, onboard: this.onboard });
+            } else {
+              const n = Math.min(this.onboard, st.def.party ?? 0);
+              this.onboard -= n;
+              this.alighted += n;
+              this.events.emit('alighted', { stop: st, party: n, onboard: this.onboard });
+            }
           }
         } else {
           st.state = 'pending';
@@ -168,9 +184,10 @@ export class StopManager {
   ): Objective {
     const gate = this.gate;
     if (gate) {
+      const n = gate.def.party ?? 1;
       return {
-        kind: 'pickup',
-        label: `Pick up ${gate.def.party ?? 1} tourist${(gate.def.party ?? 1) === 1 ? '' : 's'}: ${gate.def.label}`,
+        kind: gate.def.kind === 'dropoff' ? 'dropoff' : 'pickup',
+        label: `${gate.def.kind === 'dropoff' ? 'Drop off' : 'Pick up'} ${n} tourist${n === 1 ? '' : 's'}: ${gate.def.label}`,
         distance: gate.s - s,
         stop: gate,
       };
@@ -193,6 +210,7 @@ export class StopManager {
 
   reset(): void {
     this.onboard = 0;
+    this.alighted = 0;
     this.active = null;
     this.warned.clear();
     for (const st of this.stops) {

@@ -21,6 +21,7 @@ import { GeoBuilder } from './geo';
 import { peekEnvKit } from './envKit';
 import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
+import { plazaGeometry, retainWallGeometry, signpostGeometry, stallGeometry, viewpointGeometry } from './trafficBodies';
 import {
   broadleafGeometry,
   dzongGeometry,
@@ -315,6 +316,13 @@ export class Scenery {
       Math.round((x - terrain.minX) / terrain.cell) +
       Math.round((z - terrain.minZ) / terrain.cell) * terrain.nx;
 
+    // The parapet's distance from the centre line varies with the road's width profile: ask the road where it matters.
+    const wallHit = createRoadHit();
+    const wallAt = (x: number, z: number, d: number): number => {
+      if (d > road.wallOffset + 8 || !road.project(x, z, wallHit)) return road.wallOffset;
+      return road.wallAtS(wallHit.s);
+    };
+
     // ---- forests (species mix, tree line and foliage colours come from the level)
     const pines: Matrix4[] = [];
     const cypresses: Matrix4[] = [];
@@ -342,7 +350,7 @@ export class Scenery {
             : pick < sp.pine + sp.cypress + sp.broadleaf
               ? 'broadleaf'
               : 'shrub';
-      if (d < road.wallOffset + (kind === 'shrub' ? 2.5 : 4.5)) continue;
+      if (d < wallAt(x, z, d) + (kind === 'shrub' ? 2.5 : 4.5)) continue;
       const h = terrain.heightAt(x, z);
       if (h < terrain.waterLevel + 2.5 || h > treeLine + (kind === 'shrub' ? 12 : 0)) continue;
       if (terrain.normals[k * 3 + 1] < (kind === 'shrub' ? 0.62 : 0.74)) continue;
@@ -395,7 +403,7 @@ export class Scenery {
       const z = lerp(b.minZ + margin, b.maxZ - margin, rng());
       const k = nodeIdx(x, z);
       const d = terrain.roadDist[k];
-      if (d < road.wallOffset + 1.5) continue;
+      if (d < wallAt(x, z, d) + 1.5) continue;
       const steep = terrain.normals[k * 3 + 1] < 0.84;
       if (!(steep ? rng() < 0.5 : d < 45 ? rng() < 0.18 : rng() < 0.03)) continue;
       const sc = 0.7 + rng() * rng() * 3.2;
@@ -427,7 +435,7 @@ export class Scenery {
         const z = lerp(b.minZ + margin, b.maxZ - margin, rng());
         const k = nodeIdx(x, z);
         const d = terrain.roadDist[k];
-        if (d < road.wallOffset + 0.9 || d > 30) continue;
+        if (d < wallAt(x, z, d) + 0.9 || d > 30) continue;
         const h = terrain.heightAt(x, z);
         if (h < terrain.waterLevel + 1.2 || h > treeLine || terrain.normals[k * 3 + 1] < 0.8) continue;
         if (rng() > 1 - d / 38) continue; // thicker nearer the road
@@ -440,7 +448,7 @@ export class Scenery {
         const z = lerp(b.minZ + margin, b.maxZ - margin, rng());
         const k = nodeIdx(x, z);
         const d = terrain.roadDist[k];
-        if (d < road.wallOffset + 3 || d > 55) continue;
+        if (d < wallAt(x, z, d) + 3 || d > 55) continue;
         const h = terrain.heightAt(x, z);
         if (h < terrain.waterLevel + 2 || h > treeLine - 10 || terrain.normals[k * 3 + 1] < 0.78) continue;
         const forest = fbm2(x / 55, z / 55, level.scenery.seed, 3) * 0.5 + 0.5;
@@ -452,7 +460,7 @@ export class Scenery {
       for (let at = 140 + rng() * 80, i = 0; at < road.length - 80 && cairns.length < 14; at += 190 + rng() * 140, i++) {
         road.at(at, cp);
         const side = i % 2 ? 1 : -1;
-        const off = road.wallOffset + 1.3 + rng() * 1.6;
+        const off = road.wallAtS(at) + 1.3 + rng() * 1.6;
         const x = cp.x + -cp.tz * side * off;
         const z = cp.z + cp.tx * side * off;
         const h = terrain.heightAt(x, z);
@@ -483,6 +491,11 @@ export class Scenery {
     const towersClock: Matrix4[] = [];
     const lamps: Matrix4[] = [];
     const stations: Matrix4[] = [];
+    const retainWalls: Matrix4[] = [];
+    const viewpoints: Matrix4[] = [];
+    const signposts: Matrix4[] = [];
+    const stalls: Matrix4[] = [];
+    const plazas: Matrix4[] = [];
     const nearHit = createRoadHit();
     const cloth = new ClothBuilder();
     const poles = new GeoBuilder();
@@ -567,12 +580,28 @@ export class Scenery {
         case 'station':
           stations.push(compose(x, y, z, faceRoad, sc));
           break;
+        case 'retainWall':
+          // The wall's long axis (X) lies along the road, with its face toward it.
+          retainWalls.push(compose(x, y - 0.1, z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2 + (l.side > 0 ? Math.PI : 0), sc));
+          break;
+        case 'viewpoint':
+          viewpoints.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'signpost':
+          signposts.push(compose(x, y, z, faceRoad, sc));
+          break;
+        case 'stall':
+          stalls.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'plaza':
+          plazas.push(compose(x, y - 0.05, z, faceRoad, sc));
+          break;
         case 'yak':
           yaks.push(compose(x, y, z, rng() * 6.28, 1.05 + rng() * 0.2));
           break;
         case 'flagSpan': {
           // Strings of prayer flags across the road on two poles.
-          const edge = road.wallOffset + 1.8;
+          const edge = road.wallAtS(l.at * road.length) + 1.8;
           const px = [pose.x + rx * -edge, pose.x + rx * edge];
           const pz = [pose.z + rz * -edge, pose.z + rz * edge];
           const py = [terrain.heightAt(px[0], pz[0]), terrain.heightAt(px[1], pz[1])];
@@ -643,6 +672,11 @@ export class Scenery {
     this.registerInstanced(shopRowGeometry(), shops, material, false);
     this.registerInstanced(clockTowerGeometry(), towersClock, material, false);
     this.registerInstanced(stationGeometry(), stations, material, false);
+    this.registerInstanced(retainWallGeometry(), retainWalls, material, false);
+    this.registerInstanced(viewpointGeometry(), viewpoints, material, false);
+    this.registerInstanced(signpostGeometry(), signposts, material, false);
+    this.registerInstanced(stallGeometry(), stalls, material, false);
+    this.registerInstanced(plazaGeometry(), plazas, material, false);
     this.addLamps(lamps);
 
     if (poleCount > 0) {

@@ -64,6 +64,10 @@ export class Road {
   /** Lateral distance of the parapet's inner face. */
   readonly wallOffset: number;
 
+  /** Half width of the asphalt and distance of the parapet's inner face at every sample (they vary with `widthProfile`). */
+  readonly hws: Float32Array;
+  readonly wls: Float32Array;
+
   private readonly grid = new Map<number, number[]>();
   private readonly minX: number;
   private readonly minZ: number;
@@ -110,6 +114,26 @@ export class Road {
       this.tz[i] = dz / l;
     }
     this.length = acc;
+    // Width profile: base width everywhere, blended toward each profile entry over a 30 m ramp.
+    this.hws = new Float32Array(this.count);
+    this.wls = new Float32Array(this.count);
+    let maxWall = this.wallOffset;
+    for (let i = 0; i < this.count; i++) {
+      let hw = def.width / 2;
+      let sh = def.shoulder;
+      const f = this.ss[i] / Math.max(1, acc);
+      for (const p of def.widthProfile ?? []) {
+        const ramp = 30 / Math.max(1, acc);
+        const t = smoothstep(p.from - ramp, p.from, f) * (1 - smoothstep(p.to, p.to + ramp, f));
+        if (t <= 0) continue;
+        hw += (p.width / 2 - hw) * t;
+        sh += ((p.shoulder ?? def.shoulder) - sh) * t;
+      }
+      this.hws[i] = hw;
+      this.wls[i] = hw + sh;
+      maxWall = Math.max(maxWall, hw + sh);
+    }
+    (this as { wallOffset: number }).wallOffset = maxWall;
 
     let minX = Infinity;
     let minZ = Infinity;
@@ -272,8 +296,9 @@ export class Road {
       return true;
     }
     const lat = Math.abs(h.lateral);
-    if (lat > this.wallOffset) {
-      out.depth = lat - this.wallOffset;
+    const wall = this.wallAtS(h.s);
+    if (lat > wall) {
+      out.depth = lat - wall;
       const sgn = h.lateral > 0 ? -1 : 1;
       out.nx = -h.tz * sgn;
       out.nz = h.tx * sgn;
@@ -281,6 +306,20 @@ export class Road {
     }
     out.depth = 0;
     return false;
+  }
+
+  private sampleAt(s: number): number {
+    return clamp(Math.round((s / Math.max(1, this.length)) * (this.count - 1)), 0, this.count - 1);
+  }
+
+  /** Half width of the asphalt at distance `s`. */
+  halfWidthAtS(s: number): number {
+    return this.hws[this.sampleAt(s)];
+  }
+
+  /** Lateral distance of the parapet's inner face at distance `s`. */
+  wallAtS(s: number): number {
+    return this.wls[this.sampleAt(s)];
   }
 
   /** Position and heading at distance `s` along the road. */

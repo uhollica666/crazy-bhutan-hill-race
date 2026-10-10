@@ -246,12 +246,12 @@ export function buildWater(course: Course): Mesh {
   return mesh;
 }
 
-function makeRoadTexture(): CanvasTexture {
+function makeRoadTexture(wet = false): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 256;
   const g = c.getContext('2d')!;
-  g.fillStyle = '#4a4745';
+  g.fillStyle = wet ? '#34393d' : '#4a4745';
   g.fillRect(0, 0, 128, 256);
   // Surface grain.
   for (let i = 0; i < 1400; i++) {
@@ -265,6 +265,23 @@ function makeRoadTexture(): CanvasTexture {
   g.fillRect(117, 0, 4, 256);
   g.fillStyle = '#e8b53a';
   g.fillRect(62, 0, 4, 102);
+  if (wet) {
+    // Damp, weathered tarmac: darker, with pale reflective streaks and patched cracks.
+    for (let i = 0; i < 16; i++) {
+      g.fillStyle = 'rgba(170,200,215,' + (0.08 + Math.random() * 0.12) + ')';
+      g.fillRect(14 + Math.random() * 96, Math.random() * 256, 3 + Math.random() * 10, 16 + Math.random() * 40);
+    }
+    g.strokeStyle = 'rgba(20,22,24,0.55)';
+    g.lineWidth = 1.2;
+    for (let i = 0; i < 9; i++) {
+      g.beginPath();
+      const x = 14 + Math.random() * 96;
+      const y = Math.random() * 256;
+      g.moveTo(x, y);
+      g.lineTo(x + (Math.random() - 0.5) * 30, y + 10 + Math.random() * 26);
+      g.stroke();
+    }
+  }
   const tex = new CanvasTexture(c);
   tex.colorSpace = SRGBColorSpace;
   tex.wrapT = RepeatWrapping;
@@ -274,12 +291,12 @@ function makeRoadTexture(): CanvasTexture {
 }
 
 /** Tiling texture for an unpaved road surface: dirt with wheel ruts, loose gravel, broken rock or wet mud. */
-function makeUnpavedTexture(kind: 'dirt' | 'gravel' | 'rocky' | 'mud'): CanvasTexture {
+function makeUnpavedTexture(kind: 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 256;
   const g = c.getContext('2d')!;
-  const base = { dirt: '#8c6f48', gravel: '#9a9084', rocky: '#6d675f', mud: '#4a3727' }[kind];
+  const base = { dirt: '#8c6f48', gravel: '#9a9084', rocky: '#6d675f', mud: '#4a3727', ice: '#c9dce8' }[kind];
   g.fillStyle = base;
   g.fillRect(0, 0, 128, 256);
   // Large soft patches so the surface is never one flat colour.
@@ -291,7 +308,27 @@ function makeUnpavedTexture(kind: 'dirt' | 'gravel' | 'rocky' | 'mud'): CanvasTe
     g.ellipse(Math.random() * 128, Math.random() * 256, 8 + Math.random() * 18, 6 + Math.random() * 16, Math.random() * 3, 0, Math.PI * 2);
     g.fill();
   }
-  const specks = kind === 'gravel' ? 1700 : kind === 'rocky' ? 520 : 900;
+  if (kind === 'ice') {
+    // Frost: pale blue sheets, white rime and fine dark cracks, with the grey road showing through.
+    for (let i = 0; i < 40; i++) {
+      g.fillStyle = 'rgba(' + (150 + Math.random() * 70) + ',' + (190 + Math.random() * 50) + ',255,0.4)';
+      g.fillRect(Math.random() * 128, Math.random() * 256, 8 + Math.random() * 30, 6 + Math.random() * 30);
+    }
+    g.strokeStyle = 'rgba(70,95,120,0.6)';
+    g.lineWidth = 1;
+    for (let i = 0; i < 26; i++) {
+      g.beginPath();
+      const x = Math.random() * 128;
+      const y = Math.random() * 256;
+      g.moveTo(x, y);
+      g.lineTo(x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 40);
+      g.stroke();
+    }
+    g.fillStyle = 'rgba(70,72,76,0.45)';
+    g.fillRect(34, 0, 12, 256);
+    g.fillRect(84, 0, 12, 256);
+  }
+  const specks = kind === 'gravel' ? 1700 : kind === 'rocky' ? 520 : kind === 'ice' ? 300 : 900;
   for (let i = 0; i < specks; i++) {
     const light = Math.random() < 0.5;
     const v = light ? 150 + Math.random() * 90 : 30 + Math.random() * 40;
@@ -356,8 +393,8 @@ function makeWaterTexture(): CanvasTexture {
   return tex;
 }
 
-const unpavedKind = (id: SurfaceId): 'dirt' | 'gravel' | 'rocky' | 'mud' | null =>
-  id === 'dirt' || id === 'grass' ? 'dirt' : id === 'gravel' ? 'gravel' : id === 'rocky' ? 'rocky' : id === 'mud' ? 'mud' : null;
+const unpavedKind = (id: SurfaceId): 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice' | 'wet' | null =>
+  id === 'dirt' || id === 'grass' ? 'dirt' : id === 'gravel' ? 'gravel' : id === 'rocky' ? 'rocky' : id === 'mud' ? 'mud' : id === 'ice' ? 'ice' : id === 'wetAsphalt' ? 'wet' : null;
 
 /** Asphalt ribbon, gravel shoulders and stone parapets, built from the same road samples physics uses. */
 export function buildRoadMeshes(course: Course): Group {
@@ -365,8 +402,6 @@ export function buildRoadMeshes(course: Course): Group {
   const terrain = course.terrain;
   const group = new Group();
   group.name = 'road';
-  const hw = road.halfWidth;
-  const wl = road.wallOffset;
   const n = road.count;
   const lift = 0.07;
 
@@ -379,7 +414,7 @@ export function buildRoadMeshes(course: Course): Group {
       const rx = -road.tz[i];
       const rz = road.tx[i];
       for (let c = 0; c < cols; c++) {
-        const lat = lerp(-hw, hw, c / (cols - 1));
+        const lat = lerp(-road.hws[i], road.hws[i], c / (cols - 1));
         const x = road.xs[i] + rx * lat;
         const z = road.zs[i] + rz * lat;
         const o = i * cols + c;
@@ -422,7 +457,7 @@ export function buildRoadMeshes(course: Course): Group {
     const mats = kinds.map(
       (k) =>
         new MeshLambertMaterial({
-          map: k === 'asphalt' || k === null ? makeRoadTexture() : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud'),
+          map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
           polygonOffset: true,
           polygonOffsetFactor: -2,
           polygonOffsetUnits: -2,
@@ -445,7 +480,7 @@ export function buildRoadMeshes(course: Course): Group {
       for (let i = 0; i < n; i++) {
         const rx = -road.tz[i] * side;
         const rz = road.tx[i] * side;
-        for (const lat of [hw - 0.05, wl + 0.2]) {
+        for (const lat of [road.hws[i] - 0.05, road.wls[i] + 0.2]) {
           const x = road.xs[i] + rx * lat;
           const z = road.zs[i] + rz * lat;
           pos.push(x, terrain.heightAt(x, z) + lift - 0.01, z);
@@ -489,10 +524,11 @@ export function buildRoadMeshes(course: Course): Group {
         const rz = road.tx[i] * side;
         const c = Math.floor(road.ss[i] / 4) % 2 === 0 ? stone : lime;
         // Inner face is at wl; wall rises from the verge height.
-        const xi = road.xs[i] + rx * wl;
-        const zi = road.zs[i] + rz * wl;
-        const xo = road.xs[i] + rx * (wl + thick);
-        const zo = road.zs[i] + rz * (wl + thick);
+        const wi = road.wls[i];
+        const xi = road.xs[i] + rx * wi;
+        const zi = road.zs[i] + rz * wi;
+        const xo = road.xs[i] + rx * (wi + thick);
+        const zo = road.zs[i] + rz * (wi + thick);
         const y0 = terrain.heightAt(xi, zi) + lift - 0.25;
         push(xi, y0, zi, c); // 0 inner bottom
         push(xi, y0 + height, zi, c); // 1 inner top

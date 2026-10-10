@@ -23,22 +23,6 @@ function dress(kinds: LandmarkDef['kind'][], count: number, from = 0.04, to = 0.
 }
 
 export const EXTENSIONS: Record<string, Stretch> = {
-  'pass-run': {
-    at: 0.42,
-    path: [
-      { turn: -90, radius: 24 }, { straight: 100 }, { turn: 180, radius: 24 }, { straight: 100 }, { turn: -90, radius: 24 },
-      { turn: -90, radius: 24 }, { straight: 100 }, { turn: 180, radius: 24 }, { straight: 100 }, { turn: -90, radius: 24 },
-      { turn: -90, radius: 24 }, { straight: 100 }, { turn: 180, radius: 24 }, { straight: 100 }, { turn: -90, radius: 24 },
-    ],
-    note: 'The climb now takes in a second ladder of hairpins above the tree line before the final stretch.',
-    timeLimit: 305,
-    medals: { gold: 145, silver: 180, bronze: 225 },
-    checkpoints: [
-      { t: 0.3, label: 'Second ladder of hairpins' },
-      { t: 0.7, label: 'Prayer-flag shoulder' },
-    ],
-    landmarks: [...dress(['lungta', 'chorten', 'flagSpan', 'yak', 'house'], 9)],
-  },
   'thimphu-pickup': {
     at: 0.28,
     path: [

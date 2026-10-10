@@ -98,8 +98,8 @@ export class Course implements PhysicsWorld {
       return 'water';
     }
     let id: SurfaceId;
-    if (Math.abs(h.lateral) > this.road.halfWidth) {
-      id = Math.abs(h.lateral) > this.road.wallOffset + 1 ? 'grass' : this.shoulderSurface;
+    if (Math.abs(h.lateral) > this.road.halfWidthAtS(h.s)) {
+      id = Math.abs(h.lateral) > this.road.wallAtS(h.s) + 1 ? 'grass' : this.shoulderSurface;
     } else {
       const i = Math.min(this.road.count - 1, Math.max(0, Math.round((h.s / this.road.length) * (this.road.count - 1))));
       id = this.surfaceIds[this.sampleSurface[i]];

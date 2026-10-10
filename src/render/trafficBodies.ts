@@ -1,0 +1,222 @@
+import type { BufferGeometry } from 'three';
+import { GeoBuilder } from './geo';
+import { PAL } from './palette';
+
+/**
+ * Lightweight bodies for the extra road users and roadside buildings of Route 1. Everything is vertex-coloured and
+ * merged into one geometry; "white" parts are tinted per instance, so a handful of draw calls covers the whole road.
+ * Models face -Z and sit on the ground (y = 0).
+ */
+
+const GLASS = 0x2b3f58;
+const TYRE = 0x1c1c1f;
+const W = 0xffffff;
+
+/** A mid-size SUV: taller and longer than the hatch. */
+export function suvGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(1.9, 0.75, 4.5, W, { y: 0.8 });
+  g.box(1.78, 0.62, 2.7, W, { y: 1.45, z: 0.35 });
+  g.box(1.82, 0.4, 2.5, GLASS, { y: 1.48, z: 0.35 });
+  g.box(1.5, 0.08, 2.5, W, { y: 1.8, z: 0.35 });
+  g.box(1.6, 0.06, 2.2, 0x2a2a2e, { y: 1.86, z: 0.4 }); // roof rack
+  for (const sx of [-1, 1]) for (const z of [-1.4, 1.5]) g.cylinder(0.42, 0.42, 0.28, TYRE, 10, { x: sx * 0.95, y: 0.42, z, rz: Math.PI / 2 });
+  g.box(1.5, 0.14, 0.08, 0xfff1b8, { y: 0.9, z: -2.27 });
+  g.box(1.5, 0.14, 0.08, 0xd8262a, { y: 0.9, z: 2.27 });
+  return g.build();
+}
+
+/** A tourist coach: long white body, a band of windows, a coloured stripe. */
+export function busGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(2.5, 2.5, 9.2, W, { y: 1.75 });
+  g.box(2.54, 0.85, 8.4, GLASS, { y: 2.35, z: 0.2 });
+  g.box(2.4, 0.1, 9.0, 0xe8e6dc, { y: 3.05 });
+  g.box(2.54, 0.22, 9.0, 0xe39a1c, { y: 1.55 });
+  g.box(2.46, 0.2, 0.1, GLASS, { y: 2.6, z: -4.62 });
+  for (const sx of [-1, 1]) for (const z of [-3.2, 2.6, 3.7]) g.cylinder(0.5, 0.5, 0.34, TYRE, 10, { x: sx * 1.12, y: 0.5, z, rz: Math.PI / 2 });
+  g.box(1.8, 0.16, 0.08, 0xfff1b8, { y: 0.95, z: -4.63 });
+  g.box(1.8, 0.16, 0.08, 0xd8262a, { y: 0.95, z: 4.63 });
+  return g.build();
+}
+
+/** A loaded hill-country truck: tinted cab, grey bed with a lashed tarpaulin. */
+export function truckGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(2.3, 0.4, 7.2, 0x2a2a2e, { y: 0.95 });
+  g.box(2.3, 1.7, 2.1, W, { y: 2.0, z: -2.5 });
+  g.box(2.1, 0.7, 0.1, GLASS, { y: 2.4, z: -3.56 });
+  g.box(2.4, 2.0, 4.4, 0xb9a98c, { y: 2.2, z: 1.4 });
+  g.box(2.46, 0.2, 4.4, 0x6b7f3f, { y: 3.3, z: 1.4 });
+  g.box(2.46, 0.08, 0.3, 0xe8b53a, { y: 3.0, z: 0.4 });
+  for (const sx of [-1, 1]) for (const z of [-2.4, 1.6, 2.8]) g.cylinder(0.52, 0.52, 0.36, TYRE, 10, { x: sx * 1.05, y: 0.52, z, rz: Math.PI / 2 });
+  g.box(1.6, 0.14, 0.08, 0xfff1b8, { y: 1.1, z: -3.62 });
+  return g.build();
+}
+
+/** A motorcycle with a rider in a helmet. */
+export function motoGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  for (const z of [-0.8, 0.8]) g.cylinder(0.33, 0.33, 0.14, TYRE, 10, { y: 0.33, z, rz: Math.PI / 2 });
+  g.box(0.26, 0.4, 1.3, W, { y: 0.7 });
+  g.box(0.3, 0.16, 0.5, 0x2a2a2e, { y: 0.95, z: 0.35 });
+  g.box(0.5, 0.05, 0.05, 0x2a2a2e, { y: 1.12, z: -0.62 });
+  g.cylinder(0.2, 0.22, 0.6, 0x3d6f9e, 7, { y: 1.3, z: 0.2 });
+  g.sphere(0.16, 0xe8c09a, { y: 1.78, z: 0.14 }, 6);
+  g.sphere(0.19, 0xd6322b, { y: 1.84, z: 0.14, sy: 0.8 }, 6);
+  g.cylinder(0.05, 0.05, 0.5, 0x3d6f9e, 5, { x: -0.22, y: 1.3, z: -0.15, rx: 1.0 });
+  g.cylinder(0.05, 0.05, 0.5, 0x3d6f9e, 5, { x: 0.22, y: 1.3, z: -0.15, rx: 1.0 });
+  return g.build();
+}
+
+/** A cyclist: thin wheels, a frame, a rider leaning forward. */
+export function bicycleGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  for (const z of [-0.65, 0.65]) g.cylinder(0.34, 0.34, 0.05, 0x2a2a2e, 12, { y: 0.34, z, rz: Math.PI / 2 });
+  g.box(0.05, 0.05, 1.3, W, { y: 0.6 });
+  g.box(0.05, 0.55, 0.05, W, { y: 0.7, z: 0.25, rx: 0.3 });
+  g.box(0.4, 0.04, 0.04, 0x2a2a2e, { y: 1.0, z: -0.5 });
+  g.cylinder(0.17, 0.2, 0.55, 0xe8b53a, 7, { y: 1.3, z: 0.1, rx: -0.4 });
+  g.sphere(0.15, 0xe8c09a, { y: 1.68, z: -0.12 }, 6);
+  g.sphere(0.17, 0x2f6fd0, { y: 1.74, z: -0.12, sy: 0.75 }, 6);
+  g.cylinder(0.04, 0.04, 0.5, 0xe8c09a, 5, { x: -0.18, y: 1.2, z: -0.3, rx: 1.0 });
+  g.cylinder(0.04, 0.04, 0.5, 0xe8c09a, 5, { x: 0.18, y: 1.2, z: -0.3, rx: 1.0 });
+  g.cylinder(0.05, 0.05, 0.55, 0x2a3350, 5, { x: -0.1, y: 0.8, z: 0.2, rx: 0.6 });
+  g.cylinder(0.05, 0.05, 0.55, 0x2a3350, 5, { x: 0.1, y: 0.8, z: 0.2, rx: 0.6 });
+  return g.build();
+}
+
+/** A walking villager or tourist (tinted per instance). */
+export function walkerGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.cylinder(0.09, 0.1, 0.8, 0x2a3350, 6, { x: -0.1, y: 0.4 });
+  g.cylinder(0.09, 0.1, 0.8, 0x2a3350, 6, { x: 0.1, y: 0.4 });
+  g.cylinder(0.2, 0.24, 0.7, W, 7, { y: 1.15 });
+  g.sphere(0.17, 0xe8c09a, { y: 1.7 }, 7);
+  g.sphere(0.18, 0x3b2a20, { y: 1.78, sy: 0.6 }, 6);
+  g.cylinder(0.05, 0.05, 0.55, 0xe8c09a, 5, { x: -0.3, y: 1.15, rz: 0.2 });
+  g.cylinder(0.05, 0.05, 0.55, 0xe8c09a, 5, { x: 0.3, y: 1.15, rz: -0.2 });
+  return g.build();
+}
+
+/** A repair workshop: a garage bay with a car on a lift, a tyre stack, oil drums and a tall spanner sign (blue, unlike the fuel station). */
+export function workshopGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(12, 0.25, 11, PAL.rock, { y: 0.12 });
+  // The garage building sits on -x; its open bay faces +z (toward the road).
+  g.box(6.5, 3.8, 7, PAL.whitewash, { x: -8, y: 2.15, z: -1.5 });
+  g.box(7.1, 0.35, 7.6, 0x2f5f8f, { x: -8, y: 4.2, z: -1.5 });
+  g.box(5, 2.8, 0.2, 0x1a1c22, { x: -8, y: 1.6, z: 2.05 });
+  g.box(5.4, 0.4, 0.3, 0xe39a1c, { x: -8, y: 3.15, z: 2.1 });
+  // A car on a two-post lift inside the bay.
+  g.box(1.8, 0.55, 3.6, 0xc8352b, { x: -8, y: 1.55, z: 0.2 });
+  g.box(1.5, 0.45, 1.8, 0xc8352b, { x: -8, y: 2.0, z: 0.3 });
+  for (const sx of [-1.4, 1.4]) g.box(0.2, 2.0, 0.2, 0xe8b53a, { x: -8 + sx, y: 1.1, z: 0.2 });
+  // Forecourt clutter: tyre stack, drums, a tool cart.
+  for (let i = 0; i < 4; i++) g.cylinder(0.48, 0.48, 0.3, TYRE, 10, { x: -3.2, y: 0.4 + i * 0.3, z: -4 });
+  for (const x of [-4.4, -3.7]) g.cylinder(0.4, 0.4, 0.9, 0x2f6fd0, 8, { x, y: 0.7, z: -5.1 });
+  g.box(1.2, 0.8, 0.7, 0xd6322b, { x: -4.2, y: 0.65, z: 2.4 });
+  // Tall roadside sign: a pole, a blue board and a big yellow spanner.
+  g.box(0.3, 8, 0.3, PAL.woodDark, { x: 4.5, y: 4, z: 3.5 });
+  g.box(3.2, 2.2, 0.25, 0x2f5f8f, { x: 4.5, y: 8.4, z: 3.5 });
+  g.box(0.35, 1.7, 0.1, 0xf3c23a, { x: 4.5, y: 8.4, z: 3.68, rz: 0.8 });
+  g.box(0.9, 0.35, 0.1, 0xf3c23a, { x: 4.0, y: 8.95, z: 3.68, rz: 0.8 });
+  g.box(0.9, 0.35, 0.1, 0xf3c23a, { x: 5.0, y: 7.85, z: 3.68, rz: 0.8 });
+  // A canopy over the work area.
+  g.box(7, 0.25, 4, 0x2f5f8f, { x: 0.5, y: 4.2, z: -1 });
+  for (const [x, z] of [[-2.8, -2.8], [3.8, -2.8], [-2.8, 0.8], [3.8, 0.8]]) g.cylinder(0.14, 0.14, 4, PAL.whitewash, 6, { x, y: 2.2, z });
+  return g.build();
+}
+
+/** A small village pump with a tea hut: the second, simpler fuel stop at the viewpoint. */
+export function kioskGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(8, 0.2, 6, PAL.rock, { y: 0.1 });
+  g.box(3.6, 2.6, 3.2, PAL.whitewash, { x: -4.4, y: 1.5, z: -0.8 });
+  g.box(4.2, 0.3, 3.8, PAL.roofRed, { x: -4.4, y: 3.0, z: -0.8 });
+  g.box(1.0, 1.5, 0.1, PAL.windowDark, { x: -4.4, y: 1.4, z: 0.85 });
+  g.box(0.7, 1.5, 0.6, 0xd6322b, { x: 0.4, y: 0.95, z: 0 });
+  g.box(0.45, 0.35, 0.05, 0x2a3350, { x: 0.4, y: 1.4, z: 0.33 });
+  g.cylinder(0.14, 0.14, 2.6, PAL.whitewash, 6, { x: -1.6, y: 1.4, z: 1.6 });
+  g.box(3.2, 0.18, 2.6, PAL.roofRed, { x: 0.1, y: 2.8, z: 0.4 });
+  g.cylinder(0.14, 0.14, 2.6, PAL.whitewash, 6, { x: 1.7, y: 1.4, z: 1.6 });
+  g.box(0.3, 5.2, 0.3, PAL.woodDark, { x: 3.2, y: 2.6, z: 2 });
+  g.box(1.8, 1.1, 0.2, 0xe8b53a, { x: 3.2, y: 5.2, z: 2 });
+  return g.build();
+}
+
+/** A pile of firewood or a stack of sacks for roadside dressing (parked loads, market stalls). */
+export function stallGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(2.6, 0.9, 1.4, PAL.woodDark, { y: 0.45 });
+  g.box(2.8, 0.1, 1.6, 0xd6322b, { y: 2.2 });
+  for (const sx of [-1.3, 1.3]) g.cylinder(0.06, 0.06, 2.2, PAL.woodDark, 5, { x: sx, y: 1.1, z: 0.6 });
+  g.sphere(0.3, 0xe39a1c, { x: -0.7, y: 1.05, z: 0 }, 6);
+  g.sphere(0.3, 0xd6322b, { x: 0, y: 1.05, z: 0 }, 6);
+  g.sphere(0.3, 0x6b7f3f, { x: 0.7, y: 1.05, z: 0 }, 6);
+  return g.build();
+}
+
+/** A dry-stone retaining wall along the uphill side of the road: 24 m long, battered face, drainage holes, a capping course. */
+export function retainWallGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  for (let row = 0; row < 4; row++) {
+    const shade = row % 2 === 0 ? 0x8b857a : 0x7a746a;
+    g.box(24, 0.62, 1.0 - row * 0.06, shade, { y: 0.31 + row * 0.62, z: row * 0.03 });
+  }
+  g.box(24.3, 0.16, 1.2, 0xb9b2a4, { y: 2.55 });
+  for (let i = -4; i <= 4; i++) g.box(0.28, 0.2, 0.1, 0x1e1e20, { x: i * 2.6, y: 0.5, z: -0.52 });
+  for (let i = -5; i <= 5; i++) g.box(0.5, 0.5, 0.5, i % 2 ? 0x77716a : 0x8f897e, { x: i * 2.2 + 0.4, y: 2.85, z: 0.1 });
+  return g.build();
+}
+
+/** A scenic lookout: a stone terrace with a railing, a small chorten, benches and a view board. Faces the road with +Z. */
+export function viewpointGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(16, 0.5, 8, PAL.rock, { y: 0.25 });
+  g.box(16, 0.06, 8.2, 0xb9b2a4, { y: 0.52 });
+  for (let i = -7; i <= 7; i++) g.box(0.14, 1.0, 0.14, PAL.woodDark, { x: i * 1.05, y: 1.0, z: -3.8 });
+  g.box(16, 0.1, 0.12, PAL.woodDark, { y: 1.45, z: -3.8 });
+  g.box(16, 0.1, 0.12, PAL.woodDark, { y: 1.05, z: -3.8 });
+  g.box(1.6, 1.2, 1.6, PAL.whitewash, { x: 5.4, y: 1.1, z: -1.5 });
+  g.cone(0.85, 1.4, 0xe8b53a, 8, { x: 5.4, y: 2.4, z: -1.5 });
+  g.box(2.4, 0.4, 0.7, 0x6b4b2c, { x: -3.2, y: 0.9, z: -1.2 });
+  g.box(2.4, 0.4, 0.7, 0x6b4b2c, { x: 0.4, y: 0.9, z: -1.2 });
+  g.box(0.12, 2.2, 0.12, PAL.woodDark, { x: -6.4, y: 1.6, z: 1.6 });
+  g.box(2.4, 1.3, 0.12, 0x2f5f8f, { x: -6.4, y: 3.0, z: 1.6 });
+  g.box(1.9, 0.9, 0.14, 0xf1efe8, { x: -6.4, y: 3.0, z: 1.68 });
+  return g.build();
+}
+
+/** A roadside sign: yellow warning diamond (or a km stone) on a pole. */
+export function signpostGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.cylinder(0.05, 0.05, 2.6, 0x6b6b70, 5, { y: 1.3 });
+  g.box(0.9, 0.9, 0.06, 0xf3c23a, { y: 2.6, ry: 0, rz: Math.PI / 4 });
+  g.box(0.5, 0.5, 0.08, 0x1a1a1c, { y: 2.6, rz: Math.PI / 4 });
+  g.box(0.5, 0.35, 0.3, 0xe9e6dc, { x: 1.1, y: 0.18 });
+  g.box(0.5, 0.1, 0.32, 0xd6322b, { x: 1.1, y: 0.4 });
+  return g.build();
+}
+
+/** A paved plaza at the destination: pale stone paving, low walls, lamp posts, a wide chorten and a prayer-flag arch. */
+export function plazaGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(30, 0.3, 14, 0xb9b2a4, { y: 0.15 });
+  g.box(30, 0.1, 0.5, 0xe9e6dc, { y: 0.35, z: -6.8 });
+  for (const x of [-12, -4, 4, 12]) {
+    g.cylinder(0.09, 0.12, 3.4, PAL.woodDark, 5, { x, y: 2.0, z: -6.2 });
+    g.sphere(0.28, 0xfff1b8, { x, y: 3.8, z: -6.2 }, 6);
+  }
+  // A big white chorten with a golden spire.
+  g.frustum(4.6, 3.4, 1.4, PAL.whitewash, { x: 0, y: 1.2, z: -3 });
+  g.frustum(3.0, 2.2, 1.8, PAL.whitewash, { x: 0, y: 2.8, z: -3 });
+  g.cylinder(1.1, 1.2, 1.6, PAL.whitewash, 10, { x: 0, y: 4.5, z: -3 });
+  g.cone(1.0, 1.2, 0xe8b53a, 10, { x: 0, y: 5.9, z: -3 });
+  g.sphere(0.3, 0xe8b53a, { x: 0, y: 6.7, z: -3 }, 6);
+  // Prayer-flag gate posts either side of the arrival.
+  for (const x of [-13.5, 13.5]) g.cylinder(0.12, 0.16, 8, PAL.woodDark, 6, { x, y: 4, z: 1.5 });
+  g.box(27, 0.12, 0.12, 0xd6322b, { y: 7.6, z: 1.5 });
+  for (let i = -6; i <= 6; i++) g.box(1.2, 0.8, 0.05, [0x2f6fd0, 0xf4efe2, 0xc8352b, 0x3f8f4e, 0xe3a72f][(i + 6) % 5], { x: i * 2, y: 7.1, z: 1.5 });
+  return g.build();
+}

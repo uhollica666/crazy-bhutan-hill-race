@@ -180,19 +180,24 @@ export const EN: StoryBook = {
     'pass-run': {
       headline: 'The Sunrise Will Not Wait',
       stamp: 'Mountain run',
-      quick: { problem: 'They slept through every alarm.', goal: 'Reach the summit viewpoint before the sunrise ends.', challenge: 'Four hairpins and mist near the top.' },
+      quick: { problem: 'They slept through every alarm.', goal: 'Swap guests at the viewpoint, then reach the summit plaza.', challenge: 'A long climb: fuel, slow trucks, gravel, mud and ice.' },
       ending: { done: 'They caught the sunrise. Wesley has forgiven the rooster.', failed: 'The sun came up without them. An earlier alarm, perhaps.' },
       text: [
-        'Ingrid and Wesley booked the sunrise tour. Then they slept through three alarms, two wake-up calls and a very persistent rooster.',
-        'The sunrise at the pass lasts about eleven minutes. Collect them from the Hotel Tashi lay-by, climb through four hairpins, and get them to the summit while the sky is still doing something interesting.',
+        'Ingrid and Wesley booked the sunrise tour, then slept through three alarms, two wake-up calls and a very persistent rooster. Now the whole village is awake and the pass is a long way up.',
+        'Collect them in the village, pick up Fiona at the trailhead, let her off at the viewpoint cafe, take on Priya and carry on over the pass to the summit plaza. Top up at the service area: it is a long climb.',
       ],
-      passengers: ['sunrise-hikers'],
+      passengers: ['sunrise-hikers', 'backpacker', 'archery-fan'],
       objectives: [
-        'Pull into the Hotel Tashi lay-by and stop so they can climb in.',
-        'Drive through every checkpoint, in order.',
-        'Reach the summit viewpoint before time runs out.',
+        'Stop in each yellow zone: the village hotel, the trailhead lay-by and the viewpoint.',
+        'Drop Fiona off at the viewpoint cafe, then take Priya on board.',
+        'Refuel at the service area if you need to, and drive through every checkpoint.',
+        'Stop in the summit plaza so everyone can get out.',
       ],
-      watchOut: ['Brake before each hairpin, then power out.', 'The mist thickens near the top.'],
+      watchOut: [
+        'Slow trucks and cyclists share the road: overtake only when it is clear.',
+        'Gravel, mud and ice cut your grip. Brake before them, not on them.',
+        'The service area has fuel and a workshop; the viewpoint kiosk sells tea and fuel.',
+      ],
     },
     'thimphu-pickup': {
       headline: 'The Group Chat Has Gone Quiet',
