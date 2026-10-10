@@ -17,7 +17,7 @@ const FINISH_OFFSET = 36;
 /** Fraction of the playable stretch (stops, hazards, checkpoints, puddles, roadside life, weather zones). */
 const at = (m: number): number => m / P;
 /** Fraction of the whole road (surfaces, width profile, landmarks). */
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const summit = dochulaRange('summit');
 const highroad = dochulaRange('highroad');
@@ -65,6 +65,8 @@ const stops: StopDef[] = [
   { id: 'late-visitor', kind: 'pickup', at: at(summit.from + 300), label: 'Souvenir stall (one very late visitor)', side: -1, party: 1, optional: false, who: 'shopper', line: 'Wait, one last photo! It is only a little rain. Is that rain?' },
   { id: 'pass-pump', kind: 'service', at: at(highroad.from + 625), label: 'Mountain roadside pump', side: -1, services: ['refuel'], optional: true, variant: 'fuel' },
   { id: 'forest-kiosk', kind: 'service', at: at(forest.from + 1235), label: 'Forest tea kiosk', side: 1, services: ['refuel', 'repair'], optional: true, variant: 'kiosk' },
+  // Four kilometres between the forest kiosk and the storm garage was more than a small tank holds: a tea hut in the fog bank.
+  { id: 'fog-hut', kind: 'service', at: at(fog.from + 1000), label: 'Fogbound tea hut (fuel can)', side: -1, services: ['refuel'], optional: true, variant: 'kiosk' },
   { id: 'storm-shelter', kind: 'dropoff', at: at(shelter.from + 75), label: 'Emergency storm shelter', side: 1, party: 1, optional: false, who: 'shopper', farewell: 'This shelter has a roof and a bench. I will wait for the next bus, with tea, and a very good story.' },
   { id: 'storm-garage', kind: 'service', at: at(shelter.from + 310), label: 'Storm garage (repairs and fuel)', side: 1, services: ['repair', 'refuel'], optional: true, variant: 'workshop' },
   { id: 'valley-lift', kind: 'pickup', at: at(valley.from + 70), label: 'Lay-by (a stranded guest needs a lift)', side: -1, party: 1, optional: false, who: 'archery-fan', line: 'We watched the storm from the ridge. It looked small from there.' },

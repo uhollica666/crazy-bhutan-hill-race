@@ -29,7 +29,11 @@ export class MissionDriver {
     private readonly rt: MissionRuntime,
     o: MissionDriverOptions = {},
   ) {
-    this.drive = new AutoDriver(rt.course, rt.opts.vehicle, o.cornerAccel, o.style);
+    // Left to itself the bot plans bends at what the tyres give; a mission driver also respects the steering lock the rollover guard
+    // allows at speed (a coach cannot follow a bend at the pace a hatchback can) and so takes the lesser.
+    const v = rt.opts.vehicle;
+    const cornerAccel = o.cornerAccel ?? Math.min(0.5 * v.grip.lateral * v.gravity, 0.6 * v.stability.maxLateralAccel);
+    this.drive = new AutoDriver(rt.course, v, cornerAccel, o.style);
     this.useServices = o.useServices ?? true;
   }
 
@@ -50,6 +54,21 @@ export class MissionDriver {
     }
     this.drive.stopAt = null;
     this.drive.hold = false;
+
+    // --- Read the warning signs: slow down well before a rockfall, a creature crossing or a herd, as a driver would.
+    let cap = Infinity;
+    for (const h of rt.hazards?.hazards ?? []) {
+      const ahead = h.s - s;
+      if (ahead < -10 || ahead > 150) continue;
+      if (h.def.kind === 'landslide' && h.phase !== 'blocked') cap = Math.min(cap, 8);
+      else if (h.def.kind === 'creature' && h.phase !== 'done') cap = Math.min(cap, 9);
+      else if (h.def.kind === 'herd' && h.phase !== 'done') cap = Math.min(cap, 8);
+    }
+    // Cars pulling out of side streets or crossing the road: ease off while they are about, as one does in a town.
+    for (const c of rt.traffic?.cars ?? []) {
+      if (c.alive && (c.cross || c.turn) && c.s - s > -10 && c.s - s < 90) cap = Math.min(cap, 9);
+    }
+    this.drive.speedCap = cap;
 
     // --- Drivetrain: 4x4 on loose ground, steep climbs and wet roads, if the vehicle has it.
     if (def.drivetrain.modes.includes('4x4')) {
@@ -78,14 +97,16 @@ export class MissionDriver {
         0.06;
       const needFuel = status.fuel < burn;
       const needRepair = status.health < 45;
-      const next = rt.stops.nextService(s);
+      // The next stop that actually offers what is needed (a workshop cannot refuel, a pump cannot repair).
+      const want: ServiceKind | null = this.serviceUntil ?? (needFuel ? 'refuel' : needRepair ? 'repair' : null);
+      const next = want ? rt.stops.nextService(s, want) : null;
       if (
-        (needFuel || needRepair || this.serviceUntil) &&
+        want &&
         next &&
         next.s > s - STOP_RADIUS &&
         (!gate || next.s < gate.s)
       ) {
-        const kind: ServiceKind = this.serviceUntil ?? (needFuel ? 'refuel' : 'repair');
+        const kind: ServiceKind = want;
         // The conservative estimate can exceed a tank on rough routes; do not loop at a completed pump.
         if (!this.serviced.has(`${next.def.id}:${kind}`)) {
           this.drive.stopAt = next.s - 2.5;

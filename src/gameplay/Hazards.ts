@@ -117,7 +117,10 @@ export class HazardSystem {
 
   private placeTruck(h: HazardState): void {
     const road = this.course.road;
-    const lane = h.side * road.halfWidthAtS(h.s) * 0.5;
+    // Parked well over to its side (not in the middle of its lane), so the traffic going the other way is not held up behind it
+    // and the free lane stays wide enough for the player to pass.
+    const half = road.halfWidthAtS(h.s);
+    const lane = h.side * Math.min(half - 1, half * 0.5 + 0.6);
     const ob = this.course.obstacles;
     const ids: number[] = [];
     for (const off of [-2.2, 0, 2.2]) {
@@ -180,14 +183,18 @@ export class HazardSystem {
     const road = this.course.road;
     const rng = mulberry32(h.def.seed + 5);
     const edge = road.wallAtS(h.s) - 0.4;
-    const maxCover = Math.max(1.6, road.halfWidthAtS(h.s) * 2 - MIN_FREE_WIDTH);
+    // The rocks never reach past the centre line, and always leave a corridor wide enough for the widest coach plus a metre
+    // (the other lane, where its traffic drives, stays clear end to end).
+    const wall = road.wallAtS(h.s);
+    const maxCover = Math.min(Math.max(1.6, Math.min(wall * 2 - MIN_FREE_WIDTH, wall * 2 - 3.8)), edge + 0.1);
     let covered = 0;
     let along = -4;
     let i = 0;
     while (covered < maxCover - 0.6 && i < 6) {
-      const r = 1.0 + rng() * 0.9;
+      // A rock is never bigger than the room left for it.
+      const r = Math.min(1.0 + rng() * 0.9, Math.max(0.75, (maxCover - covered) / 2));
       const lateralFromEdge = covered + r;
-      if (covered + r * 2 > maxCover + 0.3 && i > 1) break;
+      if (covered + r * 2 > maxCover + 0.3 && i > 0) break;
       const lat = h.side * (edge - lateralFromEdge);
       const f = this.frame(h.s + along, lat);
       h.boulders.push({ x: f.x, z: f.z, r, y: instant ? 0 : 14, obstacle: -1 });

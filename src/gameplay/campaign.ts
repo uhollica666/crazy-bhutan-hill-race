@@ -8,6 +8,7 @@ export function challengeTags(level: LevelDef): string[] {
   const first = level.conditions[0];
   if (first.time === 'night') tags.push('Night');
   else if (first.time === 'dusk') tags.push('Dusk');
+  if (first.time !== 'night' && level.weatherZones?.some((z) => z.time === 'night')) tags.push('Night');
   const weather: Record<string, string> = { rain: 'Rain', heavyRain: 'Storm', fog: 'Fog', snow: 'Snow', cloudy: '' };
   if (weather[first.weather]) tags.push(weather[first.weather]);
   if (level.startFuel <= 0.35) tags.push('Low fuel');

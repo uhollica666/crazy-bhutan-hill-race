@@ -26,7 +26,7 @@ export interface MissionSimOptions extends MissionDriverOptions {
   upgrades?: UpgradeLevels;
   maxSeconds?: number;
   /** Inspect every step (return false to stop). */
-  onStep?: (rt: MissionRuntime, t: number) => void;
+  onStep?: (rt: MissionRuntime, t: number, driver: MissionDriver, input: ReturnType<typeof createVehicleInput>) => void;
 }
 
 export interface MissionSimOutcome {
@@ -71,7 +71,8 @@ export function runMission(level: LevelDef, vehicleId: string, o: MissionSimOpti
     impacts++;
     maxImpact = Math.max(maxImpact, speed);
   });
-  const maxSeconds = o.maxSeconds ?? 420;
+  // The full-length routes run up to 25 minutes: allow the level's own limit plus a margin, never less than the old 7 minutes.
+  const maxSeconds = o.maxSeconds ?? Math.max(420, level.timeLimit * 1.3);
   while (t < maxSeconds && rt.session.isActive) {
     if (rt.session.phase === 'countdown') {
       input.steer = input.throttle = input.brake = 0;
@@ -81,9 +82,11 @@ export function runMission(level: LevelDef, vehicleId: string, o: MissionSimOpti
     rt.step(DT, input);
     t += DT;
     maxLateral = Math.max(maxLateral, Math.abs(rt.lateral));
-    if (o.onStep) o.onStep(rt, t);
+    if (o.onStep) o.onStep(rt, t, driver, input);
     const moving = rt.body.velocity.length() > 0.5;
-    const intentionallyStill = rt.stops.active !== null || rt.stops.gate?.state === 'active' || rt.session.unloadProgress > 0;
+    // Waiting is not being stuck when a scripted halt (a lorry checking its load, a queue) or a signal is holding the road ahead.
+    const heldAhead = !!rt.traffic?.cars.some((c) => c.alive && c.holding && c.s > rt.s - 5 && c.s < rt.s + 60);
+    const intentionallyStill = rt.stops.active !== null || rt.stops.gate?.state === 'active' || rt.session.unloadProgress > 0 || heldAhead;
     still = rt.session.phase === 'running' && !moving && !intentionallyStill ? still + DT : 0;
     if (still > 8) {
       stuck = true;

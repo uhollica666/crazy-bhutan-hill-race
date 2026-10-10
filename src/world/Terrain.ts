@@ -81,6 +81,7 @@ export class Terrain {
     let rd: Float32Array | null = null;
     let ry: Float32Array | null = null;
     let rid: Uint8Array | null = null;
+    let deckPending: Float32Array | null = null;
     if (rivers.length) {
       rd = new Float32Array(n).fill(999);
       ry = new Float32Array(n);
@@ -120,42 +121,13 @@ export class Terrain {
       const cnt = road.count;
       const f = new Float32Array(cnt);
       const near: RiverNearest = { d: 0, y: 0, river: -1 };
-      let any = false;
       for (let i = 0; i < cnt; i++) {
         nearestRiver(rivers, road.xs[i], road.zs[i], near);
         if (near.river < 0) continue;
         const r = rivers[near.river];
         f[i] = 1 - smoothstep(r.width / 2, r.width / 2 + r.bank, near.d);
-        if (f[i] > 0.01) any = true;
       }
-      if (any) {
-        this.deckF = f;
-        const pad = road.wallOffset + 6;
-        let start = -1;
-        let last = -1;
-        const close = (): void => {
-          if (start < 0) return;
-          let minX = Infinity;
-          let maxX = -Infinity;
-          let minZ = Infinity;
-          let maxZ = -Infinity;
-          for (let q = start; q <= last; q++) {
-            minX = Math.min(minX, road.xs[q]);
-            maxX = Math.max(maxX, road.xs[q]);
-            minZ = Math.min(minZ, road.zs[q]);
-            maxZ = Math.max(maxZ, road.zs[q]);
-          }
-          this.deckBoxes.push({ minX: minX - pad, maxX: maxX + pad, minZ: minZ - pad, maxZ: maxZ + pad });
-          start = -1;
-        };
-        for (let i = 0; i < cnt; i++) {
-          if (f[i] > 0.01) {
-            if (start < 0) start = i;
-            last = i;
-          } else if (start >= 0 && i - last > 4) close();
-        }
-        close();
-      }
+      deckPending = f;
     }
 
     const base = createRoadBase(def);
@@ -243,6 +215,53 @@ export class Terrain {
     }
     this.maxHeight = max;
     this.minHeight = min;
+    if (deckPending) {
+      // A road is on a deck wherever the carved bed is lower than the road surface, however far the river centre is: the distance
+      // weight alone leaves a deep gorge only partly bridged, with the bed (not the deck) under the wheels.
+      const f = deckPending;
+      const cnt = road.count;
+      let any = false;
+      for (let i = 0; i < cnt; i++) {
+        const drop = road.ys[i] - this.gridHeightAt(road.xs[i], road.zs[i]);
+        if (drop > 0.15) f[i] = Math.max(f[i], smoothstep(0.15, 0.6, drop));
+      }
+      // Bridge the small gaps where a single sample sits level with a shallow bed, so a deck never flickers off mid-span.
+      const wide = f.slice();
+      for (let i = 0; i < cnt; i++) {
+        let m = wide[i];
+        for (let q = Math.max(0, i - 8); q <= Math.min(cnt - 1, i + 8) && m < 1; q++) m = Math.max(m, wide[q]);
+        f[i] = m;
+        if (m > 0.01) any = true;
+      }
+        if (any) {
+          this.deckF = f;
+          const pad = road.wallOffset + 6;
+          let start = -1;
+          let last = -1;
+          const close = (): void => {
+            if (start < 0) return;
+            let minX = Infinity;
+            let maxX = -Infinity;
+            let minZ = Infinity;
+            let maxZ = -Infinity;
+            for (let q = start; q <= last; q++) {
+              minX = Math.min(minX, road.xs[q]);
+              maxX = Math.max(maxX, road.xs[q]);
+              minZ = Math.min(minZ, road.zs[q]);
+              maxZ = Math.max(maxZ, road.zs[q]);
+            }
+            this.deckBoxes.push({ minX: minX - pad, maxX: maxX + pad, minZ: minZ - pad, maxZ: maxZ + pad });
+            start = -1;
+          };
+          for (let i = 0; i < cnt; i++) {
+            if (f[i] > 0.01) {
+              if (start < 0) start = i;
+              last = i;
+            } else if (start >= 0 && i - last > 4) close();
+          }
+          close();
+        }
+    }
 
     for (let j = 0; j < this.nz; j++) {
       for (let i = 0; i < this.nx; i++) {

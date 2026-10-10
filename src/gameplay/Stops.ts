@@ -252,9 +252,9 @@ export class StopManager {
     return 'verified';
   }
 
-  /** Nearest optional pit stop ahead (for the "fuel stop ahead" hint). */
-  nextService(s: number): StopRuntime | null {
-    return this.stops.find((st) => st.def.kind === 'service' && st.s > s - STOP_RADIUS) ?? null;
+  /** Nearest optional pit stop ahead (for the "fuel stop ahead" hint), optionally one that offers a given service. */
+  nextService(s: number, kind?: ServiceKind): StopRuntime | null {
+    return this.stops.find((st) => st.def.kind === 'service' && st.s > s - STOP_RADIUS && (!kind || !st.def.services || st.def.services.includes(kind))) ?? null;
   }
 
   reset(): void {

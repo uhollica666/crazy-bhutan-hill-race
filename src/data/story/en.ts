@@ -73,10 +73,79 @@ export const EN: StoryBook = {
     },
   },
   levels: {
+    'pass-run': {
+      headline: 'The Sunrise Will Not Wait',
+      stamp: 'Mountain run',
+      quick: { problem: 'They slept through every alarm.', goal: 'Swap guests at the viewpoint, then reach the summit plaza.', challenge: 'A long climb: fuel, slow trucks, gravel, mud and ice.' },
+      ending: { done: 'They caught the sunrise. Wesley has forgiven the rooster.', failed: 'The sun came up without them. An earlier alarm, perhaps.' },
+      text: [
+        'Ingrid and Wesley booked the sunrise tour, then slept through three alarms, two wake-up calls and a very persistent rooster. Now the whole village is awake and the pass is a long way up.',
+        'Collect them in the village, pick up Fiona at the trailhead, let her off at the viewpoint cafe, take on Priya and carry on over the pass to the summit plaza. Top up at the service area: it is a long climb.',
+      ],
+      passengers: ['sunrise-hikers', 'backpacker', 'archery-fan'],
+      objectives: [
+        'Stop in each yellow zone: the village hotel, the trailhead lay-by and the viewpoint.',
+        'Drop Fiona off at the viewpoint cafe, then take Priya on board.',
+        'Refuel at the service area if you need to, and drive through every checkpoint.',
+        'Stop in the summit plaza so everyone can get out.',
+      ],
+      watchOut: [
+        'Slow trucks and cyclists share the road: overtake only when it is clear.',
+        'Gravel, mud and ice cut your grip. Brake before them, not on them.',
+        'The service area has fuel and a workshop; the viewpoint kiosk sells tea and fuel.',
+      ],
+    },
+    'thimphu-pickup': {
+      headline: 'The Group Chat Has Gone Quiet',
+      stamp: 'City run',
+      quick: { problem: 'The guests are scattered and the city is rush-hour busy.', goal: 'Collect and drop off guests, then reach Buddha Dordenma.', challenge: 'Police signals, crossings, queues and a steep finish climb.' },
+      ending: { done: 'The whole party stood beneath the Buddha, and dinner is still hot.', failed: 'The traffic won this time. Find a faster line through town.' },
+      text: [
+        'Dorji the tour guide has lost his group across Thimphu. A couple are at the Babesa guesthouse, a late guest is still in a hotel lobby, and Dorji himself is on a corner somewhere near the Clock Tower.',
+        'Drive through the residential lanes and the busy commercial streets, obey the officer at the junction, give way to people crossing, sit out the queue, drop Fiona at the Memorial Chorten, and then climb out of town to the Buddha Dordenma viewpoint at Kuenselphodrang.',
+      ],
+      passengers: ['honeymooners', 'backpacker', 'shopper'],
+      objectives: [
+        'Stop in each yellow zone: the Babesa guesthouse, the hotel entrance, the Memorial Chorten (a drop-off) and the tour guide.',
+        'Obey the traffic officer and give way at zebra crossings.',
+        'Refuel in town or at the viewpoint kiosk if you need to, and drive through every checkpoint.',
+        'Stop in the viewpoint plaza so everyone can get out.',
+      ],
+      watchOut: [
+        'Traffic stops for the officer and for pedestrians: so should you.',
+        'A queue and a delivery truck can block your lane for a while. Be patient.',
+        'The narrow residential lane has cars parked on both sides: take it slowly.',
+        'The climb after the city is steeper than it looks.',
+      ],
+    },
+    'airport-dash': {
+      headline: 'The Very Famous Mountain',
+      stamp: 'Airport transfer',
+      quick: { problem: 'The flight is closing and the group is still at the hotel.', goal: 'Load the tourists and reach Paro Airport before check-in closes.', challenge: 'A long highway, a narrow gorge, roadworks and slow trucks.' },
+      ending: { done: 'Checked in with minutes to spare, and the mountain waves goodbye.', failed: 'The plane left without them. Find a faster line.' },
+      text: [
+        'Three tourists have spent three hours photographing the same mountain. It has not changed. They are thrilled.',
+        'Their flight leaves from Paro, their luggage is in the hotel lobby, and a fourth guest is waiting at a bus stop on the way out of town. The Zangmo Express, a rival tour coach, left an hour ago with far calmer passengers.',
+        'Drive the Thimphu to Paro highway: the river road, the Chuzom confluence, the gorge, the roadworks and the open valley. Keep them comfortable, and stop at Departures before check-in closes.',
+      ],
+      passengers: ['photographers', 'shopper'],
+      objectives: [
+        'Collect the group (and their luggage) at the hotel entrance.',
+        'Pick up the late guest at the roadside bus stop.',
+        'Reach Departures and stop in the drop-off zone before check-in closes.',
+        'Optional: keep the ride smooth, use a fuel stop, and beat the Zangmo Express.',
+      ],
+      watchOut: [
+        'Slow trucks on the highway: overtake only when the road ahead is clear.',
+        'Rocks fall in the gorge and on the slopes near the confluence. Watch for the warning signs.',
+        'Roadworks mean gravel, potholes and wet asphalt. Slow down and pick a line.',
+        'Fog and rain can roll in. Hard braking and fast corners upset the passengers.',
+      ],
+    },
     'punakha-valley': {
       headline: 'Five Stars or Nothing',
       stamp: 'Scenic tour',
-      quick: { problem: 'Five guests, five ideas of the perfect day, and one very long valley.', goal: 'Run the tour, collect and drop off the groups, and reach the Punakha Dzong parking before the light goes.', challenge: 'Sudden rain, mud, a narrow bridge, a ford and farm traffic.' },
+      quick: { problem: 'Five guests, five ideas of the perfect day, and one very long valley.', goal: 'Run the tour and reach the Punakha Dzong before the light goes.', challenge: 'Sudden rain, mud, a narrow bridge, a ford and farm traffic.' },
       ending: { done: 'Two happy guests, one very good review, and the dzong glowing where the rivers meet.', failed: 'The light went before the dzong did. Find a faster line next time.' },
       text: [
         'The guesthouse review page is a battlefield. Five guests, five different ideas of the perfect day, and one of them has written "must see the dzong at golden hour" on a postcard and mailed it to themselves.',
@@ -100,7 +169,7 @@ export const EN: StoryBook = {
     'dochula-storm': {
       headline: 'The Storm Came Early',
       stamp: 'Storm descent',
-      quick: { problem: 'The guests stayed too long on the pass, and the storm did not wait.', goal: 'Collect the guests, shelter one visitor, give a stranded guest a lift, and reach the valley lodge.', challenge: 'Fog, rain, ice, a landslide, and brakes that fade on the long descent.' },
+      quick: { problem: 'The guests stayed too long on the pass, and the storm did not wait.', goal: 'Shelter one guest, rescue another, and reach the valley lodge.', challenge: 'Fog, rain, ice, a landslide, and brakes that fade on the long descent.' },
       ending: { done: 'Down at the lodge the guests cheered under the porch, and the storm finally began to clear.', failed: 'The storm got there first. Try a calmer line down.' },
       text: [
         'The 108 chortens were so beautiful that nobody noticed the weather. The coaches have gone, the stall owner is closing up, and a mountain storm is rolling in over the pass.',
@@ -124,7 +193,7 @@ export const EN: StoryBook = {
     'trongsa-gorge': {
       headline: 'The Road With the Drop',
       stamp: 'Gorge run',
-      quick: { problem: 'Tourists need Trongsa, and the only road is a ledge above a gorge.', goal: 'Run the gorge: collect, drop and collect again, then deliver the group to the Trongsa Dzong viewpoint.', challenge: 'Narrow cliffs, a one-lane bridge, rockfalls, brake fade and a rough climb.' },
+      quick: { problem: 'Tourists need Trongsa, and the only road is a ledge above a gorge.', goal: 'Run the gorge and deliver the group to the Trongsa Dzong.', challenge: 'Cliffs, a one-lane bridge, rockfalls, brake fade and a rough climb.' },
       ending: { done: 'The dzong came out of the cloud, the guests came out of the car, and nobody mentioned the cliff.', failed: 'The gorge won this time. Find a calmer line.' },
       text: [
         'The tourists have a booking at Trongsa, one of the great dzongs, and the road there is narrow, patched and not entirely sure it wants to be a road. It begins at a mountain lodge and winds along the high ridge, then clings to a cliff with the river a very long way below.',
@@ -148,7 +217,7 @@ export const EN: StoryBook = {
     'chelela-climb': {
       headline: 'It Is Only a Little Snow',
       stamp: 'High pass',
-      quick: { problem: 'The guests want Chele La, and the snow wants the road.', goal: 'Collect, drop and rescue guests on the way up, and reach the Chele La viewpoint before the weather closes in.', challenge: 'Frost, ice, packed snow and slush, fourteen hairpins, wind and fog.' },
+      quick: { problem: 'The guests want Chele La, and the snow wants the road.', goal: 'Rescue guests on the way up and reach Chele La before the weather.', challenge: 'Frost, ice, packed snow and slush, fourteen hairpins, wind and fog.' },
       ending: { done: 'The cloud opened, the prayer flags snapped in the wind, and the guests forgot to complain about the cold.', failed: 'The pass closed first. Try a gentler touch on the throttle.' },
       text: [
         'The Chele La pass is the highest road in Bhutan, and the guests are certain it will be lovely. It begins lovely: sunshine, tarmac, a lodge, a cup of tea. Then the forest closes in, the road tilts upward, and the first frost appears on the corners.',
@@ -172,7 +241,7 @@ export const EN: StoryBook = {
     'bumthang-night': {
       headline: 'Do Not Stop For The Lantern',
       stamp: 'Night run',
-      quick: { problem: 'They left Bumthang far too late, and the forest road is not empty.', goal: 'Drive the night road: collect, drop and rescue guests, and reach the mountain resort before midnight.', challenge: 'Darkness, fog, narrow bridges, fallen trees and things in the headlights.' },
+      quick: { problem: 'They left Bumthang far too late, and the forest road is not empty.', goal: 'Rescue the guests and reach the mountain resort before midnight.', challenge: 'Darkness, fog, narrow bridges, fallen trees and things in the lights.' },
       ending: { done: 'The resort lamps came up out of the fog, the guests cheered, and nobody mentioned the figure with the lantern.', failed: 'The forest got the better of the night. Try a steadier hand, and a closer look at the road.' },
       text: [
         'The honeymooners were told it was a short drive. The sun, which is the only reason the road looks friendly, was already going down when they left.',
@@ -196,7 +265,7 @@ export const EN: StoryBook = {
     'remote-expedition': {
       headline: 'The Bridge Is In The River',
       stamp: 'Expedition',
-      quick: { problem: 'The camp is at the end of a road that is mostly mud, and the bridge fell in.', goal: 'Collect the team, make the supply drops, rescue the stranded team, and reach the expedition camp.', challenge: 'Ruts and mud, two fords, rockfalls, brakes that fade and the rain getting worse.' },
+      quick: { problem: 'The camp is at the end of a muddy road, and the bridge fell in.', goal: 'Collect the team, rescue the stranded crew, and reach the camp.', challenge: 'Mud, fords, rockfalls, fading brakes and worsening rain.' },
       ending: { done: 'Tents, lamps, a campfire and a team that still has most of its gear. The expedition is on.', failed: 'The track won this time. Try a steadier line, and the right drivetrain.' },
       text: [
         'A documentary team has forty cases of gear, a deadline, and a camp at the end of a road that has been described, kindly, as "optional". The rains have come early, and the bridge has gone to join the river.',
@@ -220,7 +289,7 @@ export const EN: StoryBook = {
     'gmc-plains': {
       headline: 'The Last Manifest',
       stamp: 'The finale',
-      quick: { problem: 'A long list of guests, a very long road, and strangers who would love a lift.', goal: 'Collect the manifest guests, check the strangers\' IDs, make every drop-off, and reach the Gelephu arrival hall on time.', challenge: 'Everything: brake fade, landslides, mud, rivers, creatures, a monsoon, a fast highway and a busy town.' },
+      quick: { problem: 'A long guest list, a very long road, and strangers wanting a lift.', goal: 'Carry the manifest guests, check IDs and reach Gelephu on time.', challenge: 'Fading brakes, landslides, mud, rivers, creatures and a storm.' },
       ending: { done: 'The hall glowed at dusk, the flags snapped, the crowd cheered, and the manifest was complete. Ten missions, one kingdom: well driven.', failed: 'The road got the better of the plan. Check the manifest, mind the fuel, and try again.' },
       text: [
         'Gelephu Mindfulness City is hosting the arrival of its first great tourist group, and you have the manifest: the Dorji family, a late guest called Sonam, a film crew somewhere under a landslide, a medic, a pair of elderly Tsherings, Pema with the orange cap and a guide with a lanyard.',

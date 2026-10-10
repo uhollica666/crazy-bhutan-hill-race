@@ -17,7 +17,7 @@ const FINISH_OFFSET = 38;
 /** Fraction of the playable stretch (stops, hazards, checkpoints, puddles, roadside life, weather zones). */
 const at = (m: number): number => m / P;
 /** Fraction of the whole road (surfaces, width profile, landmarks, rivers, the ford). */
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const lodge = punakhaRange('lodge');
 const descent = punakhaRange('descent');

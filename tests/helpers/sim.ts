@@ -67,7 +67,8 @@ export function simulate(level: LevelDef, vehicleId: string, opts: SimOptions = 
   let maxImpact = 0;
   let overturned = false;
   let stuck = false;
-  const maxSeconds = opts.maxSeconds ?? 400;
+  // The full-length routes run up to 25 minutes against their own limit: allow that plus a margin.
+  const maxSeconds = opts.maxSeconds ?? Math.max(400, level.timeLimit * 1.3);
   while (t < maxSeconds && session.isActive) {
     if (session.phase === 'countdown') {
       input.steer = input.throttle = input.brake = 0;

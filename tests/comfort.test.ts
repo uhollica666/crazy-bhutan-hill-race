@@ -5,7 +5,9 @@ import { COUNTDOWN_SECONDS, RaceSession } from '../src/gameplay/RaceSession';
 import { finalMedal, medalFromComfort, medalFromTime, runScore, worseMedal } from '../src/gameplay/scoring';
 
 const airport = getLevel('airport-dash');
-const pass = getLevel('pass-run');
+// A time-only fixture: Pass Run without its comfort meter (every shipped mission now has one).
+const passRun = getLevel('pass-run');
+const pass = { ...passRun, mission: { ...passRun.mission, comfort: false } };
 
 /** Runs a constant acceleration profile for `seconds` at a given step size. */
 function drive(m: ComfortMeter, seconds: number, lat: number, long: number, dt: number): void {
@@ -171,7 +173,7 @@ describe('RaceSession comfort integration', () => {
 
   it('a timeout is a failed mission with no medal and no score', () => {
     const s = make();
-    for (let i = 0; i < 400; i++) s.update(1, 40, 0);
+    for (let i = 0; i < airport.timeLimit * 1.28 + 5; i++) s.update(1, 40, 0);
     expect(s.phase).toBe('failed');
     expect(s.result).toMatchObject({ status: 'timeout', medal: 'none', score: 0 });
   });

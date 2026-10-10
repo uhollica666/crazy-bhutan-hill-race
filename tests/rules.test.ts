@@ -7,8 +7,11 @@ import { readKeyboard } from '../src/input/keyboardMap';
 import { createVehicleInput } from '../src/physics/types';
 import { Course } from '../src/world/Course';
 import { createRoadHit } from '../src/world/Road';
+import { createGroundSample } from '../src/world/Terrain';
 
-const level = getLevel('pass-run');
+// A time-only fixture: Pass Run without its comfort meter, so these tests exercise pure time scoring.
+const passRun = getLevel('pass-run');
+const level = { ...passRun, mission: { ...passRun.mission, comfort: false } };
 const stations = { checkpointS: [100, 200, 300], finishS: 400, gateHalfWidth: 5 };
 const started = (): RaceSession => {
   const s = new RaceSession(level, stations, 30);
@@ -25,8 +28,8 @@ describe('definitions', () => {
       'airport-dash',
       'punakha-valley',
       'dochula-storm',
-      'chelela-climb',
       'trongsa-gorge',
+      'chelela-climb',
       'bumthang-night',
       'remote-expedition',
       'gmc-plains',
@@ -53,8 +56,10 @@ describe('definitions', () => {
     expect(getLevel('pass-run').unlock).toBeNull();
     expect(getLevel('thimphu-pickup').unlock).toEqual({ levelId: 'pass-run', requirement: 'finish' });
     expect(getLevel('airport-dash').unlock).toEqual({ levelId: 'pass-run', requirement: 'finish' });
-    expect(getLevel('chelela-climb').unlock).toEqual({ levelId: 'airport-dash', requirement: 'finish' });
-    expect(getLevel('remote-expedition').unlock).toEqual({ levelId: 'chelela-climb', requirement: 'finish' });
+    expect(getLevel('trongsa-gorge').unlock).toEqual({ levelId: 'dochula-storm', requirement: 'finish' });
+    expect(getLevel('chelela-climb').unlock).toEqual({ levelId: 'trongsa-gorge', requirement: 'finish' });
+    expect(getLevel('remote-expedition').unlock).toEqual({ levelId: 'bumthang-night', requirement: 'finish' });
+    expect(getLevel('gmc-plains').unlock).toEqual({ levelId: 'remote-expedition', requirement: 'finish' });
     expect(getVehicle('dzo-hatch').unlock).toBeNull();
     expect(getVehicle('dzo-hatch').price).toBe(0);
     expect(getVehicle('tourist-coaster').unlock).toEqual({ levelId: 'pass-run', requirement: 'finish' });
@@ -121,18 +126,22 @@ describe('level loading', () => {
       });
       it('terrain under the road matches the road surface and walls hold the car on the road', () => {
         const hit = createRoadHit();
+        const ground = createGroundSample();
         for (let s = 10; s < course.road.length - 10; s += 17) {
           const p = course.poseAt(s);
           course.road.project(p.x, p.z, hit);
           expect(Math.abs(hit.lateral)).toBeLessThan(0.1);
-          expect(Math.abs(course.terrain.heightAt(p.x, p.z) - p.y)).toBeLessThan(0.7);
+          // What the wheels drive on (terrain plus bridge decks and ford beds) matches the road surface.
+          course.ground(p.x, p.z, ground);
+          expect(Math.abs(ground.height - p.y)).toBeLessThan(0.7);
         }
         const p = course.poseAt(course.road.length / 2);
         const out = { depth: 0, nx: 0, nz: 0 };
         const rx = -p.tz;
         const rz = p.tx;
         expect(course.barrier(p.x, p.z, out)).toBe(false);
-        const edge = course.road.wallOffset + 0.5;
+        // Roads can be wider or narrower along their length: the wall sits at the local offset.
+        const edge = course.road.wallAtS(course.road.length / 2) + 0.5;
         expect(course.barrier(p.x + rx * edge, p.z + rz * edge, out)).toBe(true);
         expect(out.depth).toBeCloseTo(0.5, 1);
         expect(out.nx * rx + out.nz * rz).toBeLessThan(-0.9);

@@ -19,7 +19,7 @@ const FINISH_OFFSET = 40;
 /** Fraction of the playable stretch (stops, hazards, checkpoints, puddles, roadside life, weather zones, traffic). */
 const at = (m: number): number => m / P;
 /** Fraction of the whole road (surfaces, width profile, landmarks, rivers, fords). */
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const base = expeditionRange('base');
 const forest = expeditionRange('forest');
@@ -353,7 +353,7 @@ export const remoteExpedition: LevelDef = {
   description:
     'A documentary team, forty cases of gear and a tent that does not fit in the car have to reach a remote expedition camp. The tracks are mud, the highway is broken, the bridge is in the river, the mountain keeps dropping pieces of itself on the road, and the rains have come early. Technical driving, patience and the right drivetrain will get you there.',
   objective: 'Collect the team, make your supply drops, rescue the stranded team past the landslides, and bring everyone to the expedition camp.',
-  difficulty: 9,
+  difficulty: 5,
   region: 'Central & Eastern Bhutan',
   mission: { kind: 'expedition', party: 4, finishMode: 'stop', timerStyle: 'deadline', timerLabel: 'Daylight left', comfort: true },
   vehicles: ['druk-ranger', 'dragon-cruiser'],

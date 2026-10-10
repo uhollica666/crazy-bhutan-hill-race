@@ -14,7 +14,7 @@ const P = THIMPHU_LENGTH;
 const START_OFFSET = 30;
 const FINISH_OFFSET = 32;
 const at = (m: number): number => m / P;
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const babesa = thimphuRange('babesa');
 const residential = thimphuRange('residential');

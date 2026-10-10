@@ -25,7 +25,8 @@ describe('Stage 3 full missions: real pickups, fuel, traffic, hazards and delive
         expect(r.finished).toBe(true);
         expect(r.stuck).toBe(false);
         expect(r.overturned).toBe(false);
-        expect(r.onboard).toBe(r.runtime.stops.party);
+        // Everyone picked up is either still aboard or was dropped on the way.
+        expect(r.onboard + r.runtime.stops.alighted).toBe(r.runtime.stops.party);
         expect(r.result?.checkpoints).toBe(level.checkpoints.length);
         expect(r.result?.status).toBe('completed');
         expect(r.health).toBeGreaterThan(0);
@@ -57,7 +58,9 @@ describe('competent careful driving with full mission systems', () => {
 
 it('a fresh profile can complete the campaign after spending credits, using eligible loaners', () => {
   const store = new SaveStore(null);
-  for (const id of ['pass-run', 'thimphu-pickup', 'airport-dash', 'chelela-climb', 'remote-expedition']) {
+  // The whole campaign, in unlock order: each mission opens only when its prerequisite has really been finished.
+  const order = ['pass-run', 'thimphu-pickup', 'airport-dash', 'punakha-valley', 'dochula-storm', 'trongsa-gorge', 'chelela-climb', 'bumthang-night', 'remote-expedition', 'gmc-plains'];
+  for (const id of order) {
     const level = getLevel(id);
     expect(isLevelUnlocked(level, store.progress), id).toBe(true);
     const owned = availableVehicles(level, listVehicles(), store.garage.owned);
@@ -78,6 +81,6 @@ it('a fresh profile can complete the campaign after spending credits, using elig
     store.addCredits(reward.total);
     expect(store.spend(store.credits)).toBe(true); // no funds left for the next mission's vehicle
   }
-  expect(Object.keys(store.progress.levels)).toHaveLength(5);
+  expect(Object.keys(store.progress.levels)).toHaveLength(order.length);
   expect(store.garage.owned).toEqual(['dzo-hatch']); // borrowing never grants free ownership
 });

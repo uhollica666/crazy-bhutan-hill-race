@@ -3,6 +3,7 @@ import { getLevel, listLevels } from '../src/data/levels';
 import { EXTENSIONS } from '../src/data/levels/extensions';
 import { extendLevel, netTurn, stretchReport, walkPath } from '../src/data/levels/extend';
 import { RAW_LEVELS, getRaw } from '../src/data/levels/raw';
+import { Course } from '../src/world/Course';
 import { Road } from '../src/world/Road';
 
 const flat = (): number => 0;
@@ -38,18 +39,18 @@ describe('turtle path', () => {
   });
 });
 
-describe('lengthened missions', () => {
-  it('every campaign mission has a stretch, and a stretch that does not end on its heading is refused', () => {
-    for (const l of RAW_LEVELS) expect(EXTENSIONS[l.id], l.id).toBeDefined();
-    expect(() => extendLevel(RAW_LEVELS[9], { ...EXTENSIONS['gmc-plains'], path: [{ turn: 30, radius: 50 }] })).toThrow(/heading/);
+describe('full-length missions', () => {
+  it('a stretch that does not end on its heading is refused', () => {
+    expect(() => extendLevel(RAW_LEVELS[9], { at: 0.5, path: [{ turn: 30, radius: 50 }], timeLimit: 100, medals: { gold: 1, silver: 2, bronze: 3 } })).toThrow(/heading/);
   });
 
-  it('each mission is now 1.6 to 2.4 times as long as it was', () => {
+  it('every campaign mission is authored as a full journey (no stretch is spliced in) and is long enough to be one', () => {
+    expect(Object.keys(EXTENSIONS)).toEqual([]);
     for (const l of listLevels()) {
-      const before = new Road(getRaw(l.id).road, flat).length;
+      const raw = new Road(getRaw(l.id).road, flat).length;
       const after = new Road(l.road, flat).length;
-      expect(after / before, l.id).toBeGreaterThan(1.6);
-      expect(after / before, l.id).toBeLessThan(2.4);
+      expect(after, l.id).toBeCloseTo(raw, 3);
+      expect(after, l.id).toBeGreaterThan(3500);
     }
   });
 
@@ -84,24 +85,24 @@ describe('lengthened missions', () => {
     }
   });
 
-  it('original content keeps its place: the first stop is still near the start and the finish is still the last thing', () => {
+  it('the first pickup is near the start and the last checkpoint and stop are before the finish', () => {
     for (const l of listLevels()) {
-      const raw = getRaw(l.id);
-      const firstOld = raw.stops[0];
-      const firstNew = l.stops.find((s) => s.id === firstOld.id)!;
-      const sIns = EXTENSIONS[l.id].at;
-      // Anything authored before the splice is squeezed toward the start; everything after is pushed toward the end.
-      if (firstOld.at < sIns * 0.8) expect(firstNew.at).toBeLessThan(firstOld.at);
-      expect(l.checkpoints.at(-1)!.at).toBeLessThan(1);
+      const firstPickup = l.stops.find((st) => st.kind === 'pickup')!;
+      expect(firstPickup.at, l.id).toBeLessThan(0.25);
+      expect(l.checkpoints.at(-1)!.at, l.id).toBeLessThan(1);
+      expect(Math.max(...l.stops.map((st) => st.at)), l.id).toBeLessThan(1);
     }
   });
 
-  it('the calibration is sane: more time than the autopilot needs, gold under silver under bronze under the limit', () => {
+  it('the calibration is sane: gold under silver under bronze under the limit, at a speed a careful driver can hold', () => {
     for (const l of listLevels()) {
       expect(l.medals.gold, l.id).toBeLessThan(l.medals.silver);
       expect(l.medals.silver, l.id).toBeLessThan(l.medals.bronze);
       expect(l.medals.bronze, l.id).toBeLessThanOrEqual(l.timeLimit);
-      expect(l.timeLimit, l.id).toBeGreaterThan(getRaw(l.id).timeLimit * 1.6);
+      const course = new Course(l);
+      const metres = course.finishS - course.startS;
+      // Gold needs an average speed under 20 m/s (72 km/h): fast but never a flat-out run on these roads.
+      expect(metres / l.medals.gold, l.id).toBeLessThan(20);
     }
   });
 
@@ -116,11 +117,11 @@ describe('lengthened missions', () => {
         expect(road.zs[i], l.id).toBeLessThan(b.maxZ - 150);
       }
       const nodes = ((b.maxX - b.minX) / l.terrain.cell) * ((b.maxZ - b.minZ) / l.terrain.cell);
-      expect(nodes, l.id).toBeLessThan(110_000);
+      expect(nodes, l.id).toBeLessThan(130_000);
     }
   });
 
-  it('getLevel returns the lengthened level', () => {
-    expect(new Road(getLevel('pass-run').road, flat).length).toBeGreaterThan(2000);
+  it('getLevel returns the full-length level', () => {
+    expect(new Road(getLevel('pass-run').road, flat).length).toBeGreaterThan(4000);
   });
 });

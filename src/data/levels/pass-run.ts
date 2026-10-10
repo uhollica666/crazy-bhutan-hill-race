@@ -1,4 +1,5 @@
 import type { HazardDef, LandmarkDef, LevelDef, PuddleDef, RoadPointDef, RoadsideDef, StopDef, SurfaceId } from '../types';
+import { createRoadBase } from '../../world/Terrain';
 import { walkPath } from './extend';
 import { PASS_RUN_PATH, PASS_RUN_LENGTH, sectionRange } from './passRunPath';
 
@@ -15,7 +16,7 @@ const FINISH_OFFSET = 38;
 /** Fraction of the playable stretch (stops, hazards, checkpoints, puddles, roadside life). */
 const at = (m: number): number => m / P;
 /** Fraction of the whole road (surfaces, width profile, landmarks). */
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const TERRAIN_SLOPE = 0.056;
 const bump = (m: number, from: number, to: number): number => {
@@ -25,7 +26,15 @@ const bump = (m: number, from: number, to: number): number => {
 };
 
 /** Designed altitude relief on top of the terrain's own climb: a rolling valley, a forest dip, a real descent into the rough valley. */
-const relief = (m: number): number => 3.2 * Math.sin(m / 170) * (m < 1000 ? 1 : 0) - 8 * bump(m, 1230, 1480) - 22 * bump(m, 2900, 3300) - 6 * bump(m, 3980, 4120);
+const relief = (m: number): number => 3.2 * Math.sin(m / 170) * (m < 1000 ? 1 : 0) - 8 * bump(m, 1230, 1480) - 16 * bump(m, 2900, 3300) - 6 * bump(m, 3980, 4120);
+
+/** The terrain's own large-scale relief, which the road follows; the start is levelled against it so the first hundred metres are not a hill. */
+const BASE = createRoadBase({ seed: 7, slope: TERRAIN_SLOPE, hillHeight: 20, valleyZ: 150, valleyDepth: 36 } as LevelDef['terrain']);
+const smooth = (a: number, b: number, v: number): number => {
+  const t = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+const LEVEL_START_Y = BASE(0, START_OFFSET);
 
 function buildRoad(): { points: RoadPointDef[]; bounds: LevelDef['terrain']['bounds'] } {
   const w = walkPath({ x: 0, z: START_OFFSET }, { x: 0, z: -1 }, PASS_RUN_PATH);
@@ -34,7 +43,9 @@ function buildRoad(): { points: RoadPointDef[]; bounds: LevelDef['terrain']['bou
   let m = -START_OFFSET;
   for (let i = 0; i < raw.length; i++) {
     if (i > 0) m += Math.hypot(raw[i].x - raw[i - 1].x, raw[i].z - raw[i - 1].z);
-    points.push({ x: raw[i].x, z: raw[i].z, dy: relief(m) });
+    // Level the opening against the natural relief (full at the start line, gone by 450 m) so the first climb is gradual.
+    const level = (1 - smooth(60, 450, m)) * (LEVEL_START_Y - BASE(raw[i].x, raw[i].z));
+    points.push({ x: raw[i].x, z: raw[i].z, dy: relief(m) + level });
   }
   const xs = raw.map((p) => p.x);
   const zs = raw.map((p) => p.z);
@@ -253,7 +264,7 @@ export const passRun: LevelDef = {
   terrain: {
     seed: 7,
     bounds: road.bounds,
-    cell: 5,
+    cell: 7,
     slope: TERRAIN_SLOPE,
     hillHeight: 20,
     detailHeight: 7,

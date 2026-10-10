@@ -441,7 +441,7 @@ export class TrafficSystem {
       const dz = ob.zs[i] - car.z;
       const along = dx * hx + dz * hz;
       const across = Math.abs(-dx * hz + dz * hx);
-      if (along > 0 && along < 30 && across < ob.rs[i] + 1.5) {
+      if (along > 0 && along < 30 && across < ob.rs[i] + 1.0) {
         const g = along - ob.rs[i] - 2.2;
         if (g < gap) {
           gap = g;

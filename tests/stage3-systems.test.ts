@@ -24,7 +24,8 @@ describe('fuel, condition and services', () => {
   it('required tourists cannot board out of route order', () => {
     const st = new StopManager(getLevel('thimphu-pickup'), (f) => f * 1000);
     const status = new VehicleStatus(ranger);
-    const pickups = st.stops.filter((x) => x.def.kind === 'pickup' && !x.def.optional);
+    // Every required stop (pickups and the drop-offs between them) is a gate that must be cleared in route order.
+    const pickups = st.stops.filter((x) => x.def.kind !== 'service' && !x.def.optional);
     expect(pickups.length).toBeGreaterThan(1);
     const last = pickups[pickups.length - 1];
     st.update(5, last.s, 0, 0, status, 5, null);
@@ -36,7 +37,8 @@ describe('fuel, condition and services', () => {
       expect(pickup.state).toBe('done');
     }
     expect(st.requiredDone).toBe(true);
-    expect(st.onboard).toBe(st.party);
+    // Everyone who boarded is either still aboard or was dropped on the way.
+    expect(st.onboard + st.alighted).toBe(st.party);
   });
   it('fuel consumption is independent of step frequency and stops at zero', () => {
     const burn = (hz: number) => {
@@ -69,7 +71,9 @@ describe('fuel, condition and services', () => {
     expect(st.onboard).toBe(0);
     expect(st.gateS()).toBeLessThan(Infinity);
     st.update(BOARD_SECONDS + 0.1, gate.s, 0, 0, s, 5, null);
-    expect(st.requiredDone).toBe(true);
+    expect(gate.state).toBe('done');
+    expect(st.onboard).toBe(gate.def.party);
+    expect(st.gate).not.toBe(gate); // the next required stop is now the gate
     const party = st.onboard;
     st.update(10, gate.s, 0, 0, s, 5, null);
     expect(st.onboard).toBe(party);
@@ -79,7 +83,8 @@ describe('fuel, condition and services', () => {
   });
   it('service requires a stationary car in the zone, cancels on exit and cannot count a full tank twice', () => {
     const st = new StopManager(getLevel('airport-dash'), (f) => f * 1000);
-    const pump = st.stops.find((x) => x.def.kind === 'service')!;
+    const pump = st.stops.find((x) => x.def.kind === 'service' && x.def.services?.includes('refuel'))!;
+    const workshop = st.stops.find((x) => x.def.kind === 'service' && x.def.services?.includes('repair'))!;
     const s = new VehicleStatus(ranger, 0.1);
     for (const [pos, lateral, speed] of [
       [pump.s + 20, 0, 0],
@@ -99,7 +104,7 @@ describe('fuel, condition and services', () => {
     st.update(10, pump.s, 0, 0, s, 5, 'refuel');
     expect(s.servicesUsed).toBe(1);
     s.health = 20;
-    st.update(10, pump.s, 0, 0, s, 5, 'repair');
+    st.update(10, workshop.s, 0, 0, s, 5, 'repair');
     expect(s.health).toBe(100);
     expect(s.servicesUsed).toBe(2);
   });

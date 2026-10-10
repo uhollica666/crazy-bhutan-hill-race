@@ -16,7 +16,7 @@ const FINISH_OFFSET = 36;
 /** Fraction of the playable stretch (stops, hazards, checkpoints, puddles, roadside life, weather zones, traffic). */
 const at = (m: number): number => m / P;
 /** Fraction of the whole road (surfaces, width profile, landmarks, rivers). */
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const departure = trongsaRange('departure');
 const traverse = trongsaRange('traverse');

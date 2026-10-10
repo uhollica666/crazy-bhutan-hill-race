@@ -19,7 +19,7 @@ const FINISH_OFFSET = 40;
 /** Fraction of the playable stretch (stops, hazards, checkpoints, puddles, roadside life, weather zones, traffic). */
 const at = (m: number): number => m / P;
 /** Fraction of the whole road (surfaces, width profile, landmarks). */
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const foothill = chelelaRange('foothill');
 const forest = chelelaRange('forest');
@@ -81,6 +81,8 @@ const stops: StopDef[] = [
   { id: 'shelter', kind: 'dropoff', at: at(traction.from + 120), label: 'Mountain shelter (hot tea)', side: 1, party: 1, optional: false, who: 'photographers', farewell: 'I am staying in the shelter. The tea is hot, and so is my opinion of this road.' },
   { id: 'shelter-tea', kind: 'service', at: at(traction.from + 178), label: 'Shelter tea counter (fuel can)', side: 1, services: ['refuel'], optional: true, variant: 'kiosk' },
   { id: 'ridge-kiosk', kind: 'service', at: at(ridge.from + 62), label: 'Ridge kiosk (emergency fuel)', side: -1, services: ['refuel'], optional: true, variant: 'kiosk' },
+  // The last long climb burns a tank in about three kilometres in 4x4: one more can of fuel before the summit viewpoint.
+  { id: 'summit-tea', kind: 'service', at: at(summit.from + 850), label: 'Summit tea house (fuel can)', side: 1, services: ['refuel'], optional: true, variant: 'kiosk' },
 ];
 
 // ---------------------------------------------------------------------------------------------- hazards

@@ -22,7 +22,7 @@ const FINISH_OFFSET = 40;
 /** Fraction of the playable stretch (stops, hazards, checkpoints, puddles, roadside life, weather zones, traffic). */
 const at = (m: number): number => m / P;
 /** Fraction of the whole road (surfaces, width profile, landmarks, rivers, fords). */
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const depart = gmcRange('depart');
 const descent = gmcRange('descent');
@@ -445,7 +445,7 @@ export const gmcPlains: LevelDef = {
   description:
     'The final assignment: bring a manifest of guests from a southern mountain lodge to the Gelephu Mindfulness City arrival hall, over everything the kingdom can throw at a car: a brake-cooking descent, landslides, mud, four rivers, bears and worse, a monsoon storm, a fast highway and a very busy town. Not everyone waving at the roadside is on the list. Check their ID.',
   objective: 'Collect the manifest guests in order, check the strangers\' IDs, make every drop-off and bring the last guests to the Gelephu arrival hall before the deadline.',
-  difficulty: 10,
+  difficulty: 5,
   region: 'Southern Plains',
   mission: { kind: 'tour', party: 5, finishMode: 'stop', timerStyle: 'deadline', timerLabel: 'Arrival deadline', comfort: true },
   vehicles: ['druk-ranger', 'dragon-cruiser'],

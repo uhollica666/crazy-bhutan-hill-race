@@ -18,7 +18,7 @@ const FINISH_OFFSET = 36;
 /** Fraction of the playable stretch (stops, hazards, checkpoints, puddles, roadside life, weather zones, traffic). */
 const at = (m: number): number => m / P;
 /** Fraction of the whole road (surfaces, width profile, landmarks, rivers). */
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const town = bumthangRange('town');
 const forest = bumthangRange('forest');
@@ -290,7 +290,7 @@ export const bumthangNight: LevelDef = {
   description:
     'A group of tourists left it too late to leave Bumthang. Now the sun is going down on a long, lonely forest road: unlit bridges, fog in the settlements, animals in the headlights, and some things in the headlights that are not animals. Your lamps show about forty metres. Make them count.',
   objective: 'Collect the guests in town, give a lost hiker a lift home, rescue the stranded film crew, drop the guests at the guesthouse, and bring the rest to the mountain resort.',
-  difficulty: 8,
+  difficulty: 5,
   region: 'Central & Eastern Bhutan',
   mission: { kind: 'night', party: 4, finishMode: 'stop', timerStyle: 'deadline', timerLabel: 'Before midnight', comfort: true },
   vehicles: ['tourist-coaster', 'druk-ranger', 'dragon-cruiser'],

@@ -50,8 +50,15 @@ describe('the ten-level arcade campaign', () => {
       expect(cps.every((f) => f > 0 && f < 1), l.id).toBe(true);
       for (const s of l.stops) expect(s.at > 0 && s.at < 1, `${l.id}/${s.id}`).toBe(true);
       for (const h of l.hazards) expect(h.at > 0 && h.at < 1, `${l.id}/${h.id}`).toBe(true);
-      const party = l.stops.filter((s) => s.kind === 'pickup').reduce((n, s) => n + (s.party ?? 0), 0);
-      expect(party, l.id).toBe(l.mission.party);
+      // `mission.party` is the most guests aboard at once (seats needed): pickups add, drop-offs subtract, in route order, impostors excluded.
+      let aboard = 0;
+      let peak = 0;
+      for (const s of [...l.stops].sort((a, b) => a.at - b.at)) {
+        if (s.kind === 'pickup' && !s.fake) aboard += s.party ?? 0; // impostors are not part of the party
+        else if (s.kind === 'dropoff') aboard -= s.party ?? 0;
+        peak = Math.max(peak, aboard);
+      }
+      expect(peak, l.id).toBe(l.mission.party);
       expect(l.vehicles.every((id) => !!getVehicle(id)), l.id).toBe(true);
       // At least one allowed vehicle seats the party.
       expect(l.vehicles.some((id) => getVehicle(id).capacity >= l.mission.party), l.id).toBe(true);
@@ -91,15 +98,17 @@ describe('the ten-level arcade campaign', () => {
       const driveable = l.vehicles.filter((id) => getVehicle(id).capacity >= l.mission.party);
       expect(driveable.length, l.id).toBeGreaterThan(0);
     }
-    // The starter can drive at least five missions itself; the rest are covered by a studio loaner.
+    // The starter can drive at least five missions itself (the off-road finale levels need a 4x4); the rest are covered by a studio loaner.
     const starterCan = levels.filter((l) => l.vehicles.includes('dzo-hatch') && getVehicle('dzo-hatch').capacity >= l.mission.party);
-    expect(starterCan.length).toBeGreaterThanOrEqual(6);
+    expect(starterCan.length).toBeGreaterThanOrEqual(5);
   });
 
   it('terrain drop-offs fall away on the requested side only', () => {
-    const l = getLevel('trongsa-gorge');
+    // The routes now carve their cliffs with the road's own elevation, so exercise the terrain's one-sided drop on a copy of the gorge.
+    const base = getLevel('trongsa-gorge');
+    const l = { ...base, terrain: { ...base.terrain, drop: { start: 8, width: 14, depth: 60, side: -1 as const } } };
     const c = new Course(l);
-    const p = c.poseAt(c.startS + (c.finishS - c.startS) * 0.4);
+    const p = c.poseAt(c.startS + (c.finishS - c.startS) * 0.2);
     const rx = -p.tz;
     const rz = p.tx;
     const side = l.terrain.drop!.side!;
@@ -117,8 +126,9 @@ describe('the ten-level arcade campaign', () => {
     expect(storm.road.at(storm.finishS, { x: 0, y: 0, z: 0, tx: 0, tz: 0 }).y).toBeLessThan(
       storm.road.at(storm.startS, { x: 0, y: 0, z: 0, tx: 0, tz: 0 }).y - 40,
     );
-    expect(getLevel('bumthang-night').conditions[0].time).toBe('night');
-    expect(getLevel('dochula-storm').conditions[0].weather).toBe('heavyRain');
+    expect(getLevel('bumthang-night').conditions[0].time).toBe('dusk');
+    expect(getLevel('bumthang-night').weatherZones?.some((z) => z.time === 'night')).toBe(true);
+    expect(getLevel('dochula-storm').weatherZones?.some((z) => z.weather === 'heavyRain')).toBe(true);
   });
 });
 
@@ -127,9 +137,9 @@ describe('campaign progress helpers', () => {
     const groups = groupByRegion(levels);
     expect(groups.map((g) => g.name)).toEqual(['Paro & Thimphu', 'Punakha Valley', 'Mountain Passes', 'Central & Eastern Bhutan', 'Southern Plains']);
     expect(groups.reduce((n, g) => n + g.levels.length, 0)).toBe(10);
-    expect(challengeTags(getLevel('bumthang-night'))).toEqual(expect.arrayContaining(['Night', 'Low fuel']));
+    expect(challengeTags(getLevel('bumthang-night'))).toEqual(expect.arrayContaining(['Dusk', 'Night']));
     expect(challengeTags(getLevel('remote-expedition'))).toEqual(expect.arrayContaining(['River ford', 'Off-road']));
-    expect(challengeTags(getLevel('gmc-plains'))).toEqual(expect.arrayContaining(['Closed course', 'Rival']));
+    expect(challengeTags(getLevel('gmc-plains'))).toEqual(expect.arrayContaining(['River ford', 'Off-road']));
     for (const l of levels) expect(challengeTags(l).length, l.id).toBeLessThanOrEqual(4);
   });
 
@@ -160,7 +170,7 @@ describe('campaign progress helpers', () => {
 
   it('level unlocks follow the saved progress for all ten missions', () => {
     const s = new SaveStore(fake());
-    const order = ['pass-run', 'thimphu-pickup', 'airport-dash', 'punakha-valley', 'dochula-storm', 'chelela-climb', 'trongsa-gorge', 'bumthang-night', 'remote-expedition', 'gmc-plains'];
+    const order = ['pass-run', 'thimphu-pickup', 'airport-dash', 'punakha-valley', 'dochula-storm', 'trongsa-gorge', 'chelela-climb', 'bumthang-night', 'remote-expedition', 'gmc-plains'];
     for (const id of order) {
       expect(isLevelUnlocked(getLevel(id), s.progress), `${id} unlocked before finishing its prerequisite`).toBe(true);
       s.recordCompletion({ levelId: id, vehicleId: 'dzo-hatch', time: 100, medal: 'bronze', score: 10, comfort: null });

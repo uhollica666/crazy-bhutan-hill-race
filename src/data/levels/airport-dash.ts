@@ -14,7 +14,7 @@ const P = AIRPORT_LENGTH;
 const START_OFFSET = 30;
 const FINISH_OFFSET = 36;
 const at = (m: number): number => m / P;
-const whole = (m: number): number => (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET);
+const whole = (m: number): number => Math.min(1, (START_OFFSET + m) / (P + START_OFFSET + FINISH_OFFSET));
 
 const hotel = airportRange('hotel');
 const exit = airportRange('exit');
@@ -269,7 +269,7 @@ export const airportDash: LevelDef = {
   startFuel: 0.6,
   reward: 420,
   stops,
-  hazards,
+  hazards: [...hazards].sort((a, b) => a.at - b.at),
   traffic: {
     count: 9,
     speed: [13, 19],
@@ -319,7 +319,7 @@ export const airportDash: LevelDef = {
   terrain: {
     seed: 31,
     bounds: road.bounds,
-    cell: 6,
+    cell: 8,
     slope: 0,
     hillHeight: 9,
     detailHeight: 3,

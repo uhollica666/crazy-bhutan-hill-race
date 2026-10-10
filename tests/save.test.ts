@@ -401,7 +401,14 @@ describe('progression', () => {
     expect(newlyUnlocked(levels, vehicles, mid, s.progress)).toEqual({ levels: [], vehicles: [] });
 
     s.recordCompletion(run('airport-dash', 'tourist-coaster', 120, 'bronze', 60));
-    expect(isLevelUnlocked(levels.find((l) => l.id === 'chelela-climb') as (typeof levels)[number], s.progress)).toBe(true);
+    const chelela = levels.find((l) => l.id === 'chelela-climb') as (typeof levels)[number];
+    // The airport run is a side branch: the climb opens only at the end of the main chain (Thimphu, Punakha, Dochula, Trongsa).
+    expect(isLevelUnlocked(chelela, s.progress)).toBe(false);
+    for (const id of ['thimphu-pickup', 'punakha-valley', 'dochula-storm', 'trongsa-gorge']) {
+      expect(isLevelUnlocked(levels.find((l) => l.id === id) as (typeof levels)[number], s.progress), id).toBe(true);
+      s.recordCompletion(run(id, 'dzo-hatch', 100, 'bronze'));
+    }
+    expect(isLevelUnlocked(chelela, s.progress)).toBe(true);
   });
 
   it('available is not owned: buying needs both the unlock and the credits', () => {
@@ -447,7 +454,9 @@ describe('progression', () => {
     expect(availableVehicles(airport, vehicles, owned).map((v) => v.id)).toEqual(['druk-ranger']);
     // The ten-level campaign always has something a starter-only player can drive: Pass Run, Thimphu, Punakha...
     const starterLevels = levels.filter((l) => availableVehicles(l, vehicles, starter).length > 0).map((l) => l.id);
-    expect(starterLevels).toEqual(expect.arrayContaining(['pass-run', 'thimphu-pickup', 'punakha-valley', 'gmc-plains']));
+    expect(starterLevels).toEqual(expect.arrayContaining(['pass-run', 'thimphu-pickup', 'punakha-valley']));
+    // The two off-road finale missions need a 4x4: a starter-only player gets a loaner there.
+    expect(starterLevels).not.toContain('gmc-plains');
     // Nothing owned fits (starter only): the caller provides a loaner rather than blocking the mission.
     expect(availableVehicles(airport, vehicles, starter)).toEqual([]);
   });
@@ -466,6 +475,10 @@ describe('progression', () => {
       levels: {
         'pass-run': { completions: 1, medal: 'none' as const, vehicles: {} },
         'airport-dash': { completions: 1, medal: 'none' as const, vehicles: {} },
+        'thimphu-pickup': { completions: 1, medal: 'none' as const, vehicles: {} },
+        'punakha-valley': { completions: 1, medal: 'none' as const, vehicles: {} },
+        'dochula-storm': { completions: 1, medal: 'none' as const, vehicles: {} },
+        'trongsa-gorge': { completions: 1, medal: 'none' as const, vehicles: {} },
       },
     };
     const owned = [STARTER_VEHICLE, 'druk-ranger', 'tourist-coaster'];

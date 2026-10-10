@@ -1,11 +1,11 @@
-import { CanvasTexture, Color, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3 } from 'three';
+import { Color, DataTexture, InstancedMesh, LinearFilter, Matrix4, MeshBasicMaterial, PlaneGeometry, Quaternion, RGBAFormat, UnsignedByteType, Vector3 } from 'three';
 import type { Course } from '../world/Course';
 import { mulberry32, smoothstep } from '../core/math';
 
 /** Broad, feathered wisps; world anchored and depth tested, never an opaque weather wall. */
 export class MistField {
   readonly mesh:InstancedMesh;
-  private readonly texture:CanvasTexture;
+  private readonly texture:DataTexture;
   private readonly material:MeshBasicMaterial;
   private readonly seeds:{x:number;z:number;y:number;w:number;h:number;phase:number}[]=[];
   private count=48;
@@ -14,15 +14,15 @@ export class MistField {
   private readonly scale=new Vector3();
   private readonly rotation=new Quaternion();
   constructor(private readonly course:Course){
-    const c=document.createElement('canvas');c.width=c.height=128;const ctx=c.getContext('2d')!;
-    const data=ctx.createImageData(128,128);
+    // Built straight into a pixel buffer (no canvas), so the field also constructs where there is no DOM (tests, workers).
+    const data={data:new Uint8Array(128*128*4)};
     for(let y=0;y<128;y++)for(let x=0;x<128;x++){
       const nx=(x-64)/64,ny=(y-64)/64,r=Math.sqrt(nx*nx+ny*ny);
       const feather=Math.pow(Math.max(0,1-r*r),3);
       const grain=0.7+0.15*Math.sin(x*0.11+Math.sin(y*0.07)*2)+0.15*Math.cos(y*0.13-x*0.05);
       const k=(x+y*128)*4;data.data[k]=data.data[k+1]=data.data[k+2]=255;data.data[k+3]=255*feather*grain;
     }
-    ctx.putImageData(data,0,0);this.texture=new CanvasTexture(c);
+    this.texture=new DataTexture(data.data,128,128,RGBAFormat,UnsignedByteType);this.texture.magFilter=this.texture.minFilter=LinearFilter;this.texture.generateMipmaps=false;this.texture.needsUpdate=true;
     this.material=new MeshBasicMaterial({map:this.texture,transparent:true,opacity:0.06,depthWrite:false,fog:false});
     this.mesh=new InstancedMesh(new PlaneGeometry(1,1),this.material,128);this.mesh.name='drifting-mist';this.mesh.frustumCulled=false;this.mesh.renderOrder=3;
     const rng=mulberry32(course.level.scenery.seed+991);

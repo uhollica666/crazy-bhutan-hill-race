@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { listLevels } from '../src/data/levels';
 import { MEDAL_RANK } from '../src/gameplay/scoring';
+import { getVehicle } from '../src/data/vehicles';
+import { runMission } from './helpers/mission';
 import { simulate } from './helpers/sim';
 import type { SimOptions } from './helpers/sim';
 
@@ -48,23 +50,24 @@ describe('every level is completable by every eligible vehicle', () => {
 
 describe('Airport Dash balances speed against passenger comfort', () => {
   const airport = listLevels().find((l) => l.id === 'airport-dash')!;
+  // The airport run is a whole mission now (hotel pickup, late guest, fuel stops), so these use the mission autopilot, which
+  // includes the time the stops take, rather than the bare-road sim.
+  const style = (o: SimOptions) => ({ cornerAccel: o.cornerAccel, style: { maxBrake: o.maxBrake, brakeDecel: o.brakeDecel } });
+  const flatOutAccel = (v: string): number => 0.5 * getVehicle(v).grip.lateral * getVehicle(v).gravity; // the tyres' limit, ignoring the passengers
+
   it('flat-out driving is quicker but ruins the ride, and loses to a tidy brisk drive', () => {
     for (const v of airport.vehicles) {
-      const fast = simulate(airport, v, STYLES.flatOut).result!;
-      const tidy = simulate(airport, v, STYLES.brisk).result!;
-      expect(fast.time).toBeLessThan(tidy.time);
-      expect(fast.comfort!).toBeLessThan(tidy.comfort! - 10);
-      expect(rank(tidy.medal)).toBeGreaterThan(rank(fast.medal));
-      expect(tidy.score).toBeGreaterThan(0);
+      const fast = runMission(airport, v, { traffic: false, cornerAccel: flatOutAccel(v) }).result!;
+      const tidy = runMission(airport, v, { traffic: false, ...style(STYLES.brisk) }).result!;
+      expect(fast.time, v).toBeLessThan(tidy.time);
+      expect(fast.comfort!, v).toBeLessThan(tidy.comfort! - 10);
+      expect(rank(tidy.medal), v).toBeGreaterThan(rank(fast.medal));
+      expect(tidy.score, v).toBeGreaterThan(0);
     }
   });
 
   it('an extremely slow crawl still cannot get gold (it misses the time target)', () => {
-    const crawl = simulate(airport, 'druk-ranger', {
-      cornerAccel: 2.5,
-      maxBrake: 0.3,
-      brakeDecel: 3,
-    }).result!;
+    const crawl = runMission(airport, 'druk-ranger', { traffic: false, cornerAccel: 1.6, style: { maxBrake: 0.3, brakeDecel: 3 } }).result!;
     expect(crawl.comfort!).toBeGreaterThan(95);
     expect(rank(crawl.medal)).toBeLessThan(3);
   });
