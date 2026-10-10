@@ -25,7 +25,7 @@ const save = JSON.stringify({
   stats: { missionsPlayed: 0, creditsEarned: 0 },
 });
 
-const errors=[];
+const errors=[],routeSnapshots={};
 const browser = await chromium.launch({
   channel: 'chrome',
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
@@ -68,7 +68,7 @@ for (const level of ALL) {
   await page.waitForSelector('#btn-start', { state: 'visible' });
   await toGarage(level);
   const nCond = Math.min(1, await page.evaluate(() => document.querySelector('#sel-cond')?.options.length ?? 1));
-  for (let c = 0; c < nCond; c++) {
+  for (let c = Number(process.env.CONDITION??0); c < Number(process.env.CONDITION??0)+nCond; c++) {
     if (c > 0) {
       await page.evaluate((i) => {
         const sel = document.querySelector('#sel-cond');
@@ -79,15 +79,22 @@ for (const level of ALL) {
     }
     await page.evaluate(() => document.querySelector('#btn-launch').click());
     await page.waitForTimeout(2500);
+    await page.waitForFunction(()=>window.__cbhr?.state().phase==='running',undefined,{timeout:120000});
     console.log('LAUNCH',JSON.stringify(await state()));
     await page.screenshot({ timeout:60000,path:`${out}/${level}-launch.png`});
     if((await state()).flow!=='playing'){console.log(await page.locator('body').innerText());break;}
     const info = await course();
     const span = info.finishS - info.startS;
-    await page.evaluate((s) => window.__cbhr.warp(s), level==='thimphu-pickup'?90:info.startS+span*0.3);
+    await page.evaluate((s) => window.__cbhr.warp(s), process.env.WARP?Number(process.env.WARP):level==='thimphu-pickup'?info.startS+span*0.63:info.startS+span*0.3);
     await page.waitForTimeout(900);
-    const s = await state();
+    const s = await state();routeSnapshots[level]=s;
     await page.screenshot({ timeout:60000, path: `${out}/${level}-${s.weather}-${s.time_of_day}.png` });
+    for(const distance of (process.env.WAYPOINTS??'').split(',').filter(Boolean).map(Number)){
+      await page.evaluate(distance=>window.__cbhr.warp(distance),distance);
+      await page.waitForTimeout(1500);
+      routeSnapshots[`${level}@${distance}`]=await state();
+      await page.screenshot({timeout:60000,path:`${out}/${level}-${distance}.png`});
+    }
     // Pause menu -> back to garage keeps the same level loaded.
     await page.keyboard.press('Escape');
     await page.evaluate(() => document.querySelector('#btn-pause-garage').click());
@@ -98,6 +105,6 @@ for (const level of ALL) {
   await page.evaluate(() => document.querySelector('#btn-levels-back')?.click());
   await page.waitForTimeout(300);
 }
-writeFileSync(`${out}/runtime-report.json`,JSON.stringify({errors,qualitySnapshots},null,2));
+writeFileSync(`${out}/runtime-report.json`,JSON.stringify({errors,qualitySnapshots,routeSnapshots},null,2));
 await browser.close();
 console.log('done', out, errors);

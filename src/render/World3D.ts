@@ -2,6 +2,7 @@ import { Group, Mesh, MeshStandardMaterial } from 'three';
 import type { Material, Scene, Vector3, Texture } from 'three';
 import type { Course } from '../world/Course';
 import type { TimeOfDay, WeatherKind } from '../data/types';
+import { CitySettlement } from './CitySettlement';
 import { Environment } from './Environment';
 import { Gates } from './Gates';
 import { Scenery } from './Scenery';
@@ -17,6 +18,7 @@ export class World3D {
   readonly gates: Gates;
   private readonly terrain: Group;
   private rivers: RiverMesh | null = null;
+  private settlement:CitySettlement|null=null;
   private lastTime = -1;
   private readonly relief = new WeakMap<MeshStandardMaterial, {bump:Texture|null; rough:Texture|null}>();
 
@@ -42,6 +44,7 @@ export class World3D {
     if (puddles) this.root.add(puddles);
     this.scenery = new Scenery(course, quality.propDensity, quality.windSway);
     this.root.add(this.scenery.group);
+    if(course.level.id==='thimphu-pickup'){this.settlement=new CitySettlement(course);this.root.add(this.settlement.group);}
     this.gates = new Gates(course);
     this.root.add(this.gates.group);
     this.env = new Environment(scene, course);
@@ -51,6 +54,7 @@ export class World3D {
 
   applyQuality(q: QualityProfile): void {
     this.env.applyQuality(q);
+    this.settlement?.setQuality(q.propDensity);
     this.scenery.setQuality(q.propDensity, q.windSway, q.streetLights);
     this.rivers?.applyQuality(q.surfaceDetail);
     this.terrain.traverse((o) => {
@@ -72,7 +76,8 @@ export class World3D {
     });
   }
 
-  setConditions(weather: WeatherKind, time: TimeOfDay, smooth = false): void {
+  setConditions(weather: WeatherKind, time: TimeOfDay, smooth = false, routeWeather=false): void {
+    this.env.setRouteWeather(routeWeather);
     this.env.setConditions(weather, time, undefined, smooth);
     this.scenery.setLamps(this.env.lightsOn && time !== 'day');
   }
@@ -105,6 +110,7 @@ export class World3D {
           x.dispose();
         });
     });
+    this.settlement?.dispose();
     this.scenery.dispose();
     this.gates.dispose();
     this.env.dispose();

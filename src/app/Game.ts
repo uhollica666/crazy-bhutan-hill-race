@@ -697,7 +697,7 @@ export class Game {
   private applyConditions(smooth = false): void {
     if (!this.world) return;
     const c = this.academy || (this.inRun && this.level.weatherZones && this.weatherZone >= 0) ? this.rt.conditions : this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
-    this.world.setConditions(c.weather, c.time, smooth);
+    this.world.setConditions(c.weather, c.time, smooth,this.inRun&&this.conditionIndex===0&&!this.academy);
     this.model?.setHeadlights(this.world.env.lightsOn);
     this.model?.setReflection(this.world.env.brightness);
     const q = this.quality();
@@ -2367,6 +2367,8 @@ export class Game {
           incidents: this.incidentLog.list().length,
           particlesAlive: this.effects.particles.alive,
           scene: this.garageActive() ? 'garage' : 'world',
+          backgroundBuildings:this.world?.root.getObjectByName('thimphu-background-settlement')?.userData.buildings??0,
+          fogDensity:(this.renderer.scene.fog as {density?:number}|null)?.density??0,
           garageVehicle: this.garage?.shownVehicleId ?? null,
           garageView: this.garage?.view ?? null,
           academy: this.academy?.snapshot() ?? null,

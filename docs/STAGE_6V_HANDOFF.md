@@ -30,3 +30,11 @@ Run `bun run dev --host 127.0.0.1 --port 4173` and open `http://127.0.0.1:4173/`
 ## Asset provenance
 
 The adapted human source and supplied CC0 license are recorded in `assets-src/characters/README.md`, `QUATERNIUS-LICENSE.txt` and root `ASSET_CREDITS.md`. Human re-export: Blender background execution of `assets-src/blender/people_remake.py`. Other revised meshes and surface textures are project-authored.
+
+## Follow-up: fog and Thimphu settlement
+
+`codex/fog-cityscape` adds exponential distance extinction, sky and mountain haze, 280m feathered fog-zone approaches/exits, 5.5-second visibility easing and 24/48/80/128 soft drifting mist instances for Low/Medium/High/Max. The distant mountain ring now follows the camera in XZ as a backdrop; the old fixed 820m ring could intersect long routes and be driven through. Weather zones, wetness, mission rules and traffic behavior remain unchanged.
+
+Thimphu gains 424 potential background settlement blocks in four rows behind existing frontages, with collision-free road clearance, slope/water rejection, instanced spatial batches and quality-scaled density. These are decorative blocks, not a real-world city map or added playable streets.
+
+Validation uses compilation and live browser captures only. Fog at dusk, heavy rain, route weather and the expanded city are captured under `screenshots/fog-cityscape-*`, with console-error reports. The screenshots use Low and software rendering; no new test suites or PC performance benchmark are claimed.
