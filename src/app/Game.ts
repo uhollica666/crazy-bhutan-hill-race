@@ -77,6 +77,8 @@ import type {
 } from '../ui/UI';
 import { UI } from '../ui/UI';
 import { Course } from '../world/Course';
+import { nearestRiver } from '../world/Rivers';
+import type { RiverNearest } from '../world/Rivers';
 import { GameFlow } from './GameFlow';
 
 /** Fixed physics step (s). Rendering interpolates between steps, so behaviour is frame-rate independent. */
@@ -163,6 +165,8 @@ export class Game {
   private nextPassSound = 0;
   /** Index of the weather zone the run is in (-1 = the mission's own conditions) and the deadline warnings already shown. */
   private weatherZone = -1;
+  private nextRiverCheck = 0;
+  private readonly riverNear: RiverNearest = { d: Infinity, y: 0, river: -1 };
   private readonly urgencyShown = new Set<number>();
   private pendingFinish: { show: () => void; timer: number } | null = null;
   private stuckFor = 0;
@@ -686,10 +690,11 @@ export class Game {
       birds: c.weather === 'clear' || c.weather === 'cloudy' || !!this.level.roadside?.birds,
       aircraft: this.level.mission.kind === 'airport',
       night: c.time === 'night',
-      water: !!this.level.ford || this.level.terrain.valleyDepth > 0,
+      water: !!this.level.ford || !!this.level.rivers?.length || this.level.terrain.valleyDepth > 0,
       forest: clamp(this.level.scenery.trees / 700, 0, 1),
       bells: this.level.region !== undefined && c.time !== 'night' && this.level.mission.kind !== 'circuit',
       city: this.level.traffic?.controls ? 0.7 : 0,
+      rural: this.level.rivers?.length && this.level.roadside?.yaks?.length ? 0.8 : 0,
       fog: c.weather === 'denseFog' ? 1 : c.weather === 'fog' ? 0.8 : c.weather === 'snow' ? 0.3 : 0,
     });
     this.audio.setWeather(WEATHER[c.weather].rain, WEATHER[c.weather].wind / 4);
@@ -728,14 +733,14 @@ export class Game {
       const cast = getCast(stop.def.who ?? '');
       ui.flash(
         `${party} guest${party === 1 ? '' : 's'} aboard`,
-        cast ? `${cast.name}: "${cast.line}"` : `${onboard} on board`,
+        stop.def.line ? `${cast ? `${cast.name}: ` : ''}"${stop.def.line}"` : cast ? `${cast.name}: "${cast.line}"` : `${onboard} on board`,
       );
       audio.pickup();
       this.analytics.track({ name: 'pickup', levelId: level.id, stopId: stop.def.id });
     });
     e.on('alighted', ({ stop, party }) => {
       const cast = getCast(stop.def.who ?? '');
-      ui.flash(`${party} guest${party === 1 ? '' : 's'} dropped off`, cast ? `${cast.name}: "Thank you!"` : 'Have a lovely visit');
+      ui.flash(`${party} guest${party === 1 ? '' : 's'} dropped off`, stop.def.farewell ? `${cast ? `${cast.name}: ` : ''}"${stop.def.farewell}"` : cast ? `${cast.name}: "Thank you!"` : 'Have a lovely visit');
       audio.pickup();
     });
     // The city: horns, the officer's whistle, and what happens when the player ignores a signal or a crossing.
@@ -743,7 +748,7 @@ export class Game {
     if (tr) {
       tr.events.on('honk', (car) => {
         const d = Math.hypot(car.x - rt.body.position.x, car.z - rt.body.position.z);
-        const heavy = car.kind === 'bus' || car.kind === 'truck' || car.kind === 'minibus' || car.kind === 'delivery';
+        const heavy = car.kind === 'bus' || car.kind === 'truck' || car.kind === 'minibus' || car.kind === 'delivery' || car.kind === 'tractor';
         const light = car.kind === 'moto' || car.kind === 'scooter';
         audio.honk(clamp(1 - d / 110, 0, 1), heavy ? 0.72 : light ? 1.45 : 1, Math.random() < 0.3);
       });
@@ -2111,6 +2116,12 @@ export class Game {
   /** Weather that drifts through the route, and the rising urgency of a flight deadline. */
   private routeEvents(rt: MissionRuntime, s: RaceSession): void {
     const level = this.level;
+    // The river's rush swells as the car comes close to the water and fades in the fields.
+    if (this.course.rivers.length && this.time >= this.nextRiverCheck) {
+      this.nextRiverCheck = this.time + 0.25;
+      nearestRiver(this.course.rivers, rt.body.position.x, rt.body.position.z, this.riverNear);
+      this.audio.setRiverProximity(1 - (this.riverNear.d - 10) / 80);
+    }
     if (s.phase !== 'running') return;
     const zones = level.weatherZones;
     if (zones && this.conditionIndex === 0) {
@@ -2121,7 +2132,7 @@ export class Game {
         const base = level.conditions[0];
         rt.setConditions({ weather: idx >= 0 ? zones[idx].weather : base.weather, time: base.time });
         this.applyConditions();
-        if (idx >= 0) this.ui.flash(zones[idx].weather === 'fog' ? 'Fog bank ahead' : 'Rain on the road', 'Slow down: less grip and less to see');
+        if (idx >= 0) this.ui.flash(zones[idx].weather === 'fog' ? 'Fog bank ahead' : level.mission.kind === 'tour' ? 'Sudden rain!' : 'Rain on the road', 'Slow down: less grip and less to see');
       }
     }
     if (level.mission.timerStyle === 'deadline') {
@@ -2129,8 +2140,11 @@ export class Game {
         if (s.timeLeft <= secs && !this.urgencyShown.has(i)) {
           this.urgencyShown.add(i);
           const cast = getCast(rt.stops.stops.find((x) => x.def.kind === 'pickup')?.def.who ?? '');
-          const jokes = ['Is that a mountain? We are taking photos.', 'My passport is in the suitcase. Which suitcase?', 'Faster! Or slower! Faster!', 'We can see the plane. It can see us.'];
-          this.ui.flash(`Check-in closes in ${secs >= 60 ? `${secs / 60} min` : `${secs} s`}`, cast && rt.stops.onboard > 0 ? `${cast.name}: "${jokes[i]}"` : 'Keep moving');
+          const airport = level.mission.kind === 'airport';
+          const jokes = airport
+            ? ['Is that a mountain? We are taking photos.', 'My passport is in the suitcase. Which suitcase?', 'Faster! Or slower! Faster!', 'We can see the plane. It can see us.']
+            : ['The light is perfect. For about four more minutes.', 'Is the dzong still there? Please say it is still there.', 'We skipped lunch for this. Do not skip the dzong.', 'The sun is leaving. We would like to leave with it.'];
+          this.ui.flash(`${airport ? 'Check-in closes in' : level.mission.timerLabel} ${secs >= 60 ? `${secs / 60} min` : `${secs} s`}`, cast && rt.stops.onboard > 0 ? `${cast.name}: "${jokes[i]}"` : 'Keep moving');
           this.audio.warning();
         }
       }

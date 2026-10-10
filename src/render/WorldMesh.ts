@@ -63,6 +63,15 @@ function terrainColor(course: Course, i: number, j: number, out: Color): Color {
   _a.setHex(PAL.sand);
   out.lerp(_a, smoothstep(t.waterLevel + 4, t.waterLevel + 0.5, h));
 
+  // River banks: pale shingle at the water's edge, damp stones in the channel.
+  const rd = t.riverDist ? t.riverDist[k] : 999;
+  if (rd < 999) {
+    _a.setHex(0xa79d86);
+    out.lerp(_a, (1 - smoothstep(9, 19, rd)) * 0.75);
+    _a.setHex(0x6f6a60);
+    out.lerp(_a, (1 - smoothstep(3, 8, rd)) * 0.7);
+  }
+
   // Road verge / cut banks.
   const verge = 1 - smoothstep(t.flatHalf - 0.5, t.flatHalf + 6, d);
   _a.setHex(PAL.dirt);
@@ -247,12 +256,14 @@ export function buildWater(course: Course): Mesh {
   return mesh;
 }
 
-function makeRoadTexture(wet = false): CanvasTexture {
+function makeRoadTexture(mode: boolean | 'worn' = false): CanvasTexture {
+  const wet = mode === true;
+  const worn = mode === 'worn';
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 256;
   const g = c.getContext('2d')!;
-  g.fillStyle = wet ? '#34393d' : '#4a4745';
+  g.fillStyle = wet ? '#34393d' : worn ? '#5b5853' : '#4a4745';
   g.fillRect(0, 0, 128, 256);
   // Surface grain.
   for (let i = 0; i < 1400; i++) {
@@ -266,6 +277,36 @@ function makeRoadTexture(wet = false): CanvasTexture {
   g.fillRect(117, 0, 4, 256);
   g.fillStyle = '#e8b53a';
   g.fillRect(62, 0, 4, 102);
+  if (worn) {
+    // Old tarmac: faded paint, dark repair patches, a web of cracks and bare aggregate showing through.
+    g.fillStyle = 'rgba(96,92,86,0.55)';
+    g.fillRect(7, 0, 4, 256);
+    g.fillRect(117, 0, 4, 256);
+    g.fillRect(62, 0, 4, 102);
+    for (let i = 0; i < 9; i++) {
+      g.fillStyle = 'rgba(' + (40 + Math.random() * 14) + ',' + (38 + Math.random() * 12) + ',' + (36 + Math.random() * 12) + ',0.7)';
+      g.fillRect(14 + Math.random() * 80, Math.random() * 240, 18 + Math.random() * 30, 10 + Math.random() * 24);
+    }
+    for (let i = 0; i < 380; i++) {
+      const v = 120 + Math.floor(Math.random() * 70);
+      g.fillStyle = 'rgba(' + v + ',' + (v - 4) + ',' + (v - 10) + ',0.5)';
+      g.fillRect(Math.random() * 128, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 2);
+    }
+    g.strokeStyle = 'rgba(24,24,26,0.7)';
+    g.lineWidth = 1.1;
+    for (let i = 0; i < 16; i++) {
+      g.beginPath();
+      let x = 12 + Math.random() * 100;
+      let y = Math.random() * 256;
+      g.moveTo(x, y);
+      for (let k = 0; k < 4; k++) {
+        x += (Math.random() - 0.5) * 18;
+        y += 6 + Math.random() * 14;
+        g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+  }
   if (wet) {
     // Damp, weathered tarmac: darker, with pale reflective streaks and patched cracks.
     for (let i = 0; i < 16; i++) {
@@ -394,8 +435,8 @@ function makeWaterTexture(): CanvasTexture {
   return tex;
 }
 
-const unpavedKind = (id: SurfaceId): 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice' | 'wet' | null =>
-  id === 'dirt' || id === 'grass' ? 'dirt' : id === 'gravel' ? 'gravel' : id === 'rocky' ? 'rocky' : id === 'mud' ? 'mud' : id === 'ice' ? 'ice' : id === 'wetAsphalt' ? 'wet' : null;
+const unpavedKind = (id: SurfaceId): 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice' | 'wet' | 'worn' | null =>
+  id === 'worn' ? 'worn' : id === 'dirt' || id === 'grass' ? 'dirt' : id === 'gravel' ? 'gravel' : id === 'rocky' ? 'rocky' : id === 'mud' ? 'mud' : id === 'ice' ? 'ice' : id === 'wetAsphalt' ? 'wet' : null;
 
 /** Asphalt ribbon, gravel shoulders and stone parapets, built from the same road samples physics uses. */
 export function buildRoadMeshes(course: Course): Group {
@@ -458,7 +499,7 @@ export function buildRoadMeshes(course: Course): Group {
     const mats = kinds.map(
       (k) =>
         new MeshLambertMaterial({
-          map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
+          map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : k === 'worn' ? makeRoadTexture('worn') : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
           polygonOffset: true,
           polygonOffsetFactor: -2,
           polygonOffsetUnits: -2,

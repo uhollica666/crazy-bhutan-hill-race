@@ -4,6 +4,8 @@ import type { SurfaceDef } from '../data/surfaces';
 import type { BarrierHit } from './Road';
 import { Road, createRoadHit } from './Road';
 import { Terrain, createRoadBase } from './Terrain';
+import { nearestRiver, resolveRivers } from './Rivers';
+import type { River, RiverNearest } from './Rivers';
 import type { GroundSample } from './Terrain';
 import { ObstacleSet } from './Obstacles';
 import type { ObstacleHit, PhysicsWorld } from '../physics/types';
@@ -43,6 +45,8 @@ export class Course implements PhysicsWorld {
   readonly zebras: number[] = [];
   readonly obstacles: ObstacleSet;
   readonly ford: FordInfo | null;
+  /** Rivers carved into the terrain (empty on most levels). */
+  readonly rivers: River[];
   /** 0..1 how wet the roads are right now (set by the weather system). */
   wetness = 0;
 
@@ -52,13 +56,17 @@ export class Course implements PhysicsWorld {
   private readonly sampleSurface: Uint8Array;
   private readonly shoulderSurface: SurfaceId;
   private readonly rh = createRoadHit();
+  private readonly rn: RiverNearest = { d: 0, y: 0, river: -1 };
+  private readonly riverReach: number;
 
   constructor(readonly level: LevelDef) {
     // City routes carry more moving obstacles (traffic, pedestrians at crossings, parked vehicles).
     this.obstacles = new ObstacleSet(level.traffic?.controls || level.traffic?.scripted ? 96 : 64);
     this.road = new Road(level.road, createRoadBase(level.terrain));
     this.ford = level.ford ? this.road.carveFord(level.ford.from, level.ford.to, level.ford.depth) : null;
-    this.terrain = new Terrain(level.terrain, this.road);
+    this.rivers = resolveRivers(level.rivers, this.road);
+    this.terrain = new Terrain(level.terrain, this.road, this.rivers);
+    this.riverReach = this.rivers.reduce((m, r) => Math.max(m, r.width / 2), 0) + level.terrain.cell;
     this.startS = level.road.startOffset;
     this.finishS = this.road.length - level.road.finishOffset;
     const span = this.finishS - this.startS;
@@ -105,6 +113,7 @@ export class Course implements PhysicsWorld {
   }
 
   surfaceIdAt(x: number, z: number): SurfaceId {
+    if (this.rivers.length && this.riverDepthAt(x, z) > 0.05) return 'water';
     const h = this.rh;
     if (!this.road.project(x, z, h)) return 'grass';
     if (this.ford && h.s >= this.ford.fromS && h.s <= this.ford.toS && Math.abs(h.lateral) < this.road.wallOffset) {
@@ -137,14 +146,24 @@ export class Course implements PhysicsWorld {
     return this.surfaceIds[this.sampleSurface[i]];
   }
 
-  /** Depth of water over the road bed at a point (0 outside the ford). */
+  /** Depth of river water at a point (0 on dry land, and on a bridge deck, which is above the water). */
+  riverDepthAt(x: number, z: number): number {
+    if (!this.rivers.length || !this.terrain.nearRiver(x, z, this.riverReach)) return 0;
+    nearestRiver(this.rivers, x, z, this.rn);
+    const r = this.rivers[this.rn.river];
+    if (!r || this.rn.d > r.width / 2) return 0;
+    return Math.max(0, this.rn.y - this.terrain.heightAt(x, z));
+  }
+
+  /** Depth of water over the road bed at a point (a ford), or of a river (0 elsewhere). */
   waterDepthAt(x: number, z: number): number {
     const f = this.ford;
-    if (!f) return 0;
-    const h = this.rh;
-    if (!this.road.project(x, z, h)) return 0;
-    if (h.s < f.fromS || h.s > f.toS || Math.abs(h.lateral) > this.road.wallOffset) return 0;
-    return Math.max(0, f.waterY - h.y);
+    let depth = 0;
+    if (f) {
+      const h = this.rh;
+      if (this.road.project(x, z, h) && h.s >= f.fromS && h.s <= f.toS && Math.abs(h.lateral) <= this.road.wallOffset) depth = Math.max(0, f.waterY - h.y);
+    }
+    return depth > 0 ? depth : this.riverDepthAt(x, z);
   }
 
   /** Pose on the road at distance `s` - used for spawning and checkpoint recovery. */

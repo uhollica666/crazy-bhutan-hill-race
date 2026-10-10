@@ -219,7 +219,7 @@ export class MissionRuntime {
     body.mod.windX = this.gust.x;
     body.mod.windZ = this.gust.z;
 
-    status.waterDepth = course.ford ? course.waterDepthAt(body.position.x, body.position.z) : 0;
+    status.waterDepth = course.ford || course.rivers.length ? course.waterDepthAt(body.position.x, body.position.z) : 0;
     status.applyTo(body.mod);
 
     body.step(dt, input, course);

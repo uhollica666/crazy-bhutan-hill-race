@@ -26,6 +26,7 @@ import { TRAFFIC_KINDS } from '../gameplay/Traffic';
 import type { TrafficControl } from '../gameplay/Traffic';
 import { bicycleGeometry, birdGeometry, coneGeometry, busGeometry, deliveryGeometry, minibusGeometry, motoGeometry, scooterGeometry, suvGeometry, truckGeometry, walkerGeometry } from './trafficBodies';
 import { yakGeometry } from './Scenery';
+import { tractorGeometry } from './valleyBodies';
 import { trafficCarGeometry } from './vehicleBodies';
 
 const UP = new Vector3(0, 1, 0);
@@ -44,6 +45,7 @@ const GEO: Record<TrafficKind, () => BufferGeometry> = {
   minibus: minibusGeometry,
   scooter: scooterGeometry,
   delivery: deliveryGeometry,
+  tractor: tractorGeometry,
 };
 
 interface Walker {
@@ -58,6 +60,20 @@ interface Walker {
   idle: boolean;
   /** Part of the destination crowd: cheers (bounces) at the celebration. */
   cheers: boolean;
+  /** 0..1: how far the person has stepped back from a passing car. */
+  push: number;
+}
+
+/** A grazing animal: it drifts away from the road as the car comes close, and wanders back afterwards. */
+interface Grazer {
+  x: number;
+  z: number;
+  /** Unit vector pointing away from the road. */
+  nx: number;
+  nz: number;
+  rot: number;
+  scale: number;
+  off: number;
 }
 
 interface Officer {
@@ -97,6 +113,7 @@ export class RoadsideView {
   private readonly pedMesh: InstancedMesh | null = null;
   private readonly parkedMeshes: InstancedMesh[] = [];
   private readonly yakMesh: InstancedMesh | null = null;
+  private readonly grazers: Grazer[] = [];
   private readonly obstacleIds: number[] = [];
   private readonly officers: Officer[] = [];
   private readonly flocks: Flock[] = [];
@@ -149,6 +166,7 @@ export class RoadsideView {
           scale: 0.9 + rng() * 0.18,
           idle: false,
           cheers: false,
+          push: 0,
         });
       }
     }
@@ -167,6 +185,7 @@ export class RoadsideView {
           scale: 0.9 + rng() * 0.18,
           idle: true,
           cheers: false,
+          push: 0,
         });
       }
     }
@@ -185,6 +204,7 @@ export class RoadsideView {
           scale: 0.92 + rng() * 0.16,
           idle: true,
           cheers: true,
+          push: 0,
         });
       }
     }
@@ -351,6 +371,7 @@ export class RoadsideView {
         const lat = y.side * (road.wallAtS(s) + y.offset);
         const x = this.pose.x - this.pose.tz * lat;
         const z = this.pose.z + this.pose.tx * lat;
+        this.grazers.push({ x, z, nx: -this.pose.tz * y.side, nz: this.pose.tx * y.side, rot: i * 2.3, scale: 1.05, off: 0 });
         this.q.setFromAxisAngle(UP, i * 2.3);
         this.m4.compose(this.pos.set(x, course.terrain.heightAt(x, z), z), this.q, this.scl.setScalar(1.05));
         this.yakMesh!.setMatrixAt(i, this.m4);
@@ -496,8 +517,17 @@ export class RoadsideView {
           bob = Math.abs(Math.sin(time * 1.4 + w.phase)) * 0.015;
         }
         road.at(s, this.pose);
-        const x = this.pose.x - this.pose.tz * w.lat;
-        const z = this.pose.z + this.pose.tx * w.lat;
+        let x = this.pose.x - this.pose.tz * w.lat;
+        let z = this.pose.z + this.pose.tx * w.lat;
+        // People step back toward the hillside as a car comes close.
+        if (!w.cheers) {
+          w.push += ((Math.hypot(x - px, z - pz) < 9 ? 1 : 0) - w.push) * Math.min(1, dt * 2.5);
+          if (w.push > 0.01) {
+            const o = Math.sign(w.lat) * w.push * 0.9;
+            x -= this.pose.tz * o;
+            z += this.pose.tx * o;
+          }
+        }
         // Walkers face along the road; people standing face the road.
         const face = w.idle ? Math.atan2(-this.pose.tz * Math.sign(w.lat), this.pose.tx * Math.sign(w.lat)) : Math.atan2(-this.pose.tx * dir, -this.pose.tz * dir);
         this.q.setFromAxisAngle(UP, face);
@@ -506,6 +536,25 @@ export class RoadsideView {
       }
       this.scl.setScalar(1);
       mesh.instanceMatrix.needsUpdate = true;
+    }
+
+    // Grazing animals drift away from the road when the car comes within about 25 m, and wander back once it has passed.
+    if (this.yakMesh && this.grazers.length) {
+      for (let i = 0; i < this.grazers.length; i++) {
+        const gz = this.grazers[i];
+        const bx = gz.x + gz.nx * gz.off;
+        const bz = gz.z + gz.nz * gz.off;
+        const d = Math.hypot(bx - px, bz - pz);
+        const target = d < 25 ? Math.min(8, (25 - d) * 0.45) : 0;
+        gz.off += (target - gz.off) * Math.min(1, dt * (target > gz.off ? 1.1 : 0.25));
+        const x = gz.x + gz.nx * gz.off;
+        const z = gz.z + gz.nz * gz.off;
+        this.q.setFromAxisAngle(UP, gz.rot + Math.sin(time * 0.4 + i) * 0.05);
+        this.m4.compose(this.pos.set(x, this.course.terrain.heightAt(x, z), z), this.q, this.scl.setScalar(gz.scale));
+        this.yakMesh.setMatrixAt(i, this.m4);
+      }
+      this.scl.setScalar(1);
+      this.yakMesh.instanceMatrix.needsUpdate = true;
     }
 
     const tr = this.traffic;

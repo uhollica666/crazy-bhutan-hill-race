@@ -57,6 +57,8 @@ export interface AmbientDef {
   fog?: number;
   /** 0..1: a busy town: distant traffic, chatter, the odd far-off horn. */
   city?: number;
+  /** 0..1: farmland: a distant cow, a dog, a rooster now and then (kept soft). */
+  rural?: number;
 }
 
 /** A snapshot of the mixer, for the debug overlay and tests (what the engineer would otherwise have to guess). */
@@ -146,6 +148,9 @@ export class AudioEngine {
   private nextOwl = 0;
   private nextCityHorn = 0;
   private nextChatter = 0;
+  private nextFarm = 0;
+  /** 0..1: how close the car is to a river (scales the river rush). */
+  private riverNear = 1;
   private nextNote = 0;
   private musicOn = false;
   private rpm = 0.2;
@@ -401,6 +406,11 @@ export class AudioEngine {
     this.ambient = a;
   }
 
+  /** How close the car is to running water, 0 (far) to 1 (beside it): the river's rush follows it. */
+  setRiverProximity(p: number): void {
+    this.riverNear = clamp(p, 0, 1);
+  }
+
   /** Weather bed: rain intensity 0..1 and extra wind 0..1 (gusts on exposed roads). */
   setWeather(rain: number, wind: number): void {
     this.rainLevel = clamp(rain, 0, 1);
@@ -491,7 +501,7 @@ export class AudioEngine {
     // A town reuses the foliage layer as a murmur of voices and the river layer as the low rumble of distant traffic.
     this.forestLayer?.gain.gain.setTargetAtTime((a.forest ?? 0) * (0.012 + 0.04 * (a.wind + this.windExtra)) + cityAmt * 0.011, t, 0.6);
     this.forestLayer?.bp.frequency.setTargetAtTime(cityAmt > 0 ? 850 + Math.sin(t * 0.45) * 260 : 1500 + (a.wind + this.windExtra) * 900, t, 0.5);
-    this.river?.gain.gain.setTargetAtTime(a.water ? 0.1 : cityAmt * 0.035, t, 0.8);
+    this.river?.gain.gain.setTargetAtTime(a.water ? 0.03 + 0.09 * this.riverNear : cityAmt * 0.035, t, 0.8);
     if (this.crickets) {
       const lvl = a.night && this.rainLevel < 0.4 ? 0.011 : 0;
       this.crickets.gain.gain.setTargetAtTime(lvl, t, 0.5);
@@ -608,6 +618,22 @@ export class AudioEngine {
       if (now >= this.nextChatter) {
         this.nextChatter = now + 2.5 + Math.random() * 4;
         this.noiseBurst(now, 0.5 + Math.random() * 0.5, 0.012 * (a.city ?? 0), 'bandpass', 700 + Math.random() * 500, 500 + Math.random() * 400, this.bus.ambience);
+      }
+    }
+    if ((a.rural ?? 0) > 0 && calm && now >= this.nextFarm) {
+      // Farmland: a lowing cow, a distant dog, a rooster. Sparse and soft, well under the engine.
+      this.nextFarm = now + 6 + Math.random() * 11;
+      const k = a.rural ?? 0;
+      const pick = Math.random();
+      if (pick < 0.4) {
+        this.tone(150, now, 0.9, 0.012 * k, 'sawtooth', this.bus.ambience, 118);
+        this.tone(300, now, 0.8, 0.004 * k, 'sine', this.bus.ambience, 240);
+      } else if (pick < 0.75) {
+        for (let i = 0; i < 3; i++) this.noiseBurst(now + i * 0.26, 0.11, 0.016 * k, 'bandpass', 900 + Math.random() * 200, 500, this.bus.ambience);
+      } else {
+        this.tone(720, now, 0.18, 0.01 * k, 'square', this.bus.ambience, 980);
+        this.tone(880, now + 0.22, 0.2, 0.01 * k, 'square', this.bus.ambience, 760);
+        this.tone(700, now + 0.5, 0.45, 0.009 * k, 'square', this.bus.ambience, 560);
       }
     }
     if (a.aircraft && now >= this.nextAircraft) {

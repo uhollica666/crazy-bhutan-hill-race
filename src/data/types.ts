@@ -159,7 +159,7 @@ export interface RoadPointDef {
   dy?: number;
 }
 
-export type SurfaceId = 'asphalt' | 'wetAsphalt' | 'dirt' | 'gravel' | 'rocky' | 'mud' | 'water' | 'grass' | 'ice';
+export type SurfaceId = 'asphalt' | 'worn' | 'wetAsphalt' | 'dirt' | 'gravel' | 'rocky' | 'mud' | 'water' | 'grass' | 'ice';
 
 export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'heavyRain' | 'fog' | 'denseFog' | 'snow';
 export type TimeOfDay = 'day' | 'dusk' | 'night';
@@ -194,6 +194,10 @@ export interface StopDef {
   who?: string;
   /** service: which building to draw (default: fuel station). */
   variant?: 'fuel' | 'workshop' | 'kiosk';
+  /** pickup: what the people say as they board (overrides their usual line). */
+  line?: string;
+  /** dropoff: what they say as they get out. */
+  farewell?: string;
 }
 
 export type HazardKind = 'landslide' | 'creature' | 'brokenTruck' | 'herd';
@@ -226,7 +230,7 @@ export interface PuddleDef {
   pothole?: boolean;
 }
 
-export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike' | 'taxi' | 'minibus' | 'scooter' | 'delivery';
+export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike' | 'taxi' | 'minibus' | 'scooter' | 'delivery' | 'tractor';
 
 /** A traffic officer directing a junction, or a zebra crossing that traffic yields at. `at` is a fraction of the stretch. */
 export interface TrafficControlDef {
@@ -326,7 +330,13 @@ export type LandmarkKind =
   | 'cliff'
   | 'bridge'
   | 'runway'
-  | 'trolley';
+  | 'trolley'
+  | 'paddy'
+  | 'footbridge'
+  | 'trussBridge'
+  | 'coveredBridge'
+  | 'dzongComplex'
+  | 'picnic';
 
 export interface LandmarkDef {
   kind: LandmarkKind;
@@ -405,7 +415,7 @@ export interface RoadsideDef {
   crowd?: { at: number; side: -1 | 1; count: number; offset: number; width: number };
   /** Roadworks: rows of traffic cones squeezing one side of the road (soft: never damaging). */
   cones?: { at: number; side: -1 | 1; length: number }[];
-  /** Grazing yaks (decoration only). */
+  /** Grazing yaks and cattle: they never enter the road, and wander further off as the car approaches. */
   yaks?: { at: number; side: -1 | 1; offset: number }[];
   /** People standing about: bus stops, taxi queues, shopkeepers, small groups chatting. */
   standing?: { at: number; side: -1 | 1; count: number; offset?: number }[];
@@ -413,6 +423,22 @@ export interface RoadsideDef {
   police?: { at: number; side: -1 | 1 }[];
   /** Perched birds that take off when the car comes near. */
   birds?: { at: number; side: -1 | 1; offset: number; count: number }[];
+}
+
+/**
+ * A river: a smooth flowing channel carved into the terrain and drawn with an animated surface. Points are placed relative to the road:
+ * `at` is a fraction of the whole road, `lateral` the offset from the centre line (+ = right of travel) and `below` how far under the road
+ * the water surface lies there. Several points with the same `at` make the river cross the road (a bridge goes there).
+ */
+export interface RiverDef {
+  id: string;
+  points: { at: number; lateral: number; below: number }[];
+  /** Water width (m). */
+  width: number;
+  /** Depth at the middle (m). */
+  depth: number;
+  /** Metres of sloping bank either side of the water. */
+  bank?: number;
 }
 
 export interface LevelDef {
@@ -454,6 +480,8 @@ export interface LevelDef {
   weatherZones?: { from: number; to: number; weather: WeatherKind }[];
   /** Side streets and zebra crossings on the main road. */
   junctions?: JunctionDef[];
+  /** Rivers beside and under the road (see RiverDef). */
+  rivers?: RiverDef[];
   /** Shallow puddles on the road (training route and wet stretches). */
   puddles?: PuddleDef[];
   /** Optional ford: the road dips under water between these fractions of the road. */

@@ -26,6 +26,8 @@ export interface SurfaceDef {
 /** Data-driven surface table. Add a row, and tyres, drag, particles and sound pick it up. */
 export const SURFACES: Record<SurfaceId, SurfaceDef> = {
   asphalt: { id: 'asphalt', name: 'Asphalt', grip: 1, rolling: 0, looseness: 0, dust: null, wet: false, roughness: 0, audio: 'asphalt', wetVariant: 'wetAsphalt' },
+  // Old, cracked and patched tarmac: a touch less grip than new asphalt, and a little rattle.
+  worn: { id: 'worn', name: 'Weathered asphalt', grip: 0.93, rolling: 0.004, looseness: 0.1, dust: 0xc9c2b4, wet: false, roughness: 0.05, audio: 'asphalt', wetVariant: 'wetAsphalt' },
   wetAsphalt: { id: 'wetAsphalt', name: 'Wet asphalt', grip: 0.72, rolling: 0.01, looseness: 0.1, dust: 0xbfd0d8, wet: true, roughness: 0, audio: 'water' },
   dirt: { id: 'dirt', name: 'Dirt track', grip: 0.78, rolling: 0.05, looseness: 0.5, dust: 0xb59b6a, wet: false, roughness: 0.15, audio: 'dirt', wetVariant: 'mud' },
   gravel: { id: 'gravel', name: 'Gravel', grip: 0.68, rolling: 0.07, looseness: 0.55, dust: 0xc4b79a, wet: false, roughness: 0.25, audio: 'gravel', wetVariant: 'mud' },

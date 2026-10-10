@@ -23,23 +23,6 @@ function dress(kinds: LandmarkDef['kind'][], count: number, from = 0.04, to = 0.
 }
 
 export const EXTENSIONS: Record<string, Stretch> = {
-  'punakha-valley': {
-    at: 0.65,
-    path: [
-      { turn: -40, radius: 90 }, { straight: 120 }, { turn: 80, radius: 90 }, { straight: 120 }, { turn: -40, radius: 90 },
-      { turn: -40, radius: 90 }, { straight: 120 }, { turn: 80, radius: 90 }, { straight: 120 }, { turn: -40, radius: 90 },
-      { turn: -40, radius: 90 }, { straight: 120 }, { turn: 80, radius: 90 }, { straight: 120 }, { turn: -40, radius: 90 },
-    ],
-    note: 'The river road now loops through the rice terraces before the dzong comes into view.',
-    timeLimit: 370,
-    medals: { gold: 205, silver: 250, bronze: 305 },
-    stops: [{ id: 'pump-2', kind: 'service', t: 0.55, label: 'Riverside pump', side: -1, services: ['refuel', 'repair'], optional: true }],
-    checkpoints: [
-      { t: 0.35, label: 'Rice terraces' },
-      { t: 0.75, label: 'Suspension bridge' },
-    ],
-    landmarks: [...dress(['house', 'chorten', 'prayerWheelHouse', 'flagSpan', 'yak'], 10, 0.04, 0.96, 20)],
-  },
   'dochula-storm': {
     at: 0.72,
     path: [

@@ -1,6 +1,8 @@
 import type { LevelDef } from '../data/types';
 import { fbm2, lerp, smoothstep } from '../core/math';
 import { Road, createRoadHit } from './Road';
+import { nearestRiver } from './Rivers';
+import type { River, RiverNearest } from './Rivers';
 
 export interface GroundSample {
   height: number;
@@ -41,11 +43,27 @@ export class Terrain {
   readonly maxHeight: number;
   readonly minHeight: number;
   readonly waterLevel: number;
+  /** Rivers carved into the ground (empty on most levels). */
+  readonly rivers: River[];
+  /** Distance (m) from each node to the nearest river centre line (999 when far); null without rivers. */
+  readonly riverDist: Float32Array | null = null;
+  private readonly road: Road;
+  /** 0..1 per road sample: how much the road is carried on a bridge deck over the carved river bed there. */
+  private readonly deckF: Float32Array | null = null;
+  private readonly deckBoxes: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+  private readonly deckHit = createRoadHit();
+  private deckW = 0;
+  private deckY = 0;
+  private deckGx = 0;
+  private deckGz = 0;
 
   constructor(
     private readonly def: TerrainDef,
     road: Road,
+    rivers: River[] = [],
   ) {
+    this.road = road;
+    this.rivers = rivers;
     const b = def.bounds;
     this.cell = def.cell;
     this.minX = b.minX;
@@ -58,6 +76,87 @@ export class Terrain {
     this.heights = new Float32Array(n);
     this.normals = new Float32Array(n * 3);
     this.roadDist = new Float32Array(n);
+
+    // Rivers: distance, water height and which river, per node (segment-major, so each segment only touches nearby nodes).
+    let rd: Float32Array | null = null;
+    let ry: Float32Array | null = null;
+    let rid: Uint8Array | null = null;
+    if (rivers.length) {
+      rd = new Float32Array(n).fill(999);
+      ry = new Float32Array(n);
+      rid = new Uint8Array(n);
+      rivers.forEach((r, ri) => {
+        const reach = r.width / 2 + r.bank + this.cell;
+        for (let p = 0; p < r.pts.length - 1; p++) {
+          const a = r.pts[p];
+          const b = r.pts[p + 1];
+          const i0 = Math.max(0, Math.floor((Math.min(a.x, b.x) - reach - this.minX) / this.cell));
+          const i1 = Math.min(this.nx - 1, Math.ceil((Math.max(a.x, b.x) + reach - this.minX) / this.cell));
+          const j0 = Math.max(0, Math.floor((Math.min(a.z, b.z) - reach - this.minZ) / this.cell));
+          const j1 = Math.min(this.nz - 1, Math.ceil((Math.max(a.z, b.z) + reach - this.minZ) / this.cell));
+          const bx = b.x - a.x;
+          const bz = b.z - a.z;
+          const l2 = bx * bx + bz * bz || 1;
+          for (let j = j0; j <= j1; j++) {
+            for (let i = i0; i <= i1; i++) {
+              const x = this.minX + i * this.cell;
+              const z = this.minZ + j * this.cell;
+              const t = Math.min(1, Math.max(0, ((x - a.x) * bx + (z - a.z) * bz) / l2));
+              const dx = a.x + bx * t - x;
+              const dz = a.z + bz * t - z;
+              const d = Math.sqrt(dx * dx + dz * dz);
+              const k = i + j * this.nx;
+              if (d < rd![k]) {
+                rd![k] = d;
+                ry![k] = a.y + (b.y - a.y) * t;
+                rid![k] = ri;
+              }
+            }
+          }
+        }
+      });
+      this.riverDist = rd;
+      // Where the road crosses (or hugs) a river it is carried on a bridge deck above the carved bed.
+      const cnt = road.count;
+      const f = new Float32Array(cnt);
+      const near: RiverNearest = { d: 0, y: 0, river: -1 };
+      let any = false;
+      for (let i = 0; i < cnt; i++) {
+        nearestRiver(rivers, road.xs[i], road.zs[i], near);
+        if (near.river < 0) continue;
+        const r = rivers[near.river];
+        f[i] = 1 - smoothstep(r.width / 2, r.width / 2 + r.bank, near.d);
+        if (f[i] > 0.01) any = true;
+      }
+      if (any) {
+        this.deckF = f;
+        const pad = road.wallOffset + 6;
+        let start = -1;
+        let last = -1;
+        const close = (): void => {
+          if (start < 0) return;
+          let minX = Infinity;
+          let maxX = -Infinity;
+          let minZ = Infinity;
+          let maxZ = -Infinity;
+          for (let q = start; q <= last; q++) {
+            minX = Math.min(minX, road.xs[q]);
+            maxX = Math.max(maxX, road.xs[q]);
+            minZ = Math.min(minZ, road.zs[q]);
+            maxZ = Math.max(maxZ, road.zs[q]);
+          }
+          this.deckBoxes.push({ minX: minX - pad, maxX: maxX + pad, minZ: minZ - pad, maxZ: maxZ + pad });
+          start = -1;
+        };
+        for (let i = 0; i < cnt; i++) {
+          if (f[i] > 0.01) {
+            if (start < 0) start = i;
+            last = i;
+          } else if (start >= 0 && i - last > 4) close();
+        }
+        close();
+      }
+    }
 
     const base = createRoadBase(def);
     const cx = (b.minX + b.maxX) / 2;
@@ -95,6 +194,17 @@ export class Terrain {
           }
         }
         const k = i + j * this.nx;
+        // Rivers: a rounded bed under the water, and a sloping bank that rises to just above the surface and then eases into the land.
+        if (rd && rd[k] < 999) {
+          const rv = rivers[rid![k]];
+          const hw = rv.width / 2;
+          if (rd[k] < hw) {
+            const u = rd[k] / hw;
+            h = ry![k] - rv.depth * (1 - u * u);
+          } else if (rd[k] < hw + rv.bank) {
+            h = lerp(ry![k] + 0.25, h, smoothstep(hw, hw + rv.bank, rd[k]));
+          }
+        }
         this.heights[k] = h;
         this.roadDist[k] = d;
         if (h > max) max = h;
@@ -126,8 +236,50 @@ export class Terrain {
     return this.def.bounds;
   }
 
-  /** Height from the triangulated grid, identical to the render mesh. */
+  /** Height from the triangulated grid, identical to the render mesh, but with the road carried level over a river (a bridge deck). */
   heightAt(x: number, z: number): number {
+    const g = this.gridHeightAt(x, z);
+    return this.deckBoxes.length && this.deckBlend(x, z) ? g + (this.deckY - g) * this.deckW : g;
+  }
+
+  /** True (and fills the deck fields) when a point lies on a bridge deck: the road surface, not the river bed below it. */
+  private deckBlend(x: number, z: number): boolean {
+    let inside = false;
+    for (const b of this.deckBoxes) {
+      if (x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ) {
+        inside = true;
+        break;
+      }
+    }
+    if (!inside) return false;
+    const road = this.road;
+    const h = this.deckHit;
+    if (!road.project(x, z, h) || h.over !== 0) return false;
+    const i = Math.min(road.count - 1, Math.max(0, Math.round((h.s / road.length) * (road.count - 1))));
+    const f = this.deckF![i];
+    if (f <= 0.001) return false;
+    const w = f * (1 - smoothstep(road.wallOffset, road.wallOffset + 1.5, Math.abs(h.lateral)));
+    if (w <= 0.001) return false;
+    const i0 = Math.max(0, i - 1);
+    const i1 = Math.min(road.count - 1, i + 1);
+    const g = (road.ys[i1] - road.ys[i0]) / (road.ss[i1] - road.ss[i0] || 1);
+    this.deckW = w;
+    this.deckY = h.y;
+    this.deckGx = h.tx * g;
+    this.deckGz = h.tz * g;
+    return true;
+  }
+
+  /** True within `margin` metres of a river's centre line (trees and rocks keep out of the channel). */
+  nearRiver(x: number, z: number, margin: number): boolean {
+    const rd = this.riverDist;
+    if (!rd) return false;
+    const i = Math.min(this.nx - 1, Math.max(0, Math.round((x - this.minX) / this.cell)));
+    const j = Math.min(this.nz - 1, Math.max(0, Math.round((z - this.minZ) / this.cell)));
+    return rd[i + j * this.nx] < margin;
+  }
+
+  private gridHeightAt(x: number, z: number): number {
     let fx = (x - this.minX) / this.cell;
     let fz = (z - this.minZ) / this.cell;
     fx = fx < 0 ? 0 : fx > this.nx - 1.0001 ? this.nx - 1.0001 : fx;
@@ -147,7 +299,9 @@ export class Terrain {
 
   /** Height plus a smoothly interpolated normal, for suspension. */
   groundAt(x: number, z: number, out: GroundSample): void {
-    out.height = this.heightAt(x, z);
+    out.height = this.gridHeightAt(x, z);
+    const deck = this.deckBoxes.length > 0 && this.deckBlend(x, z);
+    if (deck) out.height += (this.deckY - out.height) * this.deckW;
     let fx = (x - this.minX) / this.cell;
     let fz = (z - this.minZ) / this.cell;
     fx = fx < 0 ? 0 : fx > this.nx - 1.0001 ? this.nx - 1.0001 : fx;
@@ -166,10 +320,22 @@ export class Terrain {
     let X = n[k] * w00 + n[k + 3] * w10 + n[k + s] * w01 + n[k + s + 3] * w11;
     let Y = n[k + 1] * w00 + n[k + 4] * w10 + n[k + s + 1] * w01 + n[k + s + 4] * w11;
     let Z = n[k + 2] * w00 + n[k + 5] * w10 + n[k + s + 2] * w01 + n[k + s + 5] * w11;
-    const l = Math.hypot(X, Y, Z) || 1;
+    let l = Math.hypot(X, Y, Z) || 1;
     X /= l;
     Y /= l;
     Z /= l;
+    if (deck) {
+      // On a bridge deck the surface normal follows the road's grade, not the river bed beneath.
+      const dl = Math.hypot(this.deckGx, 1, this.deckGz);
+      const w = this.deckW;
+      X += (-this.deckGx / dl - X) * w;
+      Y += (1 / dl - Y) * w;
+      Z += (-this.deckGz / dl - Z) * w;
+      l = Math.hypot(X, Y, Z) || 1;
+      X /= l;
+      Y /= l;
+      Z /= l;
+    }
     out.nx = X;
     out.ny = Y;
     out.nz = Z;

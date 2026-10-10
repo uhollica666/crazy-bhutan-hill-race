@@ -22,6 +22,7 @@ import { peekEnvKit } from './envKit';
 import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
 import { bridgeGeometry, cliffGeometry, plazaGeometry, retainWallGeometry, runwayGeometry, signpostGeometry, stallGeometry, trolleyGeometry, viewpointGeometry } from './trafficBodies';
+import { coveredBridgeGeometry, dzongComplexGeometry, footbridgeGeometry, paddyGeometry, picnicGeometry, trussBridgeGeometry } from './valleyBodies';
 import { buddhaGeometry, busShelterGeometry, gateArchGeometry, hotelGeometry, officeGeometry, planterGeometry, policeBoothGeometry, railingGeometry, restaurantGeometry } from './cityBodies';
 import {
   broadleafGeometry,
@@ -352,6 +353,7 @@ export class Scenery {
               ? 'broadleaf'
               : 'shrub';
       if (d < wallAt(x, z, d) + (kind === 'shrub' ? 2.5 : 4.5)) continue;
+      if (terrain.riverDist && terrain.riverDist[k] < 15) continue;
       const h = terrain.heightAt(x, z);
       if (h < terrain.waterLevel + 2.5 || h > treeLine + (kind === 'shrub' ? 12 : 0)) continue;
       if (terrain.normals[k * 3 + 1] < (kind === 'shrub' ? 0.62 : 0.74)) continue;
@@ -437,6 +439,7 @@ export class Scenery {
         const k = nodeIdx(x, z);
         const d = terrain.roadDist[k];
         if (d < wallAt(x, z, d) + 0.9 || d > 30) continue;
+        if (terrain.riverDist && terrain.riverDist[k] < 14) continue;
         const h = terrain.heightAt(x, z);
         if (h < terrain.waterLevel + 1.2 || h > treeLine || terrain.normals[k * 3 + 1] < 0.8) continue;
         if (rng() > 1 - d / 38) continue; // thicker nearer the road
@@ -450,6 +453,7 @@ export class Scenery {
         const k = nodeIdx(x, z);
         const d = terrain.roadDist[k];
         if (d < wallAt(x, z, d) + 3 || d > 55) continue;
+        if (terrain.riverDist && terrain.riverDist[k] < 14) continue;
         const h = terrain.heightAt(x, z);
         if (h < terrain.waterLevel + 2 || h > treeLine - 10 || terrain.normals[k * 3 + 1] < 0.78) continue;
         const forest = fbm2(x / 55, z / 55, level.scenery.seed, 3) * 0.5 + 0.5;
@@ -500,6 +504,12 @@ export class Scenery {
     const hotels: Matrix4[] = [];
     const cliffs: Matrix4[] = [];
     const bridges: Matrix4[] = [];
+    const paddies: Matrix4[] = [];
+    const footbridges: Matrix4[] = [];
+    const trussBridges: Matrix4[] = [];
+    const coveredBridges: Matrix4[] = [];
+    const dzongComplexes: Matrix4[] = [];
+    const picnics: Matrix4[] = [];
     const runways: Matrix4[] = [];
     const trolleys: Matrix4[] = [];
     const offices: Matrix4[] = [];
@@ -615,6 +625,30 @@ export class Scenery {
           break;
         case 'bridge':
           bridges.push(compose(pose.x, pose.y, pose.z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2, sc));
+          break;
+        case 'trussBridge':
+          // A road bridge: sits on the road, deck along it.
+          trussBridges.push(compose(pose.x, pose.y, pose.z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2, sc));
+          break;
+        case 'footbridge':
+        case 'coveredBridge': {
+          // Pedestrian bridges span a river that runs beside the road: the deck is across the road's direction, level with the higher bank.
+          const yaw = Math.atan2(pose.tx, pose.tz) + (l.rotation ?? 0);
+          const half = (l.kind === 'footbridge' ? 26 : 18) * sc;
+          const ex = Math.cos(yaw) * half;
+          const ez = -Math.sin(yaw) * half;
+          const top = Math.max(terrain.heightAt(x + ex, z + ez), terrain.heightAt(x - ex, z - ez), y);
+          (l.kind === 'footbridge' ? footbridges : coveredBridges).push(compose(x, top + 0.2, z, yaw, sc));
+          break;
+        }
+        case 'paddy':
+          paddies.push(compose(x, y - 0.3, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'dzongComplex':
+          dzongComplexes.push(compose(x, y - 0.8, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'picnic':
+          picnics.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
           break;
         case 'runway':
           // Long axis parallel to the road.
@@ -736,6 +770,12 @@ export class Scenery {
     this.registerInstanced(hotelGeometry(), hotels, material, false);
     this.registerInstanced(cliffGeometry(), cliffs, material, false);
     this.registerInstanced(bridgeGeometry(), bridges, material, false);
+    this.registerInstanced(paddyGeometry(), paddies, material, false);
+    this.registerInstanced(footbridgeGeometry(), footbridges, material, false);
+    this.registerInstanced(trussBridgeGeometry(), trussBridges, material, false);
+    this.registerInstanced(coveredBridgeGeometry(), coveredBridges, material, false);
+    this.registerInstanced(dzongComplexGeometry(), dzongComplexes, material, false);
+    this.registerInstanced(picnicGeometry(), picnics, material, false);
     this.registerInstanced(runwayGeometry(), runways, material, false);
     this.registerInstanced(trolleyGeometry(), trolleys, material, false);
     this.registerInstanced(officeGeometry(), offices, material, false);

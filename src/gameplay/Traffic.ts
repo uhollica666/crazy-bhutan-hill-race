@@ -28,6 +28,7 @@ export const TRAFFIC_KINDS: Record<TrafficKind, KindSpec> = {
   minibus: { radius: 1.4, off: 2.0, len: 6.6, speed: [6.5, 9.5], climb: true, sound: 'heavy' },
   truck: { radius: 1.4, off: 2.6, len: 7.4, speed: [5.5, 8.2], climb: true, sound: 'heavy' },
   delivery: { radius: 1.4, off: 2.2, len: 6.0, speed: [4.5, 7.5], climb: true, sound: 'heavy' },
+  tractor: { radius: 1.3, off: 1.2, len: 3.8, speed: [3.2, 4.6], climb: true, sound: 'heavy' },
   moto: { radius: 0.6, off: 0.5, len: 2.0, speed: [11, 15], sound: 'bike' },
   scooter: { radius: 0.5, off: 0.4, len: 1.7, speed: [7, 11], sound: 'bike' },
   bike: { radius: 0.55, off: 0.5, len: 1.9, speed: [3.0, 4.4], edge: true },

@@ -40,6 +40,7 @@ import { yakGeometry } from './Scenery';
 import { RoadsideView } from './RoadsideView';
 import { busGeometry, bicycleGeometry, deliveryGeometry, kioskGeometry, minibusGeometry, motoGeometry, scooterGeometry, suvGeometry, truckGeometry, workshopGeometry } from './trafficBodies';
 import type { TrafficKind } from '../data/types';
+import { tractorGeometry } from './valleyBodies';
 import type { HazardState } from '../gameplay/Hazards';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
@@ -350,7 +351,7 @@ export class MissionView {
       for (const s of def?.scripted ?? []) if (!kinds.includes(s.kind)) kinds.push(s.kind);
       // Cross traffic released by a police signal and turning cars use these bodies.
       if (def?.controls?.some((c) => c.kind === 'police') || (def?.turnChance ?? 0) > 0) for (const k of ['car', 'taxi', 'suv', 'scooter'] as TrafficKind[]) if (!kinds.includes(k)) kinds.push(k);
-      const make: Record<TrafficKind, () => import('three').BufferGeometry> = { car: trafficCarGeometry, suv: suvGeometry, bus: busGeometry, truck: truckGeometry, moto: motoGeometry, bike: bicycleGeometry, taxi: trafficCarGeometry, minibus: minibusGeometry, scooter: scooterGeometry, delivery: deliveryGeometry };
+      const make: Record<TrafficKind, () => import('three').BufferGeometry> = { car: trafficCarGeometry, suv: suvGeometry, bus: busGeometry, truck: truckGeometry, moto: motoGeometry, bike: bicycleGeometry, taxi: trafficCarGeometry, minibus: minibusGeometry, scooter: scooterGeometry, delivery: deliveryGeometry, tractor: tractorGeometry };
       const palette = [0xd6322b, 0x2f6fd0, 0xe8b53a, 0x2e9c4f, 0xf1f1ec, 0x4a4f5a];
       const c = new Color();
       for (const kind of kinds) {
@@ -526,11 +527,12 @@ export class MissionView {
 }
 
 const COLORS = [0xd6322b, 0x2f6fd0, 0xe8b53a, 0x2e9c4f, 0xf1f1ec, 0x4a4f5a].map((h) => new Color(h));
-const paletteFor = (kind: TrafficKind): Color[] => (kind === 'taxi' ? TAXI_COLORS : kind === 'bus' || kind === 'minibus' ? BUS_COLORS : kind === 'delivery' ? DELIVERY_COLORS : COLORS);
+const paletteFor = (kind: TrafficKind): Color[] => (kind === 'taxi' ? TAXI_COLORS : kind === 'bus' || kind === 'minibus' ? BUS_COLORS : kind === 'delivery' ? DELIVERY_COLORS : kind === 'tractor' ? TRACTOR_COLORS : COLORS);
 
 /** Thimphu taxis are pale blue; coaches are white; delivery vans are plain. */
 const TAXI_COLORS = [0x7fb6e0, 0x7fb6e0, 0xf1f1ec, 0x7fb6e0].map((h) => new Color(h));
 const BUS_COLORS = [0xffffff, 0xf4efe2, 0xf3d9c8, 0xdfe9f3].map((h) => new Color(h));
+const TRACTOR_COLORS = [0xc23a2c, 0x3f8f4a, 0xd6a02a, 0x2f6fd0].map((h) => new Color(h));
 const DELIVERY_COLORS = [0xffffff, 0xf1f1ec, 0xe8b53a, 0xd9e6d2].map((h) => new Color(h));
 
 // -------------------------------------------------------------------------------------------- rain

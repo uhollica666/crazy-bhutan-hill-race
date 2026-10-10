@@ -6,6 +6,7 @@ import { Environment } from './Environment';
 import { Gates } from './Gates';
 import { Scenery } from './Scenery';
 import type { QualityProfile } from './quality';
+import { RiverMesh } from './RiverMesh';
 import { buildFordWater, buildJunctions, buildPuddles, buildRoadMeshes, buildTerrainMesh, buildWater, setTerrainCoarse } from './WorldMesh';
 
 /** Everything visible that belongs to a level, created from a Course and removable as a unit. */
@@ -15,6 +16,7 @@ export class World3D {
   readonly scenery: Scenery;
   readonly gates: Gates;
   private readonly terrain: Group;
+  private rivers: RiverMesh | null = null;
 
   constructor(
     private readonly scene: Scene,
@@ -28,6 +30,10 @@ export class World3D {
     if (course.terrain.waterLevel > course.terrain.minHeight) this.root.add(buildWater(course));
     const ford = buildFordWater(course);
     if (ford) this.root.add(ford);
+    if (course.rivers.length) {
+      this.rivers = new RiverMesh(course);
+      this.root.add(this.rivers.group);
+    }
     const junctions = buildJunctions(course);
     if (junctions) this.root.add(junctions);
     const puddles = buildPuddles(course);
@@ -61,6 +67,7 @@ export class World3D {
   }
 
   update(time: number, camera: Vector3, focus: Vector3, progress: number): void {
+    this.rivers?.update(time);
     this.scenery.update(time);
     this.gates.update(time);
     this.env.setProgress(progress);
