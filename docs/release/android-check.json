@@ -1,0 +1,16 @@
+{
+  "version": "0.4.0-beta.1",
+  "package": "com.novarah.cbhr",
+  "versionCode": 4000,
+  "minSdk": 24,
+  "targetSdk": 36,
+  "abi": "arm64-v8a",
+  "debuggable": false,
+  "signatureVerified": true,
+  "signatureScheme": "v2",
+  "certificateSha256": "dcc22ee72e828b97f95c7e29f9c99878b7c286bb10026141ea8401a6fa688159",
+  "certificateSubject": "CN=Novarah Interactives, O=Novarah Technologies, C=BT",
+  "keyBits": 4096,
+  "bytes": 103956143,
+  "physicalDeviceInstallation": "not tested; no device attached"
+}

@@ -1,5 +1,7 @@
 # Crazy Bhutan Hill Race
 
+The remastered public beta is live: [Play online](https://crazy-bhutan-hill-race.vercel.app/) · [Downloads](https://crazy-bhutan-hill-race.vercel.app/download/) · [GitHub Release](https://github.com/uhollica666/crazy-bhutan-hill-race/releases/tag/v0.4.0-beta.1). See [packaging instructions](docs/PACKAGING.md) for web, Windows and signed Android builds.
+
 A lightweight, stylised 3D arcade driving game. You are a Bhutanese tour driver carrying guests through ten missions: valley tours, a storm descent, a cliff road, a night run through the forest, a muddy expedition and a closed-course finale. _Working title. The geography is fictional and only inspired by Bhutan's mountain roads._
 
 Runs in desktop and mobile browsers, installs as a PWA, works offline, needs no account, ads or backend.
