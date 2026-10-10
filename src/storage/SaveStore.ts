@@ -11,6 +11,8 @@ export type TouchMode = 'auto' | 'on' | 'off';
 export interface Settings {
   masterVolume: number;
   musicVolume: number;
+  /** Which revision of the default mix this save was last on (see MIX_REV): lets untouched defaults move without overriding choices. */
+  mixRev: number;
   sfxVolume: number;
   /** Environment sound: wind, birds, rain, river. */
   ambientVolume: number;
@@ -117,11 +119,20 @@ export const LEGACY_PROGRESS_KEY = 'cbhr.v1.progress';
 const LEGACY_VEHICLE = 'druk-ranger';
 const HISTORY_LIMIT = 30;
 
+/**
+ * Default mix, revision 2 (Stage 7F): the soundtrack leads and the environment sits quietly under it. Players who never touched a
+ * slider still have the old defaults saved (music 0.5, environment 0.7) and move to the new ones once; anyone who set a value
+ * themselves keeps it.
+ */
+export const MIX_REV = 2;
+const OLD_MIX_DEFAULTS = { musicVolume: 0.5, ambientVolume: 0.7 } as const;
+
 export const defaultSettings = (quality: QualityLevel = 'medium'): Settings => ({
   masterVolume: 0.8,
-  musicVolume: 0.5,
+  musicVolume: 0.7,
+  mixRev: MIX_REV,
   sfxVolume: 0.9,
-  ambientVolume: 0.7,
+  ambientVolume: 0.4,
   muted: false,
   musicMuted: false,
   quality,
@@ -160,11 +171,16 @@ const rec = (v: unknown): Record<string, unknown> =>
 /** Defensive parse: corrupt, partial or old data falls back field-by-field to defaults. */
 export function parseSettings(raw: unknown, fallback: Settings): Settings {
   const o = rec(raw);
+  const onOldMix = o.mixRev !== MIX_REV;
+  // A saved value equal to the old default was never chosen by the player: it takes the new default.
+  const mix = (key: 'musicVolume' | 'ambientVolume'): number =>
+    onOldMix && o[key] === OLD_MIX_DEFAULTS[key] ? fallback[key] : num(o[key], fallback[key], 0, 1);
   return {
     masterVolume: num(o.masterVolume, fallback.masterVolume, 0, 1),
-    musicVolume: num(o.musicVolume, fallback.musicVolume, 0, 1),
+    musicVolume: mix('musicVolume'),
+    mixRev: MIX_REV,
     sfxVolume: num(o.sfxVolume, fallback.sfxVolume, 0, 1),
-    ambientVolume: num(o.ambientVolume, fallback.ambientVolume, 0, 1),
+    ambientVolume: mix('ambientVolume'),
     muted: typeof o.muted === 'boolean' ? o.muted : fallback.muted,
     musicMuted: typeof o.musicMuted === 'boolean' ? o.musicMuted : fallback.musicMuted,
     quality: isQuality(o.quality) ? o.quality : fallback.quality,

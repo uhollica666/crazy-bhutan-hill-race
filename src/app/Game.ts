@@ -1,6 +1,7 @@
 import { saveCosmetic } from '../render/cosmetics';
 import { PerspectiveCamera, Vector3 } from 'three';
 import { AudioEngine } from '../audio/AudioEngine';
+import { AudioFocus } from '../audio/focus';
 import { MusicManager } from '../audio/MusicManager';
 import { RaceRotation, fixedTrack, sceneFor } from '../audio/musicPlan';
 import type { MusicScene, TrackSlug } from '../audio/musicPlan';
@@ -977,6 +978,18 @@ export class Game {
     // Never leave a control "stuck" when the app loses focus or a touch is interrupted.
     window.addEventListener('blur', this.onBlur);
     document.addEventListener('visibilitychange', this.onVisibility);
+    // Out of focus (hidden tab, blurred or minimised window, frozen page, Tauri/Android background): every sound goes quiet.
+    this.audioFocus = new AudioFocus();
+    this.applyBackground(this.audioFocus.background);
+    this.audioFocus.onChange((bg) => this.applyBackground(bg));
+  }
+
+  private audioFocus: AudioFocus | null = null;
+
+  private applyBackground(bg: boolean): void {
+    this.audio.setBackground(bg);
+    this.music.setBackground(bg);
+    if (!bg) this.syncMusic();
   }
 
   private readonly onTouchDetected = (e: PointerEvent): void => {
@@ -2534,6 +2547,7 @@ export class Game {
           lights: this.world?.env.lightsOn ?? false,
           detailedModel: this.model?.detailed ?? false,
           audioMix: { ...this.audio.mix },
+          audioFocus: { background: this.audio.inBackground, gate: this.audio.gateLevel, context: this.audio.context?.state ?? null },
           loadingLevel: this.loadingLevel,
           steps: this.lastSteps,
           countdown: this.rt.session.countdown,
@@ -2600,6 +2614,7 @@ export class Game {
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('orientationchange', this.onResize);
     document.removeEventListener('visibilitychange', this.onVisibility);
+    this.audioFocus?.dispose();
     cancelAnimationFrame(this.rafId);
     this.input.dispose();
     this.touch.reset();

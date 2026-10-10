@@ -81,7 +81,12 @@ const PENTATONIC = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25
 const MAX_ONE_SHOTS = 14;
 
 // Bus trims. These are the "mix": the engine and effects lead, the environment sits under them.
-const TRIM = { engine: 1, sfx: 0.8, ui: 0.55, ambience: 0.5, weather: 0.6, music: 0.7 };
+/**
+ * Bus trims (the player's sliders multiply these). The soundtrack leads; the engine stays satisfying and warnings and impacts
+ * (the sfx and ui buses) stay clear; wind, water, nature and weather sit underneath as quiet atmosphere. Stage 7F: the environment
+ * was too loud against the music, so ambience and weather were cut by about 40 % and the music raised.
+ */
+const TRIM = { engine: 1, sfx: 0.8, ui: 0.55, ambience: 0.3, weather: 0.36, music: 0.9 };
 
 type ContextFactory = () => AudioContext;
 type Bus = 'engine' | 'sfx' | 'ui' | 'ambience' | 'weather' | 'music';
@@ -118,6 +123,10 @@ export class AudioEngine {
   private failed = false;
   private master!: GainNode;
   private limiter!: DynamicsCompressorNode;
+  /** Last gain stage before the limiter: closed (0) while the game is out of focus, so nothing it makes can be heard. */
+  private gate!: GainNode;
+  private background = false;
+  private suspendTimer: number | null = null;
   private bus!: Record<Bus, GainNode>;
   /** Alias of the effects bus, kept because one-shots use it as their default destination. */
   private sfx!: GainNode;
@@ -207,9 +216,58 @@ export class AudioEngine {
     if (this.failed) return;
     try {
       if (!this.ctx) this.create();
-      if (this.ctx && this.ctx.state !== 'running') void this.ctx.resume().catch(() => undefined);
+      // A gesture while the page is in the background must not wake the sound up.
+      if (this.ctx && this.ctx.state !== 'running' && !this.background) void this.ctx.resume().catch(() => undefined);
     } catch {
       this.failed = true;
+    }
+  }
+
+  /** Current level of the focus gate: 1 when sound is on, 0 when the game is out of focus (for tests and the debug overlay). */
+  get gateLevel(): number {
+    return this.gate ? this.gate.gain.value : this.background ? 0 : 1;
+  }
+
+  /** True while the game is out of focus (hidden tab, minimised or blurred window, frozen page): everything is silent. */
+  get inBackground(): boolean {
+    return this.background;
+  }
+
+  /**
+   * Silences every sound the game makes (music, engine, effects, environment, weather, UI) when the game loses focus, and brings
+   * it back, per the player's saved levels and the real game state, when focus returns. The gate fades in 60 ms (no click) and
+   * the context is then suspended, so no node, loop or one-shot can be heard (or burn CPU) in the background; on return the
+   * context resumes first and the gate fades up over 180 ms (no jump and no stacked loops, because nothing was restarted).
+   */
+  setBackground(on: boolean): void {
+    if (this.background === on) return;
+    this.background = on;
+    const ctx = this.ctx;
+    if (this.suspendTimer !== null) {
+      window.clearTimeout(this.suspendTimer);
+      this.suspendTimer = null;
+    }
+    if (!ctx || !this.gate) return;
+    const g = this.gate.gain;
+    const t = ctx.currentTime;
+    if (on) {
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(0, t + 0.06);
+      this.suspendTimer = window.setTimeout(() => {
+        this.suspendTimer = null;
+        if (this.background && ctx.state === 'running') void ctx.suspend?.().catch(() => undefined);
+      }, 140);
+    } else {
+      void Promise.resolve(ctx.state !== 'running' ? ctx.resume() : undefined)
+        .catch(() => undefined)
+        .then(() => {
+          if (this.background) return;
+          const now = ctx.currentTime;
+          g.cancelScheduledValues(now);
+          g.setValueAtTime(0, now);
+          g.linearRampToValueAtTime(1, now + 0.18);
+        });
     }
   }
 
@@ -236,7 +294,10 @@ export class AudioEngine {
     this.limiter.ratio.value = 8;
     this.limiter.attack.value = 0.003;
     this.limiter.release.value = 0.18;
-    this.master.connect(this.limiter);
+    this.gate = ctx.createGain();
+    this.gate.gain.value = this.background ? 0 : 1;
+    this.master.connect(this.gate);
+    this.gate.connect(this.limiter);
     this.limiter.connect(ctx.destination);
     const mk = (): GainNode => {
       const g = ctx.createGain();

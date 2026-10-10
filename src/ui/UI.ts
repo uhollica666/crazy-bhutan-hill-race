@@ -367,10 +367,11 @@ export class UI {
             <button type="button" role="tab" id="tab-privacy" data-tab="privacy" aria-selected="false" aria-controls="pane-privacy" tabindex="-1">Privacy</button>
           </div>
           <div class="tab-panel" id="pane-audio" role="tabpanel" aria-labelledby="tab-audio">
+            <p class="hint-text">The soundtrack leads. The environment (wind, water, birds, rain) sits quietly underneath, and everything goes silent when the game is out of focus.</p>
             <div class="field"><label for="set-master">Master volume</label><output id="out-master"></output><input id="set-master" type="range" min="0" max="100" step="1" /></div>
             <div class="field"><label for="set-music">Music</label><output id="out-music"></output><input id="set-music" type="range" min="0" max="100" step="1" /></div>
-            <div class="field"><label for="set-sfx">Engine and effects</label><output id="out-sfx"></output><input id="set-sfx" type="range" min="0" max="100" step="1" /></div>
-            <div class="field"><label for="set-ambient">Environment (wind, rain, nature)</label><output id="out-ambient"></output><input id="set-ambient" type="range" min="0" max="100" step="1" /></div>
+            <div class="field"><label for="set-sfx">Engine, warnings and effects</label><output id="out-sfx"></output><input id="set-sfx" type="range" min="0" max="100" step="1" /></div>
+            <div class="field"><label for="set-ambient">Environment (wind, water, rain, nature)</label><output id="out-ambient"></output><input id="set-ambient" type="range" min="0" max="100" step="1" /></div>
             <div class="field"><label for="set-music-mute">Mute music (keep sound effects)</label><input id="set-music-mute" type="checkbox" /></div>
             <div class="field"><label for="set-mute">Mute all sound</label><input id="set-mute" type="checkbox" /></div>
           </div>

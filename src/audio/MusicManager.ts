@@ -75,21 +75,11 @@ export class MusicManager {
   private failures = 0;
   /** Set while we pause an element ourselves, so an OS interruption can be told apart. */
   private expectedPause = new WeakSet<HTMLAudioElement>();
-  private readonly onVisibility = (): void => {
-    if (typeof document === 'undefined') return;
-    this.hidden = document.visibilityState === 'hidden';
-    if (this.hidden) this.suspendForHidden();
-    else this.recover();
-  };
 
   constructor(private readonly env: MusicEnv) {
     const probe = env.createAudio();
     const opus = probe.canPlayType('audio/webm; codecs="opus"');
     this.format = opus === 'probably' || opus === 'maybe' ? 'webm' : 'mp3';
-    if (typeof document !== 'undefined') {
-      this.hidden = document.visibilityState === 'hidden';
-      document.addEventListener('visibilitychange', this.onVisibility);
-    }
   }
 
   /** What is playing right now (debug overlay and tests). */
@@ -126,6 +116,17 @@ export class MusicManager {
     else this.reconcile();
   }
 
+  /**
+   * The game lost or regained focus (hidden tab, blurred or minimised window, frozen page). Music pauses at once and nothing new
+   * starts while in the background; on return it carries on from where it was.
+   */
+  setBackground(on: boolean): void {
+    if (this.hidden === on) return;
+    this.hidden = on;
+    if (on) this.suspendForHidden();
+    else this.recover();
+  }
+
   /** A real user gesture happened: autoplay is now allowed, so anything that was blocked or interrupted can start. */
   notifyGesture(): void {
     this.recover();
@@ -135,7 +136,6 @@ export class MusicManager {
     this.disposed = true;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = null;
-    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.onVisibility);
     for (const d of this.decks) this.release(d);
     for (const d of this.decks) {
       d.source?.disconnect();
@@ -409,7 +409,8 @@ export class MusicManager {
       );
       return;
     }
-    if (!cur) this.reconcile();
+    // Nothing playing, or the scene changed while the game was away: start what the scene asks for.
+    if (!cur || cur.slug !== this.want?.slug) this.reconcile();
   }
 }
 
