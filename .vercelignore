@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-*
+src-tauri
+assets-src
+docs
+tests
+e2e
+test-results
+playwright-report
+release-artifacts
+.remaster-cache
+.git
+*.log
