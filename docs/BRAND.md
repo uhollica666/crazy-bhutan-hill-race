@@ -91,6 +91,13 @@ To add a mission or language: copy an entry in `src/data/story/en.ts`, fill `qui
 PNGs. The originals (`cbhr-logo.png`, `novarah-logo.png`) are left untouched at the repository root. The `@2x`
 Novarah PNGs that used to sit at the root were deleted by the owner and are not restored.
 
+**Game logo derivatives (`node scripts/branding.mjs`, from the master `cbhr-logo.png`).** The menu, splash, loading screen and About use
+`brand/cbhr-logo.webp` (720 px, background removed by a border flood fill so the dark tyres and shadows keep their colour). Small
+places cannot carry the wordmark, so favicons (16/32/48 and `favicon.ico`), the Apple touch icon (180), the PWA icons (192/512,
+rounded) and the maskable icons (192/512, emblem inside the 80% safe zone on a fiery dark ground) use a crop of the vehicle, peak and
+sun disc. `og-image.png` (1200x630) is the social card; its `og:image` URL in `index.html` is relative, so set it to the absolute
+URL of the deployed site when publishing.
+
 Known gaps: no horizontal/stacked lock-up of the two logos exists, so they are never shown together as one mark; the
 studio card uses the logo as supplied (magenta on dark works; it has not been tested on light backgrounds because the
 interface has none).
