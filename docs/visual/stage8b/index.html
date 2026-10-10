@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><title>
+    Stage 8B review</title
+  ><style>
+    body {
+      margin: 0;
+      background: #121a1f;
+      color: #edf1ed;
+      font: 16px system-ui;
+      padding: 32px;
+      max-width: 1400px;
+      margin: auto;
+    }
+    h1 {
+      font-size: 32px;
+    }
+    p {
+      color: #bac6cb;
+    }
+    section {
+      margin: 40px 0;
+    }
+    div.pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    img {
+      width: 100%;
+      border-radius: 8px;
+    }
+    figure {
+      margin: 0;
+    }
+    figcaption {
+      padding: 8px 0;
+    }
+    select {
+      padding: 10px;
+      font: inherit;
+      background: #26363f;
+      color: white;
+      border: 1px solid #73838c;
+      border-radius: 6px;
+    }
+    @media (max-width: 700px) {
+      div.pair {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  <h1>Stage 8B visual review</h1>
+  <p>
+    Stage 8A vehicle assets compared with the remaster in a shared studio. Software WebGL captures; visual
+    review does not establish gameplay or device performance.
+  </p>
+  <label
+    >Vehicle angle
+    <select id="angle">
+      <option>front</option>
+      <option>rear</option>
+      <option>side</option>
+      <option>interior</option>
+    </select></label
+  >
+  <main id="cars"></main>
+  <section>
+    <h2>Creature cast</h2>
+    <p>The saved pre-change group and updated group show the cast together. Updated close-ups follow.</p>
+    <div class="pair">
+      <figure>
+        <img src="creatures-before.png" alt="Creature cast before" />
+        <figcaption>Before</figcaption>
+      </figure>
+      <figure>
+        <img src="creatures.png" alt="Creature cast after" />
+        <figcaption>After</figcaption>
+      </figure>
+    </div>
+  </section>
+  <section id="actors"></section>
+  <section>
+    <h2>Cosmetic inspection</h2>
+    <img src="custom.png" alt="Vehicle cosmetic attachments" />
+  </section>
+  <script>
+    const names = ['Dzo Hatch', 'Tourist Coaster', 'Druk Ranger', 'Dragon Cruiser'];
+    function draw() {
+      cars.innerHTML = names
+        .map(
+          (name, i) =>
+            `<section><h2>${name}</h2><div class="pair"><figure><img src="before/vehicle-${i}${angle.value === 'front' ? '' : '-' + angle.value}.png" alt="${name} before ${angle.value}"><figcaption>Stage 8A</figcaption></figure><figure><img src="vehicle-${i}${angle.value === 'front' ? '' : '-' + angle.value}.png" alt="${name} after ${angle.value}"><figcaption>Stage 8B</figcaption></figure></div></section>`,
+        )
+        .join('');
+    }
+    angle.onchange = draw;
+    draw();
+    actors.innerHTML = ['Yeti', 'Ghost', 'Zombie', 'Bear', 'Yak']
+      .map(
+        (name, i) =>
+          `<section><h2>${name}</h2><img src="creature-${i}.png" alt="${name} updated close-up"></section>`,
+      )
+      .join('');
+  </script>
+</html>

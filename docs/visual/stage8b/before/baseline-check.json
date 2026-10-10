@@ -1,0 +1,47 @@
+{
+  "commit": "28a8021",
+  "errors": [],
+  "signals": [
+    {
+      "detailed": true,
+      "intensities": {
+        "light_head": 2.6,
+        "light_tail": 1.43,
+        "light_reverse": 1.8,
+        "indicator_left": 0,
+        "indicator_right": 2.4
+      }
+    },
+    {
+      "detailed": true,
+      "intensities": {
+        "light_head": 2.6,
+        "light_tail": 1.43,
+        "light_reverse": 1.8,
+        "indicator_left": 0,
+        "indicator_right": 2.4
+      }
+    },
+    {
+      "detailed": true,
+      "intensities": {
+        "light_head": 2.6,
+        "light_tail": 1.43,
+        "light_reverse": 1.8,
+        "indicator_left": 0,
+        "indicator_right": 2.4
+      }
+    },
+    {
+      "detailed": true,
+      "intensities": {
+        "light_head": 2.6,
+        "light_tail": 1.43,
+        "light_reverse": 1.8,
+        "indicator_left": 0,
+        "indicator_right": 2.4
+      }
+    }
+  ],
+  "note": "Committed Stage 8A vehicle geometry, common review lighting and cameras. No campaign."
+}
