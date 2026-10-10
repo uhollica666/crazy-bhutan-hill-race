@@ -1464,3 +1464,16 @@ details p {
     transform: none !important;
   }
 }
+
+/* ---------------------------------------------------------------- phone hero: let the screenshot show through */
+html {
+  overflow-x: clip;
+}
+@media (max-width: 720px) {
+  .hero-shade {
+    background: linear-gradient(180deg, rgba(7, 8, 11, 0.8) 0, rgba(7, 8, 11, 0.3) 26%, rgba(7, 8, 11, 0.45) 62%, var(--ink) 100%);
+  }
+  .hero-bg img {
+    object-position: 58% 70%;
+  }
+}
