@@ -10,6 +10,20 @@ function walk(dir: string): string[] {
   );
 }
 
+/** The launch site is a separate page under /download/; the dev and preview servers must serve its index like a static host does instead of the game's SPA fallback. */
+function downloadSite(): Plugin {
+  const rewrite = (req: { url?: string }, _res: unknown, next: () => void): void => {
+    const [path = '', query] = (req.url ?? '').split('?');
+    if (path === '/download' || path === '/download/') req.url = '/download/index.html' + (query ? `?${query}` : '');
+    next();
+  };
+  return {
+    name: 'cbhr-download-site',
+    configureServer: (s) => void s.middlewares.use(rewrite),
+    configurePreviewServer: (s) => void s.middlewares.use(rewrite),
+  };
+}
+
 /** Emits sw.js with a precache list and a build id derived from the actual output, so every release gets a fresh cache. */
 function serviceWorker(): Plugin {
   return {
@@ -30,7 +44,7 @@ function serviceWorker(): Plugin {
         // so it is neither precached nor part of the build id.
         const publicFiles = walk('public')
           .map((f) => relative('public', f).replaceAll('\\', '/'))
-          .filter((f) => !f.startsWith('audio/music/'));
+          .filter((f) => !f.startsWith('audio/music/') && !f.startsWith('download/'));
         for (const f of publicFiles) hash.update(readFileSync(join('public', f)));
         // index.html is listed explicitly: it is the offline navigation fallback ("shell") in sw.js.
         // Remaster assets are optional, cached on use by the existing fetch handler. Low/offline fallback
@@ -55,7 +69,7 @@ const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { version: strin
 export default defineConfig({
   base: './',
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
-  plugins: [serviceWorker()],
+  plugins: [downloadSite(), serviceWorker()],
   build: { target: 'es2022', sourcemap: false, chunkSizeWarningLimit: 900 },
   // Localhost only by default; use `bun run dev:lan` to test on a phone over your own Wi-Fi.
   server: { port: 5273, strictPort: true },

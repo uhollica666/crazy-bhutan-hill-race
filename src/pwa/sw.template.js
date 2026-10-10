@@ -58,6 +58,8 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   // The soundtrack is streamed with range requests and kept by the music player in its own cache (see audio/MusicManager.ts).
   if (url.pathname.includes('/audio/music/')) return;
+  // The launch site (/download/) is its own page, served fresh from the network: it must never replace the cached game shell.
+  if (url.pathname.includes('/download/')) return;
   if (req.mode === 'navigate') {
     event.respondWith(networkFirst(req));
     return;

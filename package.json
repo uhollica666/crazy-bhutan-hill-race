@@ -1,7 +1,7 @@
 {
   "name": "crazy-bhutan-hill-race",
   "private": true,
-  "version": "0.4.0-beta.1",
+  "version": "0.4.0-beta.2",
   "type": "module",
   "description": "Lightweight stylized 3D arcade driving game set in a fictionalized Bhutan.",
   "scripts": {

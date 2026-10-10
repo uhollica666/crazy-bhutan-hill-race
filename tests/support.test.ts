@@ -83,6 +83,17 @@ describe('support links: a channel is active only when it is verified and safe',
   });
 });
 
+describe('native apps', () => {
+  it('the Tauri opener permission is limited to exactly the allowed support hosts, and the build version is bumped for the update', () => {
+    const cap = JSON.parse(readFileSync('src-tauri/capabilities/default.json', 'utf8')) as { permissions: (string | { identifier: string; allow: { url: string }[] })[] };
+    const open = cap.permissions.find((p) => typeof p === 'object' && p.identifier === 'opener:allow-open-url') as { allow: { url: string }[] };
+    const cfg = JSON.parse(readFileSync('public/support.json', 'utf8')) as { allowedHosts: string[] };
+    expect(open.allow.map((a) => a.url).sort()).toEqual(cfg.allowedHosts.map((h) => `https://${h}/*`).sort());
+    expect(readFileSync('src-tauri/src/lib.rs', 'utf8')).toContain('tauri_plugin_opener::init()');
+    expect(readFileSync('src-tauri/Cargo.toml', 'utf8')).toContain('tauri-plugin-opener');
+  });
+});
+
 describe('opening external links', () => {
   it('only safe, allowed urls are opened', () => {
     expect(isSafeSupportUrl('https://www.patreon.com/novarah', HOSTS)).toBe(true);
