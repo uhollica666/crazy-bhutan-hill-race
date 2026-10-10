@@ -8,158 +8,34 @@ import {
   Group,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
+  LOD,
   Quaternion,
   Vector3,
 } from 'three';
 import type { BufferGeometry, MeshStandardMaterial, Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { instantiate } from './assets';
+import { vehicleEnvironment } from './assets';
+import { createCoachwork } from './coachwork';
 import type { VehicleAsset } from './assets';
 import type { VehicleDef } from '../data/types';
 import type { VehicleBody } from '../physics/VehicleBody';
 import type { PhysicsWorld } from '../physics/types';
 import { createGroundSample } from '../world/Terrain';
-import { GeoBuilder } from './geo';
-import { PAL } from './palette';
-import { LIGHT_LAYOUT, cruiserBody, hatchBody } from './vehicleBodies';
+import { LIGHT_LAYOUT } from './vehicleBodies';
 
-const GLASS = 0x2b3f58;
-const TIRE = 0x1c1c1f;
-const DARK = 0x303034;
-
-function suvBody(def: VehicleDef): BufferGeometry {
-  const { body, accent, trim } = def.livery;
-  const w = def.size.width;
-  const l = def.size.length;
-  const g = new GeoBuilder();
-  g.box(w - 0.04, 0.62, l, body, { y: -0.28 }); // lower body
-  g.box(1.66, 0.62, 2.55, body, { y: 0.35, z: 0.35 }); // cabin
-  g.box(1.7, 0.34, 2.28, GLASS, { y: 0.4, z: 0.35 }); // side glass
-  g.box(1.5, 0.34, 2.64, GLASS, { y: 0.4, z: 0.35 }); // screens
-  g.box(1.64, 0.1, 2.5, body, { y: 0.72, z: 0.35 }); // roof
-  g.box(1.78, 0.15, 1.15, body, { y: 0.09, z: -1.55 }); // bonnet
-  g.box(1.9, 0.26, 0.22, DARK, { y: -0.45, z: -l / 2 + 0.05 }); // bumpers
-  g.box(1.9, 0.26, 0.22, DARK, { y: -0.45, z: l / 2 - 0.05 });
-  for (const sx of [-1, 1]) {
-    g.box(0.03, 0.14, 3.7, accent, { x: sx * (w / 2 - 0.01), y: -0.14 });
-    g.box(0.03, 0.07, 3.7, trim, { x: sx * (w / 2 - 0.01), y: -0.28 });
-    g.box(0.1, 0.14, 0.22, DARK, { x: sx * 0.98, y: 0.28, z: -0.82 }); // mirrors
-  }
-  g.box(1.5, 0.06, 2.0, DARK, { y: 0.82, z: 0.35 }); // roof rack
-  g.box(0.7, 0.34, 0.55, accent, { x: -0.3, y: 1.0, z: 0.0 });
-  g.box(0.6, 0.28, 0.5, trim, { x: 0.35, y: 0.97, z: 0.75 });
-  g.box(0.5, 0.24, 0.4, PAL.flagBlue, { x: 0.45, y: 0.95, z: 0.05 });
-  g.box(0.08, 0.5, 0.06, PAL.woodDark, { x: -0.8, y: 1.02, z: 1.5 }); // bunting pole
-  g.quad(0.28, 0.2, PAL.flagBlue, { x: -0.72, y: 1.18, z: 1.5 });
-  g.quad(0.28, 0.2, PAL.flagRed, { x: -0.72, y: 1.0, z: 1.5 });
-  return g.build();
-}
-
-/** Coaster-style minibus: tall, boxy, long windows band, roof rack with luggage, festival stripe. */
-function coasterBody(def: VehicleDef): BufferGeometry {
-  const { body, accent, trim } = def.livery;
-  const w = def.size.width;
-  const l = def.size.length;
-  const g = new GeoBuilder();
-  g.box(w, 0.95, l - 0.1, body, { y: -0.52 }); // lower body (floor to waist)
-  g.box(w - 0.04, 1.0, l - 0.5, body, { y: 0.5, z: 0.12 }); // upper body
-  g.box(w + 0.04, 0.64, l - 1.2, GLASS, { y: 0.62, z: 0.2 }); // side windows band
-  g.box(w - 0.3, 0.64, l - 0.45, GLASS, { y: 0.62, z: 0.12 }); // front/rear glass
-  for (let i = 0; i < 6; i++) g.box(w + 0.06, 0.7, 0.1, body, { y: 0.62, z: -2.0 + i * 0.86 }); // window pillars
-  g.box(w - 0.1, 0.16, l - 0.55, body, { y: 1.07, z: 0.1 }); // roof
-  g.box(1.2, 0.2, 1.7, 0xbfc3c6, { y: 1.26, z: 0.4 }); // air-con pod
-  g.box(w + 0.02, 0.4, 0.3, DARK, { y: -0.66, z: -l / 2 + 0.1 }); // bumpers
-  g.box(w + 0.02, 0.4, 0.3, DARK, { y: -0.66, z: l / 2 - 0.1 });
-  g.box(1.3, 0.34, 0.1, DARK, { y: -0.35, z: -l / 2 - 0.02 }); // grille
-  g.box(1.1, 0.26, 0.14, trim, { y: 0.98, z: -l / 2 + 0.52 }); // destination board
-  g.box(1.0, 0.1, 0.16, accent, { y: 0.98, z: -l / 2 + 0.52 });
-  for (const sx of [-1, 1]) {
-    g.box(0.03, 0.22, l - 0.9, accent, { x: sx * (w / 2 + 0.005), y: -0.2 }); // saffron flank stripe
-    g.box(0.03, 0.1, l - 0.9, trim, { x: sx * (w / 2 + 0.005), y: -0.42 });
-    g.box(0.16, 0.34, 0.24, DARK, { x: sx * (w / 2 + 0.12), y: 0.45, z: -l / 2 + 0.75 }); // mirrors
-    g.box(0.06, 0.5, 0.9, DARK, { x: sx * (w / 2 + 0.05), y: -0.52, z: -2.25, rz: 0 }); // wheel-arch shadow
-    g.box(0.06, 0.5, 0.9, DARK, { x: sx * (w / 2 + 0.05), y: -0.52, z: 1.95 });
-  }
-  // Roof rack with luggage.
-  g.box(1.7, 0.06, 3.4, DARK, { y: 1.22, z: -0.1 });
-  g.box(0.9, 0.42, 0.7, accent, { x: -0.4, y: 1.5, z: -0.8 });
-  g.box(0.8, 0.36, 0.7, trim, { x: 0.4, y: 1.47, z: -0.4 });
-  g.box(0.7, 0.34, 0.6, PAL.flagBlue, { x: -0.3, y: 1.45, z: 0.3 });
-  g.box(0.9, 0.4, 0.8, PAL.flagGreen, { x: 0.35, y: 1.48, z: 0.8 });
-  g.cylinder(0.18, 0.18, 1.5, PAL.wood, 8, { x: 0, y: 1.42, z: -1.4, rz: Math.PI / 2 }); // rolled mat
-  // Festival prayer-flag bunting from the mirrors across the windscreen.
-  const flags = [PAL.flagBlue, PAL.flagWhite, PAL.flagRed, PAL.flagGreen, PAL.flagYellow];
-  for (let i = 0; i < 5; i++) g.quad(0.22, 0.2, flags[i], { x: -0.8 + i * 0.4, y: 0.82, z: -l / 2 + 0.2 });
-  return g.build();
-}
-
-function headLights(def: VehicleDef): BufferGeometry {
-  const l = def.size.length;
-  const { hx, y } = LIGHT_LAYOUT[def.visual];
-  const g = new GeoBuilder();
-  for (const sx of [-1, 1]) g.box(0.32, 0.18, 0.08, 0xfff1b8, { x: sx * hx, y, z: -l / 2 - 0.01 });
-  return g.build();
-}
-
-function tailLights(def: VehicleDef): BufferGeometry {
-  const l = def.size.length;
-  const hx = LIGHT_LAYOUT[def.visual].tailHx;
-  const y = LIGHT_LAYOUT[def.visual].tailY;
-  const g = new GeoBuilder();
-  for (const sx of [-1, 1]) g.box(0.3, 0.2, 0.08, 0xffffff, { x: sx * hx, y, z: l / 2 + 0.01 });
-  return g.build();
-}
-
-function bodyFor(def: VehicleDef): BufferGeometry {
-  switch (def.visual) {
-    case 'hatch':
-      return hatchBody(def);
-    case 'coaster':
-      return coasterBody(def);
-    case 'cruiser':
-      return cruiserBody(def);
-    default:
-      return suvBody(def);
-  }
-}
-
-/** A non-simulated copy of a vehicle (body, lights, four static wheels): used for the rival coach. */
+/** Static coachwork shares the same authored proportions as the player. */
 export function createStaticVehicle(def: VehicleDef, livery?: Partial<VehicleDef['livery']>): { group: Group; dispose: () => void } {
-  const d: VehicleDef = livery ? { ...def, livery: { ...def.livery, ...livery } } : def;
-  const body = bodyFor(d);
-  const heads = headLights(d);
-  const tails = tailLights(d);
-  const wheel = wheelGeometry(d);
-  const lambert = new MeshLambertMaterial({ vertexColors: true });
-  const basic = new MeshBasicMaterial({ vertexColors: true });
-  const tailMat = new MeshBasicMaterial({ color: 0xa5272a });
-  const group = new Group();
-  group.add(new Mesh(body, lambert), new Mesh(heads, basic), new Mesh(tails, tailMat));
-  for (const axle of d.axles) {
-    for (const side of [-1, 1]) {
-      const m = new Mesh(wheel, lambert);
-      m.position.set(side * axle.halfTrack, axle.y - d.suspension.rest * 0.8, axle.z);
-      group.add(m);
-    }
+  const d = livery ? { ...def, livery: { ...def.livery, ...livery } } : def;
+  const art = createCoachwork(d, true);
+  const group = new Group(); group.add(art.body);
+  for (const axle of d.axles) for (const side of [-1, 1]) {
+    const wheel = art.wheel.clone(true);
+    wheel.position.set(side * axle.halfTrack, axle.y - d.suspension.rest, axle.z);
+    group.add(wheel);
   }
-  return {
-    group,
-    dispose: () => {
-      [body, heads, tails, wheel].forEach((g) => g.dispose());
-      [lambert, basic, tailMat].forEach((m) => m.dispose());
-    },
-  };
-}
-
-function wheelGeometry(def: VehicleDef): BufferGeometry {
-  const r = def.wheelRadius;
-  const ww = def.wheelWidth;
-  const g = new GeoBuilder();
-  g.cylinder(r, r, ww, TIRE, 14, { rz: Math.PI / 2 });
-  g.cylinder(r * 0.62, r * 0.62, ww * 1.04, 0xc9c9c4, 12, { rz: Math.PI / 2 });
-  for (let i = 0; i < 4; i++) g.box(ww * 1.08, r * 1.22, 0.07, 0x55555a, { rx: (i * Math.PI) / 4 });
-  return g.build();
+  return { group, dispose: () => {
+    art.geometries.forEach(g => g.dispose()); art.materials.forEach(m => m.dispose());
+  } };
 }
 
 function makeBlobTexture(): CanvasTexture {
@@ -182,6 +58,7 @@ export class VehicleModel {
   private readonly shell = new Group();
   private readonly pivots: Group[] = [];
   private readonly rolls: Object3D[] = [];
+  private readonly lods: LOD[] = [];
   private readonly headMats: MeshStandardMaterial[] = [];
   private readonly tailMats: MeshStandardMaterial[] = [];
   /** True when the detailed glTF model is in use (false = procedural fallback). */
@@ -195,54 +72,43 @@ export class VehicleModel {
   private readonly up = new Vector3(0, 1, 0);
   private readonly n = new Vector3();
   private brakeGlow = 0;
+  private readonly reverseMats: MeshStandardMaterial[] = [];
+  private readonly indicatorMats: MeshStandardMaterial[][] = [[], []];
+  private indicator: -1 | 0 | 1 = 0;
+
+  /** Explicit signal command for future input/traffic integration; steering alone never signals. */
+  setIndicator(side: -1 | 0 | 1): void { this.indicator = side; }
   private readonly beam: Mesh;
 
   constructor(
     private readonly def: VehicleDef,
     asset: VehicleAsset | null = null,
   ) {
-    this.detailed = !!asset;
-    const lambert = new MeshLambertMaterial({ vertexColors: true });
-    const basic = new MeshBasicMaterial({ vertexColors: true });
-    const bodyGeo = bodyFor(def);
-    const headGeo = headLights(def);
-    const tailGeo = tailLights(def);
-    const wheelGeo = wheelGeometry(def);
-    this.geos.push(bodyGeo, headGeo, tailGeo, wheelGeo);
-    this.mats.push(lambert, basic, this.tailMat);
-
-    if (asset) {
-      const b = instantiate(asset.body, def.livery);
-      this.shell.add(b.object);
-      this.headMats.push(...b.lights.head);
-      this.tailMats.push(...b.lights.tail);
-      this.mats.push(...b.materials);
-    } else {
-      const body = new Mesh(bodyGeo, lambert);
-      body.castShadow = true;
-      this.shell.add(body, new Mesh(headGeo, basic), new Mesh(tailGeo, this.tailMat));
-    }
-    this.root.add(this.shell);
-
-    for (const axle of def.axles) {
-      for (const side of [-1, 1]) {
-        const pivot = new Group();
-        let roll: Object3D;
-        if (asset) {
-          const w = instantiate(asset.wheel, null);
-          roll = w.object;
-          this.mats.push(...w.materials);
-        } else {
-          const m = new Mesh(wheelGeo, lambert);
-          m.castShadow = true;
-          roll = m;
+    // The old GLB argument remains API-compatible; this remake owns the visible coachwork.
+    void asset;
+    this.detailed = true;
+    const high = createCoachwork(def), low = createCoachwork(def, true);
+    const bodyLOD = new LOD(); bodyLOD.addLevel(high.body, 0); bodyLOD.addLevel(low.body, 38, 0.12);
+    this.lods.push(bodyLOD);
+    this.shell.add(bodyLOD); this.root.add(this.shell);
+    for (const art of [high, low]) {
+      this.geos.push(...art.geometries); this.mats.push(...art.materials);
+      this.headMats.push(art.head); this.tailMats.push(art.tail); this.reverseMats.push(art.reverse);
+      art.indicators.forEach((m, i) => this.indicatorMats[i].push(m));
+      for (const m of art.materials) {
+        if (vehicleEnvironment() && !m.name.startsWith('light') && m.name !== 'rubber' && m.name !== 'cabin') {
+          m.envMap = vehicleEnvironment(); m.envMapIntensity = 0.5;
         }
-        pivot.add(roll);
-        pivot.position.set(side * axle.halfTrack, axle.y - def.suspension.rest, axle.z);
-        this.root.add(pivot);
-        this.pivots.push(pivot);
-        this.rolls.push(roll);
       }
+    }
+    this.mats.push(this.tailMat);
+    for (const axle of def.axles) for (const side of [-1, 1]) {
+      const pivot = new Group(), roll = new LOD();
+      roll.addLevel(high.wheel.clone(true), 0); roll.addLevel(low.wheel.clone(true), 30, 0.12);
+      this.lods.push(roll);
+      pivot.add(roll);
+      pivot.position.set(side * axle.halfTrack, axle.y - def.suspension.rest, axle.z);
+      this.root.add(pivot); this.pivots.push(pivot); this.rolls.push(roll);
     }
 
     // Headlight beams: TWO additive cones, one from each lamp, angled slightly outward so they overlap into a
@@ -318,6 +184,15 @@ export class VehicleModel {
     for (const m of this.headMats) m.emissiveIntensity = on ? 2.6 : 0.5;
   }
 
+  /** Low phones skip tread/door details; other tiers use camera-distance LOD with hysteresis. */
+  setLowDetail(low: boolean): void {
+    for (const lod of this.lods) {
+      lod.autoUpdate = !low;
+      lod.levels[0].object.visible = !low;
+      lod.levels[1].object.visible = low;
+    }
+  }
+
   /** Cheap fake shadow for the lowest quality tier (real shadow map otherwise). */
   setBlobVisible(v: boolean): void {
     this.blob.visible = v;
@@ -344,9 +219,12 @@ export class VehicleModel {
     });
 
     // Brake lights glow while braking (smoothed so quick taps are still visible).
-    const target = body.braking > 0.05 && body.speed > 0.5 ? 1 : 0;
+    const target = body.braking > 0.05 ? 1 : 0;
     this.brakeGlow += (target - this.brakeGlow) * 0.35;
     for (const m of this.tailMats) m.emissiveIntensity = 0.45 + this.brakeGlow * 2.8;
+    for (const m of this.reverseMats) m.emissiveIntensity = body.speed < -0.25 ? 1.8 : 0;
+    for (let side = 0; side < 2; side++) for (const m of this.indicatorMats[side])
+      m.emissiveIntensity = this.indicator === (side === 0 ? -1 : 1) && Math.sin(time * Math.PI * 3) > 0 ? 2.4 : 0;
     this.tailMat.color.setRGB(
       0.35 + this.brakeGlow * 0.65,
       0.08 + this.brakeGlow * 0.1,

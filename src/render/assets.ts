@@ -113,6 +113,8 @@ export function setVehicleEnvMap(t: Texture | null): void {
   vehicleEnv = t;
 }
 
+export const vehicleEnvironment = (): Texture | null => vehicleEnv;
+
 export interface Livery {
   body: number;
   accent: number;

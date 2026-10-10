@@ -674,6 +674,7 @@ export class Game {
     }
     this.renderer.scene.add(this.model.root, this.model.blob);
     this.model.setBlobVisible(!this.renderer.profile.shadows);
+    this.model.setLowDetail(this.renderer.profile.terrainCoarse);
     this.rig.setVehicle(this.vehicleDef);
     this.audio.setVehicle(this.vehicleDef.audio, this.vehicleDef.id);
     this.engineSim.setVehicle(this.vehicleDef);
@@ -980,6 +981,7 @@ export class Game {
       this.renderer.setQuality(s.quality);
       this.world?.applyQuality(q);
       this.model?.setBlobVisible(!q.shadows);
+      this.model?.setLowDetail(q.terrainCoarse);
       this.rig.setFar(q.cameraFar);
       this.effects.particles.density = q.particleDensity;
       this.effects.skids.mesh.visible = q.skidMarks;
