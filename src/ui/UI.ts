@@ -369,6 +369,7 @@ export class UI {
             <div class="field"><label for="set-music">Music</label><output id="out-music"></output><input id="set-music" type="range" min="0" max="100" step="1" /></div>
             <div class="field"><label for="set-sfx">Engine and effects</label><output id="out-sfx"></output><input id="set-sfx" type="range" min="0" max="100" step="1" /></div>
             <div class="field"><label for="set-ambient">Environment (wind, rain, nature)</label><output id="out-ambient"></output><input id="set-ambient" type="range" min="0" max="100" step="1" /></div>
+            <div class="field"><label for="set-music-mute">Mute music (keep sound effects)</label><input id="set-music-mute" type="checkbox" /></div>
             <div class="field"><label for="set-mute">Mute all sound</label><input id="set-mute" type="checkbox" /></div>
           </div>
           <div class="tab-panel" id="pane-graphics" role="tabpanel" aria-labelledby="tab-graphics" hidden>
@@ -647,6 +648,9 @@ export class UI {
     q<HTMLInputElement>(this.root, '#set-mute').addEventListener('change', (e) =>
       this.actions.settingsChanged({ muted: (e.target as HTMLInputElement).checked }),
     );
+    q<HTMLInputElement>(this.root, '#set-music-mute').addEventListener('change', (e) =>
+      this.actions.settingsChanged({ musicMuted: (e.target as HTMLInputElement).checked }),
+    );
     q<HTMLInputElement>(this.root, '#set-motion').addEventListener('change', (e) =>
       this.actions.settingsChanged({ reducedMotion: (e.target as HTMLInputElement).checked }),
     );
@@ -731,6 +735,7 @@ export class UI {
     set('#set-ambient', s.ambientVolume, '#out-ambient');
     set('#set-sens', s.touchSensitivity, '#out-sens');
     q<HTMLInputElement>(this.root, '#set-mute').checked = s.muted;
+    q<HTMLInputElement>(this.root, '#set-music-mute').checked = s.musicMuted;
     q<HTMLInputElement>(this.root, '#set-motion').checked = s.reducedMotion;
     q<HTMLSelectElement>(this.root, '#set-quality').value = s.quality;
     q<HTMLSelectElement>(this.root, '#set-hud').value = s.hudMode;

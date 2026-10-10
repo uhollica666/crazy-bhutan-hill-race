@@ -29,7 +29,8 @@ bun run dev        # http://localhost:5273 (localhost only)
 | `bun run test:e2e`            | Playwright in your installed Chrome: builds, serves, drives the real UI                          |
 | `node scripts/shots.mjs`      | Menu, selection, garage and driving screenshots for all five levels (needs a server)             |
 | `node scripts/perf.mjs`       | Render workload / JS-per-frame table per level and quality preset                                |
-| `node scripts/make-icons.mjs` | Regenerates favicon / PWA icons from the in-code logo                                            |
+| `node scripts/branding.mjs` | Derives the game logo, favicons, app icons, maskable icons and social card from the master `cbhr-logo.png` (sharp)     |
+| `FFMPEG=… node scripts/audio-assets.mjs` | Encodes `music/*.mp3` to Opus/WebM (+ MP3 fallback, loudness and loop metadata) in `public/audio/music/` |
 | `node scripts/build-models.mjs` | Optimises the Blender exports in `assets-src/out/` into `public/models/` (meshopt)             |
 | `node scripts/stage4-shots.mjs <dir> [quality]` | Visual-regression screenshots: menu, all four vehicles, every level and condition |
 | `node scripts/pass55-shots.mjs <dir> [url] [desktop\|mobile\|portrait\|all]` | Pass 5.5 review set: start-up, menu, mission map, garage, briefing, countdown dispatch, pause, About (serve a build first; `pass55-intro.mjs` captures both intro cards, `pass55-finish.mjs` the results screen) |

@@ -1,7 +1,8 @@
 # Audio design and listening protocol
 
-All sound is synthesised at runtime with the Web Audio API (no sample files). `src/audio/AudioEngine.ts` owns the
-mixer, `src/audio/voices.ts` the per-vehicle engine recipes. This document describes what the system does and, just
+Engine, effects and environment sound is synthesised at runtime with the Web Audio API (no sample files); the soundtrack is
+recorded music streamed on demand (see "Soundtrack"). `src/audio/AudioEngine.ts` owns the mixer, `src/audio/voices.ts` the
+per-vehicle engine recipes, `src/audio/MusicManager.ts` and `src/audio/musicPlan.ts` the soundtrack. This document describes what the system does and, just
 as important, what automated tests can and cannot say about it.
 
 ## Mixer
@@ -22,9 +23,9 @@ ambience ─► low-pass (fog) ─┘
 | ui       | 0.55 | clicks, whooshes and the menu sting (`brandSting`, Pass 5.5)           |
 | ambience | 0.5  | wind, forest, river, crickets, birds, owl, temple bells, aircraft       |
 | weather  | 0.6  | rain layers, thunder                                                    |
-| music    | 0.7  | generative pentatonic drone and plucks                                  |
+| music    | 0.7  | the soundtrack (`MusicManager`); the old generative drone is no longer started |
 
-Player-facing sliders: Master, Music, Engine and effects, Environment (ambience + weather), and Mute. Trims are
+Player-facing controls: Master, Music, Engine and effects, Environment (ambience + weather) sliders, **Mute music** (soundtrack only, effects stay) and **Mute all sound**. Trims are
 relative: the environment is deliberately the quietest layer.
 
 **Ducking.** While the car is working (throttle and speed) the environment drops by up to 35 %. Important one-shots
@@ -55,11 +56,40 @@ wet asphalt (hiss), water (splash scaled by wading depth). Rain adds high and lo
 intensity; night swaps birds for crickets and an occasional owl; rivers add a low rush; forests add leaf rustle in
 wind; some daytime missions add distant temple bells.
 
+## Soundtrack
+
+Nine original tracks live in `music/` (untouched). `scripts/audio-assets.mjs` turns them into `public/audio/music/`:
+
+- `<slug>.webm` Opus 128 kbps stereo (about 31.6 MB for all nine) and `<slug>.mp3` (the original stream copied without its cover art,
+  about 43 MB) as the fallback for browsers without Opus-in-WebM;
+- `manifest.json`: per-track duration, loudness gain (every track is levelled to about -16 LUFS), and trim points so loops start
+  and end on music, not silence; `intro-sting` is an 8 s excerpt of Mountain Road Fury.
+
+| Screen / state                         | Track                                                          |
+| -------------------------------------- | -------------------------------------------------------------- |
+| Start-up sequence (when allowed)       | intro sting (excerpt of Mountain Road Fury), plays once        |
+| Main menu                              | Road to the Clouds                                             |
+| Mission selection                      | Mountain Pass                                                  |
+| Garage, upgrades, customisation        | Mischievous Groove                                             |
+| Racing                                 | rotates per race: Off-Road Blitz, Off-Road Fury, Mountain Road Fury |
+| Extreme missions (Remote Expedition, GMC Plains) | Máquina de Guerra                                    |
+| Results after a **completed** mission  | First Place Summit (a failed run lets the music fade out)      |
+| About and credits                      | Himalayan Sunset                                               |
+
+Behaviour: tracks stream on demand (nothing is preloaded, and the service worker neither precaches nor intercepts them). Scenes
+crossfade over 0.9 s (equal power); a looping track crossfades its end into its start over 1.1 s. Two audio elements are reused,
+so at most one track is audible after a fade. The race track is picked per race (the rotation position is remembered between
+sessions) and carries on through pause/resume. Playback waits for the first gesture (autoplay policy); it pauses when the tab is
+hidden and resumes when it returns; an interrupted element (a call, headphones) restarts on the next gesture. Audio is routed
+through the Web Audio graph so the Music volume also works on iOS Safari, where element.volume is ignored. A track that has
+played for 8 s is kept in the Cache API (`music-cbhr-v1`) for offline play; tracks never heard are not downloaded.
+
 ## Lifecycle guarantees (covered by `tests/audio.test.ts`)
 
 - Continuous layers are built once at unlock; per-frame updates only set parameters (no node creation).
 - One-shots are capped at 14 and disconnect themselves when they end.
-- Music start/stop cycles never stack drones.
+- Music start/stop cycles never stack drones (the generative drone is kept for tests but not started by the game).
+- The soundtrack never plays two scenes at once after a fade, never creates more than two players and releases both on `dispose()` (`tests/music.test.ts`).
 - Vehicle switches reuse the same engine nodes.
 - Every call is safe before unlock or when the audio context cannot be created.
 - `dispose()` stops music and closes the context.

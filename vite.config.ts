@@ -26,7 +26,11 @@ function serviceWorker(): Plugin {
           hash.update(f);
           hash.update(item.type === 'asset' ? item.source : item.code);
         }
-        const publicFiles = walk('public').map((f) => relative('public', f).replaceAll('\\', '/'));
+        // The soundtrack (about 30 MB of Opus, 43 MB of MP3 fallback) is streamed on demand and cached by the music player itself,
+        // so it is neither precached nor part of the build id.
+        const publicFiles = walk('public')
+          .map((f) => relative('public', f).replaceAll('\\', '/'))
+          .filter((f) => !f.startsWith('audio/music/'));
         for (const f of publicFiles) hash.update(readFileSync(join('public', f)));
         // index.html is listed explicitly: it is the offline navigation fallback ("shell") in sw.js.
         const precache = ['./', 'index.html', ...files, ...publicFiles];

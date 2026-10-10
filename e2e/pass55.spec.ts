@@ -80,7 +80,8 @@ test.describe('Pass 5.5: story briefing and mission dispatch', () => {
     page,
   }) => {
     await seedSave(page, makeSave({ finished: [], storySeen: [] }));
-    const errors = await openGame(page);
+    // Low quality: the software-rendered test browser cannot draw the medium world (millions of triangles) fast enough for the countdown.
+    const errors = await openGame(page, '&quality=low');
     await openGarage(page, 'pass-run');
     await page.locator('#btn-launch').click();
     const brief = page.locator('#screen-briefing');

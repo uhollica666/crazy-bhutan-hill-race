@@ -1,0 +1,128 @@
+{
+ "version": 1,
+ "targetLufs": -16,
+ "tracks": {
+  "road-to-the-clouds": {
+   "title": "Road to the Clouds",
+   "duration": 212.02,
+   "lufs": -13.9,
+   "gainDb": -2.1,
+   "start": 0.135,
+   "end": 212.02,
+   "bytes": {
+    "webm": 3647869,
+    "mp3": 5003232
+   }
+  },
+  "mischievous-groove": {
+   "title": "Mischievous Groove",
+   "duration": 202.78,
+   "lufs": -14,
+   "gainDb": -2,
+   "start": 0.176,
+   "end": 202.78,
+   "bytes": {
+    "webm": 3430453,
+    "mp3": 4546848
+   }
+  },
+  "mountain-pass": {
+   "title": "Mountain Pass",
+   "duration": 214.2,
+   "lufs": -14.8,
+   "gainDb": -1.2,
+   "start": 0.12,
+   "end": 214.2,
+   "bytes": {
+    "webm": 3660148,
+    "mp3": 4873872
+   }
+  },
+  "off-road-blitz": {
+   "title": "Off-Road Blitz",
+   "duration": 233.64,
+   "lufs": -13.9,
+   "gainDb": -2.1,
+   "start": 0.248,
+   "end": 233.64,
+   "bytes": {
+    "webm": 3862593,
+    "mp3": 5233776
+   }
+  },
+  "off-road-fury": {
+   "title": "Off-Road Fury",
+   "duration": 185.04,
+   "lufs": -14.1,
+   "gainDb": -1.9,
+   "start": 0.121,
+   "end": 184.808,
+   "bytes": {
+    "webm": 2954887,
+    "mp3": 4038432
+   }
+  },
+  "mountain-road-fury": {
+   "title": "Mountain Road Fury",
+   "duration": 217.25,
+   "lufs": -14.3,
+   "gainDb": -1.7,
+   "start": 0.171,
+   "end": 217.25,
+   "bytes": {
+    "webm": 3648607,
+    "mp3": 4954944
+   }
+  },
+  "maquina-de-guerra": {
+   "title": "Máquina de Guerra",
+   "duration": 214.01,
+   "lufs": -14.5,
+   "gainDb": -1.5,
+   "start": 0.733,
+   "end": 213.255,
+   "bytes": {
+    "webm": 3503051,
+    "mp3": 5021472
+   }
+  },
+  "first-place-summit": {
+   "title": "First Place Summit",
+   "duration": 170.04,
+   "lufs": -14.1,
+   "gainDb": -1.9,
+   "start": 0.201,
+   "end": 168.802,
+   "bytes": {
+    "webm": 2866202,
+    "mp3": 3848496
+   }
+  },
+  "himalayan-sunset": {
+   "title": "Himalayan Sunset",
+   "duration": 233.14,
+   "lufs": -14.5,
+   "gainDb": -1.5,
+   "start": 0.137,
+   "end": 232.349,
+   "bytes": {
+    "webm": 4066551,
+    "mp3": 5381568
+   }
+  },
+  "intro-sting": {
+   "title": "Start-up sting (excerpt of Mountain Road Fury)",
+   "duration": 8,
+   "lufs": -14.6,
+   "gainDb": -1.4,
+   "start": 0,
+   "end": 8,
+   "bytes": {
+    "webm": 133553,
+    "mp3": 129068
+   },
+   "excerptFrom": "mountain-road-fury",
+   "excerptAt": 82
+  }
+ }
+}

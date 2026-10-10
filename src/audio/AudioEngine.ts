@@ -11,6 +11,8 @@ export interface AudioLevels {
   muted: boolean;
   /** Environment (wind, birds, rain, river): optional so older callers keep working. */
   ambientVolume?: number;
+  /** Music only is silenced (sound effects stay): optional so older callers keep working. */
+  musicMuted?: boolean;
 }
 
 export interface DriveSound {
@@ -173,6 +175,21 @@ export class AudioEngine {
 
   get available(): boolean {
     return !!this.ctx && !this.failed;
+  }
+
+  /** The audio context once a gesture (or an allowed autoplay) has created it, for the soundtrack player. */
+  get context(): AudioContext | null {
+    return this.ctx;
+  }
+
+  /** The bus the soundtrack plays into: it carries the Music volume and the global mute. */
+  get musicBus(): AudioNode | null {
+    return this.ctx ? this.bus.music : null;
+  }
+
+  /** True when the soundtrack should be heard at all (volume above zero and neither mute is on). */
+  get musicAudible(): boolean {
+    return !this.levels.muted && !this.levels.musicMuted && this.levels.musicVolume > 0 && this.levels.masterVolume > 0;
   }
 
   /** Number of live one-shot nodes (exposed so tests can prove nothing leaks). */
@@ -445,7 +462,7 @@ export class AudioEngine {
     this.master.gain.setTargetAtTime(m, t, 0.03);
     this.bus.sfx.gain.setTargetAtTime(sfxVolume * TRIM.sfx, t, 0.03);
     this.bus.ui.gain.setTargetAtTime(sfxVolume * TRIM.ui, t, 0.03);
-    this.bus.music.gain.setTargetAtTime(musicVolume * TRIM.music, t, 0.03);
+    this.bus.music.gain.setTargetAtTime(this.levels.musicMuted ? 0 : musicVolume * TRIM.music, t, 0.03);
     this.ambLevel = amb;
     this.engLevel = sfxVolume;
     // The engine bus follows the driving state; the environment is also trimmed per frame while driving.
@@ -455,7 +472,7 @@ export class AudioEngine {
     this.mix.master = m;
     this.mix.sfx = sfxVolume * TRIM.sfx;
     this.mix.ui = sfxVolume * TRIM.ui;
-    this.mix.music = musicVolume * TRIM.music;
+    this.mix.music = this.levels.musicMuted ? 0 : musicVolume * TRIM.music;
     this.mix.engine = this.driving ? sfxVolume * TRIM.engine : 0;
     this.mix.ambience = amb * TRIM.ambience;
     this.mix.weather = amb * TRIM.weather;

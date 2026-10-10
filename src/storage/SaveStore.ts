@@ -15,6 +15,8 @@ export interface Settings {
   /** Environment sound: wind, birds, rain, river. */
   ambientVolume: number;
   muted: boolean;
+  /** Silences the soundtrack only; sound effects, engine and environment stay. */
+  musicMuted: boolean;
   quality: QualityLevel;
   touchControls: TouchMode;
   /** Touch steering response, 0.6 (calm) .. 1.6 (sharp). */
@@ -117,6 +119,7 @@ export const defaultSettings = (quality: QualityLevel = 'medium'): Settings => (
   sfxVolume: 0.9,
   ambientVolume: 0.7,
   muted: false,
+  musicMuted: false,
   quality,
   touchControls: 'auto',
   touchSensitivity: 1,
@@ -157,6 +160,7 @@ export function parseSettings(raw: unknown, fallback: Settings): Settings {
     sfxVolume: num(o.sfxVolume, fallback.sfxVolume, 0, 1),
     ambientVolume: num(o.ambientVolume, fallback.ambientVolume, 0, 1),
     muted: typeof o.muted === 'boolean' ? o.muted : fallback.muted,
+    musicMuted: typeof o.musicMuted === 'boolean' ? o.musicMuted : fallback.musicMuted,
     quality: isQuality(o.quality) ? o.quality : fallback.quality,
     touchControls: isTouch(o.touchControls) ? o.touchControls : fallback.touchControls,
     touchSensitivity: num(o.touchSensitivity, fallback.touchSensitivity, 0.6, 1.6),

@@ -56,6 +56,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // The soundtrack is streamed with range requests and kept by the music player in its own cache (see audio/MusicManager.ts).
+  if (url.pathname.includes('/audio/music/')) return;
   if (req.mode === 'navigate') {
     event.respondWith(networkFirst(req));
     return;

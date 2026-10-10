@@ -1,6 +1,9 @@
 import { saveCosmetic } from '../render/cosmetics';
 import { Vector3 } from 'three';
 import { AudioEngine } from '../audio/AudioEngine';
+import { MusicManager } from '../audio/MusicManager';
+import { RaceRotation, fixedTrack, sceneFor } from '../audio/musicPlan';
+import type { MusicScene, TrackSlug } from '../audio/musicPlan';
 import { clamp } from '../core/math';
 import { ACADEMY_ID, getAcademy, levelTimes, listLevels, paceFor } from '../data/levels';
 import { getCast, getStory } from '../data/story';
@@ -148,6 +151,15 @@ export class Game {
   readonly store: SaveStore;
   readonly ui: UI;
   readonly audio = new AudioEngine();
+  /** The soundtrack: follows the screen the player is on (see audio/musicPlan.ts). */
+  private readonly music: MusicManager;
+  private readonly rotation = new RaceRotation(openBrowserStorage());
+  /** The track chosen for the current race (kept through pause/resume, re-picked for each new race). */
+  private raceTrack: TrackSlug | null = null;
+  private raceScene: MusicScene | null = null;
+  private musicClock = 0;
+  /** True while the start-up sting plays over the splash. */
+  private introActive = false;
   readonly input: InputManager;
   readonly services: Services;
   readonly feedbackConfig: FeedbackConfig;
@@ -306,6 +318,18 @@ export class Game {
   constructor(private readonly opts: GameOptions) {
     this.store = opts.store;
     const base = opts.base ?? './';
+    this.music = new MusicManager({
+      context: () => this.audio.context,
+      output: () => this.audio.musicBus,
+      createAudio: () => new Audio(),
+      loadManifest: async () => {
+        const res = await fetch(`${base}audio/music/manifest.json`);
+        if (!res.ok) throw new Error('music manifest');
+        return ((await res.json()) as { tracks: Record<string, import('../audio/MusicManager').TrackMeta> }).tracks;
+      },
+      urlFor: (slug, format) => `${base}audio/music/${slug}.${format}`,
+      now: () => performance.now(),
+    });
     this.feedbackConfig =
       opts.feedback ?? readFeedbackConfig(import.meta.env as Record<string, string | boolean | undefined>);
     this.analytics = opts.debug ? new MemoryAnalytics() : new NullAnalytics();
@@ -517,9 +541,12 @@ export class Game {
     this.last = performance.now();
     this.rafId = requestAnimationFrame(this.frame);
     ui.hideLoading();
+    void this.playIntro(opts.splash);
     await (opts.splash ?? Promise.resolve());
+    this.introActive = false;
     this.last = performance.now();
     this.showMenu();
+    this.syncMusic();
     this.audio.brandSting();
     // Connect after the menu is up and the page is idle: the online layer is an extra, never part of start-up.
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
@@ -589,6 +616,11 @@ export class Game {
     this.world?.dispose();
     this.world = null;
     this.effects?.reset();
+  }
+
+  /** Frees the soundtrack players (the page is going away or the game is being replaced). */
+  disposeMusic(): void {
+    this.music.dispose();
   }
 
   private disposeRuntime(): void {
@@ -922,7 +954,12 @@ export class Game {
     this.input.events.on('gesture', () => {
       this.audio.unlock();
       this.audio.setLevels(this.store.settings);
-      if (this.store.settings.musicVolume > 0) this.audio.startMusic();
+      this.music.notifyGesture();
+      this.syncMusic();
+    });
+    // A new race (start or restart) picks the next race track; resuming from pause or returning to a menu does not repeat the pick.
+    this.flow.events.on('change', ({ to, action }) => {
+      if (to === 'menu' || action === 'start' || action === 'restart') this.raceTrack = null;
     });
     this.input.onKeyboardUsed = () => {
       if (this.touchDetected && this.store.settings.touchControls === 'auto') {
@@ -1027,10 +1064,7 @@ export class Game {
       this.renderer.setResolutionScale(1);
       this.onResize();
     }
-    if (patch.musicVolume !== undefined) {
-      if (s.musicVolume > 0) this.audio.startMusic();
-      else this.audio.stopMusic();
-    }
+    if (patch.musicVolume !== undefined || patch.musicMuted !== undefined || patch.muted !== undefined || patch.masterVolume !== undefined) this.syncMusic();
     if (!initial && patch.quality !== undefined) this.telemetry.track({ name: 'setting_changed', key: 'quality', value: s.quality });
     if (!initial && patch.hudMode !== undefined) this.telemetry.track({ name: 'setting_changed', key: 'hudMode', value: s.hudMode });
     this.touch.setSensitivity(s.touchSensitivity);
@@ -1909,6 +1943,12 @@ export class Game {
     if (this.loadingLevel || !this.world || !this.model || !this.rt) return;
 
     const state = this.flow.state;
+    // Before the garage's own render path, which returns early: the garage has its own track.
+    this.musicClock += dt;
+    if (this.musicClock > 0.25) {
+      this.musicClock = 0;
+      this.syncMusic();
+    }
     let alpha = 1;
     if (state === 'playing') {
       const p0 = performance.now();
@@ -1966,6 +2006,38 @@ export class Game {
       }
     }
   };
+
+  /** Tells the soundtrack which scene is on screen. Cheap and idempotent, so it is simply asked a few times a second. */
+  private syncMusic(): void {
+    this.music.setEnabled(this.audio.musicAudible);
+    if (this.introActive) return;
+    const result = this.rt?.session.result ?? null;
+    const scene = sceneFor({
+      flow: this.flow.state,
+      menuScreen: this.menuScreen,
+      aboutOpen: this.about?.isOpen ?? false,
+      finish: result ? (result.status === 'completed' ? 'success' : 'failed') : null,
+      levelId: this.level?.id ?? '',
+    });
+    if (scene === null) return;
+    if (scene === 'silent') this.music.request('silent', null);
+    else if (scene === 'race' || scene === 'extreme') {
+      if (!this.raceTrack || this.raceScene !== scene) this.raceTrack = this.rotation.next(scene);
+      this.raceScene = scene;
+      this.music.request(scene, this.raceTrack);
+    } else this.music.request(scene, fixedTrack(scene));
+  }
+
+  /** The start-up sting over the splash: only when the browser already lets the page make sound (it never forces it). */
+  private async playIntro(splash: Promise<void> | undefined): Promise<void> {
+    // Only while the splash is really on screen (it is skipped for ?nosplash and on tests).
+    if (!splash || !document.getElementById('splash')) return;
+    this.audio.unlock();
+    await new Promise((r) => window.setTimeout(r, 150));
+    if (this.audio.context?.state !== 'running' || !this.audio.musicAudible) return;
+    this.introActive = true;
+    this.music.request('splash', 'intro-sting');
+  }
 
   /** Rain, snow, thunder flash and headlights follow the mission's weather. */
   private updateWeatherFx(dt: number, state: string): void {
@@ -2419,6 +2491,10 @@ export class Game {
           lights: this.world?.env.lightsOn ?? false,
           detailedModel: this.model?.detailed ?? false,
           audioMix: { ...this.audio.mix },
+          loadingLevel: this.loadingLevel,
+          steps: this.lastSteps,
+          countdown: this.rt.session.countdown,
+          music: { ...this.music.status, deckCount: this.music.deckCount, raceTrack: this.raceTrack },
           cloud: { connection: this.cloud.status.connection, sync: this.cloud.status.sync, uid: this.cloud.uid, name: this.cloud.status.displayName },
           privacy: this.privacy.value,
           incidents: this.incidentLog.list().length,

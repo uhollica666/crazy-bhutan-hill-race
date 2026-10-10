@@ -155,9 +155,16 @@ export async function showMissionList(page: Page): Promise<void> {
   await expect(page.locator('#level-cards')).toBeVisible();
 }
 
+/** A first-time player is offered Route 0 (the Driver's Academy) when pressing Drive: decline it to reach the mission map. */
+export async function declineAcademy(page: Page): Promise<void> {
+  const skip = page.getByRole('button', { name: 'Skip for now' });
+  if (await skip.isVisible({ timeout: 1500 }).catch(() => false)) await skip.click();
+}
+
 /** Goes Drive -> mission card -> (optional vehicle) -> garage, without launching. */
 export async function openGarage(page: Page, levelId: string, vehicleId?: string): Promise<void> {
   await page.locator('#btn-start').click();
+  await declineAcademy(page);
   await showMissionList(page);
   await page.locator(`button[data-level="${levelId}"]`).click();
   await expect(page.locator('#screen-garage')).toBeVisible({ timeout: 30_000 });
