@@ -91,19 +91,17 @@ export interface VehicleAsset {
   wheel: Object3D;
 }
 
+/** Vehicle remake is authored at runtime; retain these entry points for garage/game callers.
+ * Legacy GLBs stay available on disk for authoring, but are no longer downloaded invisibly.
+ */
 export function loadVehicleAsset(id: string): Promise<VehicleAsset | null> {
-  return assets.load(vehicleModelPath(id)).then((scene) => (scene ? pickVehicleParts(scene) : null));
+  void id;
+  return Promise.resolve(null);
 }
 
 export function peekVehicleAsset(id: string): VehicleAsset | null {
-  const scene = assets.peek(vehicleModelPath(id));
-  return scene ? pickVehicleParts(scene) : null;
-}
-
-function pickVehicleParts(scene: Group): VehicleAsset | null {
-  const body = scene.getObjectByName('body');
-  const wheel = scene.getObjectByName('wheel');
-  return body && wheel ? { body, wheel } : null;
+  void id;
+  return null;
 }
 
 let vehicleEnv: Texture | null = null;

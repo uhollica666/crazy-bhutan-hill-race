@@ -2,6 +2,7 @@ import type { BufferGeometry } from 'three';
 import { Color } from 'three';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
+import { pitchedRoof, timberWindow } from './worldArt';
 
 const GLASS = 0x2b3f58;
 
@@ -63,6 +64,11 @@ export function dzongGeometry(): BufferGeometry {
   for (let i = -4; i <= 4; i++) g.box(1, 1.6, 0.25, PAL.windowDark, { x: i * 2.4, y: 18, z: 7.1 });
   g.box(5.4, 6.4, 1.2, PAL.maroon, { y: 5, z: 10.4 });
   g.box(3.6, 5.2, 1.3, PAL.woodDark, { y: 4.4, z: 10.5 });
+  // Exposed cornice brackets, framed tower windows and deep rectangular eaves.
+  pitchedRoof(g, 27, 17, 21.2, 2.1, PAL.roofRed);
+  for (const side of [-1, 1]) for (const x of [-6, -3, 0, 3, 6])
+    timberWindow(g, x, 27.5, side * 4.6, 1.25, 1.8, side < 0 ? Math.PI : 0);
+  for (let i = -12; i <= 12; i++) g.box(0.24, 0.8, 0.6, PAL.woodDark, { x: i * 1.25, y: 13.3, z: 10.3 });
   return g.build();
 }
 
@@ -144,5 +150,10 @@ export function prayerWheelHouseGeometry(): BufferGeometry {
   g.frustum(6.4, 1.6, 1.8, PAL.roofRed, { y: 4.1 });
   g.frustum(7.0, 6.4, 0.25, PAL.maroon, { y: 3.4 });
   g.cone(0.35, 0.9, PAL.gold, 6, { y: 5.4 });
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6;
+    g.box(0.07, 0.8, 0.035, 0xb98733, { x: Math.cos(a) * 0.605, y: 1.3, z: Math.sin(a) * 0.605, ry: -a });
+  }
+  for (const y of [0.65, 0.78, 1.82, 1.94]) g.cylinder(0.63, 0.63, 0.035, PAL.gold, 16, { y });
   return g.build();
 }

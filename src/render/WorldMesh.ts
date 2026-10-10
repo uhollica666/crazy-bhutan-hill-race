@@ -11,6 +11,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  MeshStandardMaterial,
   PlaneGeometry,
   RepeatWrapping,
   SRGBColorSpace,
@@ -23,6 +24,7 @@ import type { Course } from '../world/Course';
 import type { SurfaceId } from '../data/types';
 import { fbm2, lerp, smoothstep } from '../core/math';
 import { PAL } from './palette';
+import { surfaceRelief } from './surfaceRelief';
 
 const _a = new Color();
 const _b = new Color();
@@ -174,7 +176,9 @@ export function buildTerrainMesh(course: Course): Group {
   const normal = new Float32BufferAttribute(nor, 3);
   const color = new Float32BufferAttribute(col, 3);
   const uvAttr = new Float32BufferAttribute(uv, 2);
-  const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true, map: makeTerrainDetail() });
+  const grain = surfaceRelief('terrain', true);
+  const material = new MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0,
+    map: makeTerrainDetail(), bumpMap: grain, bumpScale: 0.055, roughnessMap: grain });
   const group = new Group();
   group.name = 'terrain';
   const TILE = 64; // cells per side (even, so the Low preset's every-second-node triangulation lines up)
@@ -549,15 +553,17 @@ export function buildRoadMeshes(course: Course): Group {
     });
     geo.setIndex(all);
     geo.computeVertexNormals();
-    const mats = kinds.map(
-      (k) =>
-        new MeshLambertMaterial({
-          map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : k === 'worn' ? makeRoadTexture('worn') : k === 'frost' ? makeRoadTexture('frost') : k === 'snow' || k === 'packed' || k === 'slush' ? makeSnowTexture(k) : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
-          polygonOffset: true,
-          polygonOffsetFactor: -2,
-          polygonOffsetUnits: -2,
-        }),
-    );
+    const mats = kinds.map((k) => {
+      const relief = surfaceRelief(k ?? 'asphalt');
+      const wet = k === 'wet' || k === 'mud' || k === 'slush' || k === 'ice';
+      return new MeshStandardMaterial({
+        map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : k === 'worn' ? makeRoadTexture('worn') : k === 'frost' ? makeRoadTexture('frost') : k === 'snow' || k === 'packed' || k === 'slush' ? makeSnowTexture(k) : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
+        bumpMap: relief, roughnessMap: relief,
+        bumpScale: k === 'rocky' ? 0.085 : k === 'gravel' ? 0.055 : k === 'ice' ? 0.006 : 0.018,
+        roughness: wet ? 0.48 : 1, metalness: 0,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      });
+    });
     const mesh = new Mesh(geo, mats);
     mesh.receiveShadow = true;
     mesh.name = 'road-surface';
@@ -694,7 +700,7 @@ export function buildFordWater(course: Course): Mesh | null {
   geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
   const mesh = new Mesh(
     geo,
-    new MeshLambertMaterial({ map: makeWaterTexture(), color: 0xbfe0ee, emissive: 0x16303c, transparent: true, opacity: 0.74, side: DoubleSide, depthWrite: false }),
+    new MeshStandardMaterial({ roughness: 0.2, metalness: 0.05, map: makeWaterTexture(), color: 0xbfe0ee, transparent: true, opacity: 0.74, side: DoubleSide, depthWrite: false }),
   );
   mesh.name = 'ford-water';
   mesh.renderOrder = 2;
@@ -795,7 +801,7 @@ export function buildPuddles(course: Course): Group | null {
   const group = new Group();
   group.name = 'puddles';
   const tex = makeWaterTexture();
-  const mat = new MeshLambertMaterial({ map: tex, color: 0xc4e2ee, emissive: 0x1a3440, transparent: true, opacity: 0.78, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const mat = new MeshStandardMaterial({ roughness: 0.17, metalness: 0.05, map: tex, color: 0xa3c3cc, transparent: true, opacity: 0.78, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const geo = new CircleGeometry(1, 28);
   geo.rotateX(-Math.PI / 2);
   // Potholes: dark broken ground, no sheen.

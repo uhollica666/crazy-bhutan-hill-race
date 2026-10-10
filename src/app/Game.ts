@@ -1891,6 +1891,7 @@ export class Game {
       this.cpuMs += (performance.now() - t0 - this.cpuMs) * 0.08;
       return;
     }
+    this.model.setCondition(this.rt.status.health);
     this.model.sync(body, alpha, this.course, this.time, this.currentRpm());
     if (state === 'playing' && this.rt.session.phase === 'countdown') {
       this.rig.intro = clamp(this.rt.session.countdown / 3, 0, 1);
@@ -2005,7 +2006,7 @@ export class Game {
           ds.loose = sf.looseness * (sf.id === 'asphalt' || sf.id === 'wetAsphalt' ? 0 : 1);
           ds.wet = sf.id === 'wetAsphalt' || sf.id === 'ice' || sf.id === 'slush';
           ds.water = clamp(rt.status.waterDepth / 0.6, 0, 1);
-          ds.surface = sf.id === 'rocky' ? 'gravel' : sf.id === 'grass' ? 'dirt' : sf.id === 'snow' || sf.id === 'packed' ? 'snow' : sf.id === 'slush' ? 'water' : sf.id === 'wetAsphalt' || sf.id === 'ice' || sf.id === 'frost' ? 'asphalt' : sf.id;
+          ds.surface = sf.id;
         }
       }
       ds.dt = dt;

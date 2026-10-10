@@ -18,6 +18,7 @@ import { createRoadHit } from '../world/Road';
 import type { LandmarkDef } from '../data/types';
 import { fbm2, lerp, mulberry32, smoothstep } from '../core/math';
 import { GeoBuilder } from './geo';
+import { mountainPine, shaggyYak, villageHouse } from './worldArt';
 import { peekEnvKit } from './envKit';
 import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
@@ -38,15 +39,6 @@ import {
 
 // ---------------------------------------------------------------- geometry kits
 
-function pineGeometry(): BufferGeometry {
-  return new GeoBuilder()
-    .cylinder(0.16, 0.22, 1.2, PAL.bark, 5, { y: 0.6 })
-    .cone(1.75, 2.6, PAL.pineDark, 7, { y: 2.2 })
-    .cone(1.35, 2.4, PAL.pineMid, 7, { y: 3.6, ry: 0.4 })
-    .cone(0.95, 2.2, PAL.pineDark, 7, { y: 4.9 })
-    .build();
-}
-
 function cypressGeometry(): BufferGeometry {
   return new GeoBuilder()
     .cylinder(0.15, 0.2, 1.4, PAL.bark, 5, { y: 0.7 })
@@ -57,61 +49,6 @@ function cypressGeometry(): BufferGeometry {
 
 function rockGeometry(): BufferGeometry {
   return new GeoBuilder().rock(PAL.rock, { sy: 0.72 }).build();
-}
-
-function houseGeometry(): BufferGeometry {
-  const W = 9;
-  const D = 6.4;
-  const g = new GeoBuilder();
-  g.box(W + 0.5, 3.2, D + 0.5, PAL.rock, { y: -1.4 }); // stone plinth, buries slopes
-  g.box(W, 5.7, D, PAL.whitewash, { y: 2.95 }); // limewashed walls
-  g.box(W + 0.18, 0.45, D + 0.18, PAL.woodDark, { y: 3.0 }); // floor band
-  g.box(W + 0.18, 0.4, D + 0.18, PAL.woodDark, { y: 5.7 }); // eaves band
-  g.box(W + 0.3, 0.12, D + 0.3, PAL.roofRed, { y: 5.95 }); // painted fascia
-
-  const win = (x: number, y: number, z: number, ry: number): void => {
-    g.box(1.5, 1.55, 0.14, PAL.wood, { x, y, z, ry });
-    g.box(1.15, 1.2, 0.2, PAL.windowDark, { x, y, z, ry });
-    g.box(1.7, 0.22, 0.16, PAL.maroon, { x, y: y + 0.88, z, ry });
-  };
-  for (const sx of [-2.8, 0, 2.8]) {
-    win(sx, 4.4, D / 2 + 0.04, 0);
-    win(sx, 4.4, -D / 2 - 0.04, 0);
-  }
-  win(-W / 2 - 0.04, 4.4, 0, Math.PI / 2);
-  win(W / 2 + 0.04, 4.4, 0, Math.PI / 2);
-  for (const sx of [-1.4, 1.8]) g.box(0.6, 0.8, 0.12, PAL.windowDark, { x: sx, y: 1.7, z: D / 2 + 0.03 });
-  g.box(1.3, 2.1, 0.14, PAL.woodDark, { x: -3.1, y: 1.15, z: D / 2 + 0.05 });
-
-  // Gabled roof with deep eaves, slate coloured.
-  const H = 2.3;
-  const alpha = Math.atan2(H, D / 2);
-  const slope = Math.hypot(H, D / 2);
-  const eave = 1.5;
-  const len = slope + eave;
-  const midZ = (D / 2 + Math.cos(alpha) * eave) / 2;
-  const midY = 5.95 + H / 2 - (Math.sin(alpha) * eave) / 2;
-  g.box(W + 2.6, 0.26, len, PAL.roofSlate, { y: midY, z: midZ, rx: alpha });
-  g.box(W + 2.6, 0.26, len, PAL.roofSlate, { y: midY, z: -midZ, rx: -alpha });
-  g.box(W + 2.7, 0.3, 0.5, PAL.roofSlate, { y: 5.95 + H + 0.05 });
-  // Gable ends (triangles of whitewash under the roof).
-  for (const sx of [-1, 1]) {
-    g.add(gableTriangle(D, H), PAL.whitewash, { x: sx * (W / 2 - 0.02), y: 5.95 });
-  }
-  // Roof-top prayer flag pole.
-  g.cylinder(0.06, 0.08, 4.2, PAL.woodDark, 5, { x: W / 2 + 0.7, y: 5.95 + H + 0.8 });
-  g.quad(0.7, 2.2, PAL.flagWhite, { x: W / 2 + 0.7, y: 5.95 + H + 1.8, z: 0.4 });
-  return g.build();
-}
-
-function gableTriangle(depth: number, height: number): BufferGeometry {
-  const g = new BufferGeometry();
-  const d = depth / 2;
-  g.setAttribute(
-    'position',
-    new Float32BufferAttribute([0, 0, -d, 0, 0, d, 0, height, 0, 0, 0, -d, 0, height, 0, 0, 0, d], 3),
-  );
-  return g;
 }
 
 function chortenGeometry(): BufferGeometry {
@@ -128,21 +65,7 @@ function chortenGeometry(): BufferGeometry {
     .build();
 }
 
-export function yakGeometry(): BufferGeometry {
-  return new GeoBuilder()
-    .box(1.0, 0.95, 2.0, PAL.yak, { y: 1.15 })
-    .box(1.12, 0.55, 1.8, 0x2a1e19, { y: 0.7 }) // long skirt of hair
-    .box(0.9, 0.5, 0.9, PAL.yak, { y: 1.75, z: -0.3 }) // shoulder hump
-    .box(0.5, 0.5, 0.6, PAL.yak, { y: 1.3, z: -1.2 })
-    .box(0.28, 0.24, 0.3, 0x6a5a50, { y: 1.15, z: -1.55 })
-    .cone(0.07, 0.5, PAL.yakHorn, 5, { x: 0.3, y: 1.7, z: -1.15, rz: -0.9 })
-    .cone(0.07, 0.5, PAL.yakHorn, 5, { x: -0.3, y: 1.7, z: -1.15, rz: 0.9 })
-    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: 0.3, y: 0.35, z: -0.7 })
-    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: -0.3, y: 0.35, z: -0.7 })
-    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: 0.3, y: 0.35, z: 0.7 })
-    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: -0.3, y: 0.35, z: 0.7 })
-    .build();
-}
+export const yakGeometry = (): BufferGeometry => shaggyYak();
 
 /** Waving cloth: a plain vertex-coloured mesh plus a per-vertex `sway` weight driven in the vertex shader. */
 class ClothBuilder {
@@ -181,6 +104,8 @@ interface Instances {
   mesh: InstancedMesh;
   total: number;
   densityScaled: boolean;
+  highGeo?: BufferGeometry;
+  lowGeo?: BufferGeometry;
 }
 
 /**
@@ -191,6 +116,7 @@ export class Scenery {
   readonly group = new Group();
   private readonly instances: Instances[] = [];
   private readonly disposables: { dispose(): void }[] = [];
+  private lowGeometry = false;
   private readonly uniforms = { uTime: { value: 0 }, uAmp: { value: 1 } };
 
   constructor(
@@ -204,14 +130,22 @@ export class Scenery {
   }
 
   setQuality(density: number, wind: boolean): void {
+    this.lowGeometry = density <= 0.45;
     for (const inst of this.instances) {
       if (inst.densityScaled) inst.mesh.count = Math.floor(inst.total * density);
+      if (inst.lowGeo && inst.highGeo) inst.mesh.geometry = this.lowGeometry ? inst.lowGeo : inst.highGeo;
     }
     this.uniforms.uAmp.value = wind ? 1 : 0;
   }
 
-  update(time: number): void {
+  update(time: number, camera?: Vector3): void {
     this.uniforms.uTime.value = time;
+    if (camera) for (const inst of this.instances) {
+      if (!inst.lowGeo || !inst.highGeo) continue;
+      const sphere = inst.mesh.boundingSphere;
+      const distant = sphere ? camera.distanceTo(sphere.center) - sphere.radius > 150 : false;
+      inst.mesh.geometry = this.lowGeometry || distant ? inst.lowGeo : inst.highGeo;
+    }
   }
 
   dispose(): void {
@@ -232,9 +166,11 @@ export class Scenery {
     densityScaled: boolean,
     tint = 0,
     rng: () => number = Math.random,
+    lowGeo?: BufferGeometry,
   ): void {
     if (!mats.length) {
       geo.dispose();
+      lowGeo?.dispose();
       return;
     }
     // Instances are grouped into square cells and each cell becomes its own InstancedMesh (sharing one geometry):
@@ -249,6 +185,7 @@ export class Scenery {
     }
     const c = new Color();
     this.disposables.push(geo);
+    if (lowGeo) this.disposables.push(lowGeo);
     for (const list of cells.values()) {
       const mesh = new InstancedMesh(geo, material, list.length);
       list.forEach((m, i) => {
@@ -264,7 +201,7 @@ export class Scenery {
       mesh.frustumCulled = true;
       this.group.add(mesh);
       this.disposables.push(mesh);
-      this.instances.push({ mesh, total: list.length, densityScaled });
+      this.instances.push({ mesh, total: list.length, densityScaled, highGeo: lowGeo ? geo : undefined, lowGeo });
     }
   }
 
@@ -389,7 +326,7 @@ export class Scenery {
       }
       split(list, avail.length).forEach((part, i) => this.registerInstanced(kit.geo(avail[i]) as BufferGeometry, part, material, densityScaled, tint, rng));
     };
-    varied(['pine_a', 'pine_b'], pines, pineGeometry, 0.14);
+    split(pines, 2).forEach((list, i) => this.registerInstanced(mountainPine(i), list, material, true, 0.14, rng, mountainPine(i, true)));
     varied(['cypress', 'spruce'], cypresses, cypressGeometry, 0.12);
     this.registerInstanced(
       broadleafGeometry(level.look.leaf ?? 0x7fae4a),
@@ -768,7 +705,7 @@ export class Scenery {
       }
     }
 
-    varied(['house_0', 'house_1', 'house_2'], houses, houseGeometry, 0, false);
+    split(houses, 3).forEach((list, i) => this.registerInstanced(villageHouse(i), list, material, false, 0, rng));
     varied(['chorten'], chortens, chortenGeometry, 0, false);
     if (kit && maniWalls.length) this.registerInstanced(kit.geo('mani_wall') as BufferGeometry, maniWalls, material, false, 0.05, rng);
     this.registerInstanced(yakGeometry(), yaks, material, false);

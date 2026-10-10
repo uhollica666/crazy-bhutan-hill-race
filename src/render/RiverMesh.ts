@@ -10,6 +10,7 @@ import {
   Matrix4,
   Mesh,
   MeshLambertMaterial,
+  MeshStandardMaterial,
   Quaternion,
   RepeatWrapping,
   SRGBColorSpace,
@@ -83,7 +84,7 @@ export class RiverMesh {
   constructor(course: Course) {
     this.group.name = 'rivers';
     this.tex = makeFlowTexture();
-    const mat = new MeshLambertMaterial({ map: this.tex, vertexColors: true, transparent: true, opacity: 0.9, side: DoubleSide, depthWrite: false });
+    const mat = new MeshStandardMaterial({ roughness: 0.24, metalness: 0.04, map: this.tex, vertexColors: true, transparent: true, opacity: 0.9, side: DoubleSide, depthWrite: false });
     const terrain = course.terrain;
     const rng = mulberry32(course.level.terrain.seed * 7 + 3);
     const rocks: Matrix4[] = [];

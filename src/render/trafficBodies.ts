@@ -1,5 +1,6 @@
 import type { BufferGeometry } from 'three';
-import { GeoBuilder } from './geo';
+import { GeoBuilder, loft } from './geo';
+import { personGeometry, touringTraffic } from './trafficArt';
 import { PAL } from './palette';
 
 /**
@@ -13,44 +14,30 @@ const TYRE = 0x1c1c1f;
 const W = 0xffffff;
 
 /** A mid-size SUV: taller and longer than the hatch. */
-export function suvGeometry(): BufferGeometry {
-  const g = new GeoBuilder();
-  g.box(1.9, 0.75, 4.5, W, { y: 0.8 });
-  g.box(1.78, 0.62, 2.7, W, { y: 1.45, z: 0.35 });
-  g.box(1.82, 0.4, 2.5, GLASS, { y: 1.48, z: 0.35 });
-  g.box(1.5, 0.08, 2.5, W, { y: 1.8, z: 0.35 });
-  g.box(1.6, 0.06, 2.2, 0x2a2a2e, { y: 1.86, z: 0.4 }); // roof rack
-  for (const sx of [-1, 1]) for (const z of [-1.4, 1.5]) g.cylinder(0.42, 0.42, 0.28, TYRE, 10, { x: sx * 0.95, y: 0.42, z, rz: Math.PI / 2 });
-  g.box(1.5, 0.14, 0.08, 0xfff1b8, { y: 0.9, z: -2.27 });
-  g.box(1.5, 0.14, 0.08, 0xd8262a, { y: 0.9, z: 2.27 });
-  return g.build();
-}
+export const suvGeometry = (): BufferGeometry => touringTraffic('suv');
 
 /** A tourist coach: long white body, a band of windows, a coloured stripe. */
-export function busGeometry(): BufferGeometry {
-  const g = new GeoBuilder();
-  g.box(2.5, 2.5, 9.2, W, { y: 1.75 });
-  g.box(2.54, 0.85, 8.4, GLASS, { y: 2.35, z: 0.2 });
-  g.box(2.4, 0.1, 9.0, 0xe8e6dc, { y: 3.05 });
-  g.box(2.54, 0.22, 9.0, 0xe39a1c, { y: 1.55 });
-  g.box(2.46, 0.2, 0.1, GLASS, { y: 2.6, z: -4.62 });
-  for (const sx of [-1, 1]) for (const z of [-3.2, 2.6, 3.7]) g.cylinder(0.5, 0.5, 0.34, TYRE, 10, { x: sx * 1.12, y: 0.5, z, rz: Math.PI / 2 });
-  g.box(1.8, 0.16, 0.08, 0xfff1b8, { y: 0.95, z: -4.63 });
-  g.box(1.8, 0.16, 0.08, 0xd8262a, { y: 0.95, z: 4.63 });
-  return g.build();
-}
+export const busGeometry = (): BufferGeometry => touringTraffic('bus');
 
 /** A loaded hill-country truck: tinted cab, grey bed with a lashed tarpaulin. */
 export function truckGeometry(): BufferGeometry {
   const g = new GeoBuilder();
   g.box(2.3, 0.4, 7.2, 0x2a2a2e, { y: 0.95 });
-  g.box(2.3, 1.7, 2.1, W, { y: 2.0, z: -2.5 });
+  g.add(loft([[-3.55, 1.02, 1.15, 2.68], [-3.3, 1.15, 1.15, 2.85], [-1.45, 1.15, 1.15, 2.85]]), W);
   g.box(2.1, 0.7, 0.1, GLASS, { y: 2.4, z: -3.56 });
   g.box(2.4, 2.0, 4.4, 0xb9a98c, { y: 2.2, z: 1.4 });
   g.box(2.46, 0.2, 4.4, 0x6b7f3f, { y: 3.3, z: 1.4 });
   g.box(2.46, 0.08, 0.3, 0xe8b53a, { y: 3.0, z: 0.4 });
   for (const sx of [-1, 1]) for (const z of [-2.4, 1.6, 2.8]) g.cylinder(0.52, 0.52, 0.36, TYRE, 10, { x: sx * 1.05, y: 0.52, z, rz: Math.PI / 2 });
   g.box(1.6, 0.14, 0.08, 0xfff1b8, { y: 1.1, z: -3.62 });
+  for (const side of [-1, 1]) {
+    g.box(0.12, 0.25, 0.25, 0x343b41, { x: side * 1.24, y: 2.3, z: -2.85 });
+    g.box(0.025, 0.7, 0.68, GLASS, { x: side * 1.16, y: 2.35, z: -2.2 });
+    g.box(0.05, 0.04, 0.2, 0xa1aab0, { x: side * 1.18, y: 1.82, z: -1.9 });
+    for (const z of [1.6, 2.8]) g.cylinder(0.3, 0.3, 0.025, 0x9ba2a5, 10, { x: side * 1.25, y: 0.52, z, rz: Math.PI / 2 });
+    for (let i = 0; i < 6; i++) g.box(0.028, 1.5, 0.035, 0x5b5547, { x: side * 1.23, y: 2.3, z: -0.3 + i * 0.65 });
+  }
+  g.box(1.1, 0.24, 0.04, 0x292f33, { y: 1.36, z: -3.58 });
   return g.build();
 }
 
@@ -66,6 +53,12 @@ export function motoGeometry(): BufferGeometry {
   g.sphere(0.19, 0xd6322b, { y: 1.84, z: 0.14, sy: 0.8 }, 6);
   g.cylinder(0.05, 0.05, 0.5, 0x3d6f9e, 5, { x: -0.22, y: 1.3, z: -0.15, rx: 1.0 });
   g.cylinder(0.05, 0.05, 0.5, 0x3d6f9e, 5, { x: 0.22, y: 1.3, z: -0.15, rx: 1.0 });
+  for (const z of [-0.8, 0.8]) {
+    g.cylinder(0.21450000000000002, 0.21450000000000002, 0.018, 0x949da5, 12, { x: 0.085, y: 0.33, z, rz: Math.PI / 2 });
+    g.cylinder(0.21450000000000002, 0.21450000000000002, 0.018, 0x949da5, 12, { x: -0.085, y: 0.33, z, rz: Math.PI / 2 });
+  }
+  g.box(0.12, 0.09, 0.04, 0xffecc7, { y: 0.86, z: -0.67 });
+  g.box(0.1, 0.055, 0.03, 0xbd2631, { y: 0.66, z: 0.73 });
   return g.build();
 }
 
@@ -83,21 +76,17 @@ export function bicycleGeometry(): BufferGeometry {
   g.cylinder(0.04, 0.04, 0.5, 0xe8c09a, 5, { x: 0.18, y: 1.2, z: -0.3, rx: 1.0 });
   g.cylinder(0.05, 0.05, 0.55, 0x2a3350, 5, { x: -0.1, y: 0.8, z: 0.2, rx: 0.6 });
   g.cylinder(0.05, 0.05, 0.55, 0x2a3350, 5, { x: 0.1, y: 0.8, z: 0.2, rx: 0.6 });
+  for (const z of [-0.65, 0.65]) {
+    g.cylinder(0.22100000000000003, 0.22100000000000003, 0.018, 0x949da5, 12, { x: 0.085, y: 0.34, z, rz: Math.PI / 2 });
+    g.cylinder(0.22100000000000003, 0.22100000000000003, 0.018, 0x949da5, 12, { x: -0.085, y: 0.34, z, rz: Math.PI / 2 });
+  }
+  g.box(0.12, 0.09, 0.04, 0xffecc7, { y: 0.86, z: -0.67 });
+  g.box(0.1, 0.055, 0.03, 0xbd2631, { y: 0.66, z: 0.73 });
   return g.build();
 }
 
 /** A walking villager or tourist (tinted per instance). */
-export function walkerGeometry(): BufferGeometry {
-  const g = new GeoBuilder();
-  g.cylinder(0.09, 0.1, 0.8, 0x2a3350, 6, { x: -0.1, y: 0.4 });
-  g.cylinder(0.09, 0.1, 0.8, 0x2a3350, 6, { x: 0.1, y: 0.4 });
-  g.cylinder(0.2, 0.24, 0.7, W, 7, { y: 1.15 });
-  g.sphere(0.17, 0xe8c09a, { y: 1.7 }, 7);
-  g.sphere(0.18, 0x3b2a20, { y: 1.78, sy: 0.6 }, 6);
-  g.cylinder(0.05, 0.05, 0.55, 0xe8c09a, 5, { x: -0.3, y: 1.15, rz: 0.2 });
-  g.cylinder(0.05, 0.05, 0.55, 0xe8c09a, 5, { x: 0.3, y: 1.15, rz: -0.2 });
-  return g.build();
-}
+export const walkerGeometry = (): BufferGeometry => personGeometry(W, 0xe8c09a, 0x3b2a20);
 
 /** A repair workshop: a garage bay with a car on a lift, a tyre stack, oil drums and a tall spanner sign (blue, unlike the fuel station). */
 export function workshopGeometry(): BufferGeometry {
@@ -162,7 +151,9 @@ export function retainWallGeometry(): BufferGeometry {
   const g = new GeoBuilder();
   for (let row = 0; row < 4; row++) {
     const shade = row % 2 === 0 ? 0x8b857a : 0x7a746a;
-    g.box(24, 0.62, 1.0 - row * 0.06, shade, { y: 0.31 + row * 0.62, z: row * 0.03 });
+    g.box(24, 0.62, 1.0 - row * 0.06, 0x635f57, { y: 0.31 + row * 0.62, z: row * 0.03 });
+    for (let i = 0; i < 24; i++) g.box(0.88, 0.52, 0.08, i % 3 ? shade : 0x979084,
+      { x: -11.5 + i + (row % 2) * 0.35, y: 0.31 + row * 0.62, z: -0.52 + row * 0.06 });
   }
   g.box(24.3, 0.16, 1.2, 0xb9b2a4, { y: 2.55 });
   for (let i = -4; i <= 4; i++) g.box(0.28, 0.2, 0.1, 0x1e1e20, { x: i * 2.6, y: 0.5, z: -0.52 });
@@ -222,29 +213,27 @@ export function plazaGeometry(): BufferGeometry {
 }
 
 /** A Coaster-style minibus: shorter than the coach, high roof, window band. */
-export function minibusGeometry(): BufferGeometry {
-  const g = new GeoBuilder();
-  g.box(2.1, 1.9, 6.4, W, { y: 1.5 });
-  g.box(2.14, 0.7, 5.6, GLASS, { y: 2.0, z: 0.2 });
-  g.box(2.0, 0.1, 6.2, 0xe8e6dc, { y: 2.5 });
-  g.box(2.14, 0.18, 6.2, 0x2f6fd0, { y: 1.3 });
-  for (const sx of [-1, 1]) for (const z of [-2.1, 2.1]) g.cylinder(0.42, 0.42, 0.3, TYRE, 10, { x: sx * 0.98, y: 0.42, z, rz: Math.PI / 2 });
-  g.box(1.5, 0.14, 0.08, 0xfff1b8, { y: 0.9, z: -3.22 });
-  g.box(1.5, 0.14, 0.08, 0xd8262a, { y: 0.9, z: 3.22 });
-  return g.build();
-}
+export const minibusGeometry = (): BufferGeometry => touringTraffic('minibus');
 
 /** A box delivery truck: tinted cab, tall plain box body. */
 export function deliveryGeometry(): BufferGeometry {
   const g = new GeoBuilder();
   g.box(2.2, 0.35, 6.0, 0x2a2a2e, { y: 0.8 });
-  g.box(2.2, 1.6, 1.8, W, { y: 1.75, z: -2.1 });
+  g.add(loft([[-3.0, 0.98, 0.95, 2.42], [-2.8, 1.1, 0.95, 2.55], [-1.2, 1.1, 0.95, 2.55]]), W);
   g.box(2.0, 0.6, 0.1, GLASS, { y: 2.1, z: -3.02 });
   g.box(2.3, 2.1, 4.0, 0xf1efe8, { y: 2.1, z: 1.1 });
   g.box(2.34, 0.2, 4.0, 0x6b7f3f, { y: 3.2, z: 1.1 });
   g.box(2.34, 0.4, 3.9, 0xd6322b, { y: 1.6, z: 1.1 });
   for (const sx of [-1, 1]) for (const z of [-2.0, 1.9]) g.cylinder(0.48, 0.48, 0.32, TYRE, 10, { x: sx * 1.0, y: 0.48, z, rz: Math.PI / 2 });
   g.box(1.5, 0.14, 0.08, 0xfff1b8, { y: 1.0, z: -3.02 });
+  for (const side of [-1, 1]) {
+    g.box(0.12, 0.25, 0.25, 0x343b41, { x: side * 1.24, y: 2.3, z: -2.85 });
+    g.box(0.025, 0.7, 0.68, GLASS, { x: side * 1.16, y: 2.35, z: -2.2 });
+    g.box(0.05, 0.04, 0.2, 0xa1aab0, { x: side * 1.18, y: 1.82, z: -1.9 });
+    for (const z of [1.6, 2.8]) g.cylinder(0.3, 0.3, 0.025, 0x9ba2a5, 10, { x: side * 1.25, y: 0.52, z, rz: Math.PI / 2 });
+    for (let i = 0; i < 6; i++) g.box(0.028, 1.5, 0.035, 0x5b5547, { x: side * 1.23, y: 2.3, z: -0.3 + i * 0.65 });
+  }
+  g.box(1.1, 0.24, 0.04, 0x292f33, { y: 1.36, z: -3.05 });
   return g.build();
 }
 
@@ -259,6 +248,12 @@ export function scooterGeometry(): BufferGeometry {
   g.sphere(0.18, 0xf1f1ec, { y: 1.66, z: 0.1, sy: 0.8 }, 6);
   g.cylinder(0.04, 0.04, 0.45, 0xd6322b, 5, { x: -0.2, y: 1.15, z: -0.18, rx: 1.0 });
   g.cylinder(0.04, 0.04, 0.45, 0xd6322b, 5, { x: 0.2, y: 1.15, z: -0.18, rx: 1.0 });
+  for (const z of [-0.6, 0.6]) {
+    g.cylinder(0.14300000000000002, 0.14300000000000002, 0.018, 0x949da5, 12, { x: 0.085, y: 0.22, z, rz: Math.PI / 2 });
+    g.cylinder(0.14300000000000002, 0.14300000000000002, 0.018, 0x949da5, 12, { x: -0.085, y: 0.22, z, rz: Math.PI / 2 });
+  }
+  g.box(0.12, 0.09, 0.04, 0xffecc7, { y: 0.86, z: -0.67 });
+  g.box(0.1, 0.055, 0.03, 0xbd2631, { y: 0.66, z: 0.73 });
   return g.build();
 }
 

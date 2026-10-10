@@ -1,6 +1,7 @@
 import type { BufferGeometry } from 'three';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
+import { pitchedRoof, timberWindow } from './worldArt';
 
 /**
  * Level 4 (Punakha Valley) models: the farm tractor, rice terraces, bridges and the dzong. Vertex-coloured and merged, so each is one
@@ -206,6 +207,10 @@ export function dzongComplexGeometry(): BufferGeometry {
   g.box(12, 1.2, 4.4, PAL.roofRed, { y: 10.8, z: 17.8 });
   // Stone steps down to the forecourt.
   for (let i = 0; i < 4; i++) g.box(14, 0.5, 2, 0xb9b2a2, { y: 1.6 - i * 0.5 + 0.9, z: 24 + i * 1.6 });
+  pitchedRoof(g, 58, 28, 32.2, 2.4, PAL.roofRed);
+  for (const side of [-1, 1]) for (const x of [-5, 0, 5])
+    timberWindow(g, x, 44.5, side * 8.12, 2.0, 3.0, side < 0 ? Math.PI : 0);
+  for (let i = -16; i <= 16; i++) g.box(0.3, 0.7, 0.8, PAL.woodDark, { x: i * 2.1, y: 19.3, z: 17.7 });
   return g.build();
 }
 

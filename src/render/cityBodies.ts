@@ -1,6 +1,7 @@
 import type { BufferGeometry } from 'three';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
+import { pitchedRoof, timberWindow } from './worldArt';
 
 /**
  * Bhutan-inspired city buildings and street furniture, merged into one vertex-coloured geometry each so that a whole
@@ -38,6 +39,11 @@ export function hotelGeometry(): BufferGeometry {
   g.frustum(d + 4, d - 2.5, 0.5, 0x2c5a48, { y: 4.2 + 3 * 3.2 + 1.2 });
   g.cone(0.5, 1.4, 0xe8b53a, 6, { y: 4.2 + 3 * 3.2 + 4.4 });
   g.box(6, 1.2, 0.2, 0x2f5f8f, { x: 0, y: 4.8, z: d / 2 + 0.7 });
+  for (let floor = 0; floor < 3; floor++) for (let i = 0; i < 6; i++)
+    timberWindow(g, -6.4 + i * 2.56, 5.9 + floor * 3.2, d / 2 + 0.46, 1.9, 1.7);
+  pitchedRoof(g, w + 4.5, d + 4, 14.7, 2.3, GREEN_ROOF);
+  for (const x of [-6.6, 6.6]) g.box(0.28, 3.1, 0.28, TIMBER, { x, y: 1.55, z: d / 2 + 1.5 });
+  g.box(15, 0.22, 2.2, GREEN_ROOF, { y: 3.3, z: d / 2 + 1.2, rx: 0.12 });
   return g.build();
 }
 
@@ -53,6 +59,10 @@ export function officeGeometry(): BufferGeometry {
   g.frustum(6.5, 3.6, 1.8, GREEN_ROOF, { x: 3, y: 18.4 });
   g.box(5.2, 1.4, 0.2, 0x2f5f8f, { x: -2.5, y: 15.5, z: 4.7 });
   g.box(4.2, 2.8, 0.2, 0x1a1c22, { x: 0, y: 1.4, z: 4.55 });
+  for (const side of [-1, 1]) for (let i = -4; i <= 4; i++)
+    g.box(0.075, 15.8, 0.04, 0xbdb5a5, { x: i * 1.35, y: 8.6, z: side * 4.65 });
+  for (let f = 0; f < 5; f++) for (const side of [-1, 1])
+    g.box(13.6, 0.06, 0.45, 0x8e938c, { y: 3.6 + f * 3.2, z: side * 4.8 });
   return g.build();
 }
 
@@ -70,6 +80,8 @@ export function restaurantGeometry(): BufferGeometry {
   for (const x of [-3.5, -1.2, 1.2, 3.5]) g.sphere(0.28, 0xd6322b, { x, y: 3.1, z: 5.2 }, 6);
   g.box(3.2, 2.4, 0.14, GLASS, { x: -2.2, y: 1.4, z: 4.1 });
   g.box(1.6, 2.5, 0.14, TIMBER, { x: 3.2, y: 1.3, z: 4.1 });
+  for (const x of [-3.5, 0, 3.5]) timberWindow(g, x, 5.25, 4.5, 1.8, 1.5);
+  pitchedRoof(g, 14, 10, 6.9, 1.8, PAL.roofRed);
   return g.build();
 }
 

@@ -115,3 +115,26 @@ export class GeoBuilder {
     return merged;
   }
 }
+
+export type Ring = [z: number, halfWidth: number, bottom: number, top: number];
+/** Chamfered eight-point sections produce a continuous shoulder, bonnet and tapered roof. */
+export function loft(rings: Ring[]): BufferGeometry {
+  const points: number[][] = [];
+  for (const [z, w, b, t] of rings) {
+    const c = Math.min(0.09, (t - b) * 0.2);
+    points.push([-w + c, b, z], [w - c, b, z], [w, b + c, z], [w, t - c, z],
+      [w - c, t, z], [-w + c, t, z], [-w, t - c, z], [-w, b + c, z]);
+  }
+  const pos: number[] = [];
+  const tri = (a: number, b: number, c: number): void => { pos.push(...points[a], ...points[b], ...points[c]); };
+  for (let r = 0; r < rings.length - 1; r++) for (let i = 0; i < 8; i++) {
+    const a = r * 8 + i, b = r * 8 + (i + 1) % 8, c = b + 8, d = a + 8;
+    tri(a, b, c); tri(a, c, d);
+  }
+  for (let i = 1; i < 7; i++) { tri(0, i + 1, i); const k = points.length - 8; tri(k, k + i, k + i + 1); }
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
+}
+

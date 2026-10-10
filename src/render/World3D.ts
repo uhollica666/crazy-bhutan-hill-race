@@ -1,4 +1,4 @@
-import { Group, Mesh, MeshLambertMaterial } from 'three';
+import { Group, Mesh, MeshStandardMaterial } from 'three';
 import type { Material, Scene, Vector3 } from 'three';
 import type { Course } from '../world/Course';
 import type { TimeOfDay, WeatherKind } from '../data/types';
@@ -72,7 +72,7 @@ export class World3D {
     const dt = this.lastTime < 0 ? 0 : Math.min(0.1, Math.max(0, time - this.lastTime));
     this.lastTime = time;
     this.env.tick(dt);
-    this.scenery.update(time);
+    this.scenery.update(time, camera);
     this.gates.update(time);
     this.env.setProgress(progress);
     this.env.follow(camera, focus);
@@ -83,11 +83,13 @@ export class World3D {
     this.root.traverse((o) => {
       const mesh = o as Mesh;
       if (mesh.geometry) mesh.geometry.dispose();
-      const m = mesh.material as MeshLambertMaterial | MeshLambertMaterial[] | undefined;
+      const m = mesh.material as MeshStandardMaterial | MeshStandardMaterial[] | undefined;
       if (m)
         (Array.isArray(m) ? m : [m]).forEach((x) => {
           // Terrain detail and road textures are created per world: release them with it.
           x.map?.dispose();
+          x.bumpMap?.dispose();
+          if (x.roughnessMap !== x.bumpMap) x.roughnessMap?.dispose();
           x.dispose();
         });
     });

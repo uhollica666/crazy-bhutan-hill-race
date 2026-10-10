@@ -2,6 +2,7 @@ import {
   AdditiveBlending,
   CanvasTexture,
   CircleGeometry,
+  Color,
   CylinderGeometry,
   DoubleSide,
   Float32BufferAttribute,
@@ -10,6 +11,7 @@ import {
   MeshBasicMaterial,
   LOD,
   Quaternion,
+  SpotLight,
   Vector3,
 } from 'three';
 import type { BufferGeometry, MeshStandardMaterial, Object3D } from 'three';
@@ -50,7 +52,7 @@ function makeBlobTexture(): CanvasTexture {
   return new CanvasTexture(c);
 }
 
-/** Procedural vehicle: 1 body + head/tail light meshes + 1 draw call per wheel. */
+/** Batched PBR coachwork, distance LOD and physics-owned steering/suspension. */
 export class VehicleModel {
   readonly root = new Group();
   readonly blob: Mesh;
@@ -61,7 +63,7 @@ export class VehicleModel {
   private readonly lods: LOD[] = [];
   private readonly headMats: MeshStandardMaterial[] = [];
   private readonly tailMats: MeshStandardMaterial[] = [];
-  /** True when the detailed glTF model is in use (false = procedural fallback). */
+  /** This revision uses detailed original procedural coachwork on every asset-loading path. */
   readonly detailed: boolean;
   private readonly geos: BufferGeometry[] = [];
   private readonly mats: { dispose(): void }[] = [];
@@ -72,6 +74,15 @@ export class VehicleModel {
   private readonly up = new Vector3(0, 1, 0);
   private readonly n = new Vector3();
   private brakeGlow = 0;
+  private readonly grimeGroups: Group[] = [];
+  private readonly scarGroups: Group[] = [];
+  private grime = 0;
+  private condition = 100;
+  private lastSyncTime = 0;
+  private readonly tyreClean = new Color(0x252729);
+  private readonly tyreMud = new Color(0x66503a);
+
+  setCondition(health: number): void { this.condition = Math.min(100, Math.max(0, health)); }
   private readonly reverseMats: MeshStandardMaterial[] = [];
   private readonly indicatorMats: MeshStandardMaterial[][] = [[], []];
   private indicator: -1 | 0 | 1 = 0;
@@ -79,6 +90,8 @@ export class VehicleModel {
   /** Explicit signal command for future input/traffic integration; steering alone never signals. */
   setIndicator(side: -1 | 0 | 1): void { this.indicator = side; }
   private readonly beam: Mesh;
+  private readonly lamp: SpotLight;
+  private lowDetail = false;
 
   constructor(
     private readonly def: VehicleDef,
@@ -92,11 +105,12 @@ export class VehicleModel {
     this.lods.push(bodyLOD);
     this.shell.add(bodyLOD); this.root.add(this.shell);
     for (const art of [high, low]) {
+      this.grimeGroups.push(art.dirt); this.scarGroups.push(art.scars);
       this.geos.push(...art.geometries); this.mats.push(...art.materials);
       this.headMats.push(art.head); this.tailMats.push(art.tail); this.reverseMats.push(art.reverse);
       art.indicators.forEach((m, i) => this.indicatorMats[i].push(m));
       for (const m of art.materials) {
-        if (vehicleEnvironment() && !m.name.startsWith('light') && m.name !== 'rubber' && m.name !== 'cabin') {
+        if (vehicleEnvironment() && !m.name.startsWith('light') && m.name !== 'rubber' && m.name !== 'tyre' && m.name !== 'road_dirt' && m.name !== 'scuff' && m.name !== 'cabin') {
           m.envMap = vehicleEnvironment(); m.envMapIntensity = 0.5;
         }
       }
@@ -140,6 +154,12 @@ export class VehicleModel {
     this.beam.visible = false;
     this.beam.renderOrder = 5;
     this.shell.add(this.beam);
+    // One shadow-free light complements the two visual cones on Medium/High.
+    this.lamp = new SpotLight(0xffe4b5, 32, 36, 0.48, 0.75, 2);
+    this.lamp.position.set(0, LIGHT_LAYOUT[def.visual].y, -def.size.length / 2);
+    this.lamp.target.position.set(0, -1.05, -def.size.length / 2 - 22);
+    this.lamp.castShadow = false; this.lamp.visible = false;
+    this.shell.add(this.lamp, this.lamp.target);
     this.geos.push(beamGeo);
     this.mats.push(beamMat);
 
@@ -181,11 +201,14 @@ export class VehicleModel {
   /** Switches the headlight beam (dusk, night, fog, heavy rain). */
   setHeadlights(on: boolean): void {
     this.beam.visible = on;
+    this.lamp.visible = on && !this.lowDetail;
     for (const m of this.headMats) m.emissiveIntensity = on ? 2.6 : 0.5;
   }
 
   /** Low phones skip tread/door details; other tiers use camera-distance LOD with hysteresis. */
   setLowDetail(low: boolean): void {
+    this.lowDetail = low;
+    this.lamp.visible = this.beam.visible && !low;
     for (const lod of this.lods) {
       lod.autoUpdate = !low;
       lod.levels[0].object.visible = !low;
@@ -217,6 +240,21 @@ export class VehicleModel {
       this.pivots[i].rotation.y = -w.steerAngle;
       this.rolls[i].rotation.x = -w.spin;
     });
+
+    const dt = Math.max(0, Math.min(0.1, time - this.lastSyncTime));
+    this.lastSyncTime = time;
+    const dirty = body.wheels.some(w => w.inContact && (w.surface.id === 'mud' || w.surface.id === 'dirt'));
+    const washed = body.wheels.some(w => w.inContact && w.surface.id === 'water');
+    this.grime = Math.max(0, Math.min(1, this.grime + dt * (dirty ? Math.min(Math.abs(body.speed) / 20, 1) * 0.07 : washed ? -0.14 : 0)));
+    for (const g of this.grimeGroups) g.visible = this.grime > 0.015;
+    for (const g of this.scarGroups) g.visible = this.condition < 65;
+    for (const material of this.mats) {
+      const m = material as MeshStandardMaterial;
+      if (!m.isMeshStandardMaterial) continue;
+      if (m.name === 'road_dirt') m.opacity = this.grime * 0.9;
+      if (m.name === 'tyre') m.color.copy(this.tyreClean).lerp(this.tyreMud, this.grime * 0.6);
+      if (m.name === 'paint') m.roughness = 0.28 + (1 - this.condition / 100) * 0.2;
+    }
 
     // Brake lights glow while braking (smoothed so quick taps are still visible).
     const target = body.braking > 0.05 ? 1 : 0;
