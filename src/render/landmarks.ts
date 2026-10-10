@@ -1,7 +1,9 @@
+import { branch, foliage } from './organic';
 import type { BufferGeometry } from 'three';
 import { Color } from 'three';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
+import { pitchedRoof, timberWindow } from './worldArt';
 
 const GLASS = 0x2b3f58;
 
@@ -13,12 +15,16 @@ const shade = (hex: number, k: number): number => {
 
 /** Broadleaf tree: three lobes of foliage (willow / poplar / maple feel via the level's leaf colour). */
 export function broadleafGeometry(leaf: number): BufferGeometry {
-  return new GeoBuilder()
-    .cylinder(0.2, 0.32, 3.4, PAL.bark, 6, { y: 1.7 })
-    .rock(leaf, { x: 0, y: 4.6, z: 0, sx: 2.3, sy: 2.0, sz: 2.3 })
-    .rock(shade(leaf, 1.12), { x: 1.3, y: 3.8, z: 0.8, sx: 1.7, sy: 1.5, sz: 1.7 })
-    .rock(shade(leaf, 0.9), { x: -1.2, y: 3.9, z: -0.8, sx: 1.8, sy: 1.5, sz: 1.8 })
-    .build();
+  const g = new GeoBuilder();
+  branch(g,[0,0,0],[0.1,3.9,0],0.26,PAL.bark);
+  for (let i=0;i<8;i++) {
+    const a=i*2.399,reach=0.9+(i%3)*0.36,y=3.1+(i%3)*0.58;
+    const x=Math.cos(a)*reach,z=Math.sin(a)*reach;
+    branch(g,[0.06,2.4+i%2*0.6,0],[x,y,z],0.075,PAL.bark);
+    for(let j=0;j<3;j++)g.add(foliage(0.88,shade(leaf,0.93+(i%3)*0.06),i*3+j),0xffffff,{x:x+Math.cos(j*2.1+a)*0.45,y:y+0.45+j%2*0.38,z:z+Math.sin(j*2.1+a)*0.45,sy:0.87},true);
+  }
+  g.add(foliage(1.1,leaf,13),0xffffff,{y:5.2,sy:0.82},true);
+  return g.build();
 }
 
 /** Low flowering shrub (rhododendron). */
@@ -32,7 +38,10 @@ export function shrubGeometry(blossom: number): BufferGeometry {
     [0.7, 0.9, -0.6],
     [-0.8, 0.85, -0.6],
   ];
-  for (const [x, y, z] of spots) g.rock(blossom, { x, y, z, sx: 0.34, sy: 0.3, sz: 0.34 });
+  for (const [x, y, z] of spots) {
+    g.sphere(0.24, 0x31513a, { x, y: y - 0.15, z, sx: 1.5, sy: 0.7 }, 6);
+    for (let i = 0; i < 3; i++) g.sphere(0.09, blossom, { x: x + (i - 1) * 0.11, y, z: z + i % 2 * 0.09 }, 5);
+  }
   return g.build();
 }
 
@@ -63,6 +72,11 @@ export function dzongGeometry(): BufferGeometry {
   for (let i = -4; i <= 4; i++) g.box(1, 1.6, 0.25, PAL.windowDark, { x: i * 2.4, y: 18, z: 7.1 });
   g.box(5.4, 6.4, 1.2, PAL.maroon, { y: 5, z: 10.4 });
   g.box(3.6, 5.2, 1.3, PAL.woodDark, { y: 4.4, z: 10.5 });
+  // Exposed cornice brackets, framed tower windows and deep rectangular eaves.
+  pitchedRoof(g, 27, 17, 21.2, 2.1, PAL.roofRed);
+  for (const side of [-1, 1]) for (const x of [-6, -3, 0, 3, 6])
+    timberWindow(g, x, 27.5, side * 4.6, 1.25, 1.8, side < 0 ? Math.PI : 0);
+  for (let i = -12; i <= 12; i++) g.box(0.24, 0.8, 0.6, PAL.woodDark, { x: i * 1.25, y: 13.3, z: 10.3 });
   return g.build();
 }
 
@@ -144,5 +158,10 @@ export function prayerWheelHouseGeometry(): BufferGeometry {
   g.frustum(6.4, 1.6, 1.8, PAL.roofRed, { y: 4.1 });
   g.frustum(7.0, 6.4, 0.25, PAL.maroon, { y: 3.4 });
   g.cone(0.35, 0.9, PAL.gold, 6, { y: 5.4 });
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6;
+    g.box(0.07, 0.8, 0.035, 0xb98733, { x: Math.cos(a) * 0.605, y: 1.3, z: Math.sin(a) * 0.605, ry: -a });
+  }
+  for (const y of [0.65, 0.78, 1.82, 1.94]) g.cylinder(0.63, 0.63, 0.035, PAL.gold, 16, { y });
   return g.build();
 }

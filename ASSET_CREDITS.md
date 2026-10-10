@@ -4,13 +4,9 @@ Developer: Novarah Interactives, a subdivision of Novarah Technologies. Setting,
 
 ## What is third-party, and what is not
 
-**No third-party art, model, texture, music or audio file is bundled with the game.** Every 3D model, texture, sound
-and piece of music is original to this project and either authored in Blender from the scripts in `assets-src/` or
-generated at run time by the code. Stage 4 researched the CC0 libraries (Quaternius, Kenney, Poly Pizza, Poly Haven,
-ambientCG, OpenGameArt) and deliberately did **not** import any pack: the available vehicle and nature sets are
-toy-like cartoon styles that conflict with the mature art direction in `docs/VISUAL_DIRECTION.md`, and mixing styles
-was the exact problem to avoid. If a CC0 asset is added later, add a row below with the creator, URL, version and the
-licence text as read on the day.
+Stage 6V adds a CC0 Quaternius human base for tourists, pedestrians, police, crowds and driver/creature authoring. Vehicles, other creatures, environment art, materials and synthesized sounds in this remake remain project-authored. Source provenance and the supplied license are recorded in [assets-src/characters/README.md](assets-src/characters/README.md) and [QUATERNIUS-LICENSE.txt](assets-src/characters/QUATERNIUS-LICENSE.txt).
+
+The human source is Quaternius **Universal Base Characters — Standard / Superhero Male FullBody**, accessed 10 October 2026. [Primary author page](https://quaternius.com/packs/universalbasecharacters.html), [free distribution](https://quaternius.itch.io/universal-base-characters), [redistributed source GLB](https://github.com/programasweights/avatar/blob/main/public/assets/character.glb). License: [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/). Source pose, geometry and rig were adapted and simplified by the project; no third-party animation clips were imported.
 
 ## Table
 
@@ -22,7 +18,7 @@ licence text as read on the day.
 | Game logo artwork                                            | Supplied root `cbhr-logo.png` (source untouched); `public/brand/cbhr-logo.webp` derived by `scripts/game-logo.mjs`, used on the main menu | Supplied by the project owner as the game's candidate logo                         |
 | Four vehicle models (`public/models/vehicles/*.glb`)         | Original. Built in Blender 5.2 by `assets-src/blender/build_vehicles.py` (+ `cbhr_lib.py`, `cbhr_vehicle.py`, `vehicles_more.py`), optimised by `scripts/build-models.mjs` (meshopt) | Project-original; no manufacturer branding or real model reproduced                |
 | Environment kit (`public/models/env/kit.glb`): pines, spruce, cypress, broadleaf, shrub, rocks, boulder, three Bhutanese houses, chorten, cairn with prayer flags, mani wall, grass tufts, fern | Original. Built in Blender by `assets-src/blender/build_env.py` + `env_lib.py` with per-face vertex colours                      | Project-original                                                                   |
-| Remaining buildings, landmarks, traffic, tourists, yak, yeti, gates, signs | Procedural geometry in `src/render` (`landmarks.ts`, `vehicleBodies.ts`, `Scenery.ts`, `MissionView.ts`)                          | Project-generated                                                                  |
+| Remaining buildings, landmarks, traffic, yak, yeti, ghost, gates, signs | Procedural geometry in `src/render` (`landmarks.ts`, `vehicleBodies.ts`, `Scenery.ts`, `MissionView.ts`)                          | Project-generated                                                                  |
 | Mountain ranges                                              | Generated at load by `src/render/mountains.ts` from ridged noise                                                                  | Project-generated                                                                  |
 | Terrain grain, road, zone, sign and particle textures, rain, snow, spray, headlight beams, skid marks | Runtime canvas textures, SVG and shaders                                                                    | Project-generated                                                                  |
 | Portraits, favicon / PWA icons, UI motifs                    | Project SVG and `scripts/make-icons.mjs`                                                                                          | Project-generated; game icons are separate from studio branding                    |
@@ -41,3 +37,12 @@ licence text as read on the day.
 Dependency licences are separate from art ownership. No blanket project licence is inferred from a dependency or from
 the supplied logos. The intentionally deleted root `novarah-horizontal-dark@2x.png`, `novarah-horizontal-light@2x.png`
 and `novarah-symbol@2x.png` are not required by the app and were not restored.
+
+## Stage 6V runtime art
+
+- Four playable vehicles: `coachwork.ts`, `VehicleModel.ts`, cosmetic accessories and liveries: original, runtime-authored PBR meshes.
+- Human base: `peopleBase.json`, adapted from the CC0 source above; offline exporter: `assets-src/blender/people_remake.py`.
+- Person accessories, police uniform props, yeti/ghost rigs, zombie wardrobe/arm pivots, yak, birds and world upgrades: project-authored.
+- `surfaceRelief.ts` data textures and all audio changes: project-generated; no external recordings or paid services.
+
+Legacy vehicle GLBs are retained for authoring but the new vehicle rendering path does not download them. All original branding credits and ownership terms remain applicable.

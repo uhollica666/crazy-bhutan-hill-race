@@ -1,3 +1,6 @@
+import { actorGround } from './grounding';
+import { createCreatureArt } from './creatureArt';
+import type { CreatureArt } from './creatureArt';
 import {
   AdditiveBlending,
   BufferGeometry,
@@ -34,7 +37,6 @@ import {
   stationGeometry,
   touristGeometry,
   trafficCarGeometry,
-  yetiGeometry,
 } from './vehicleBodies';
 import { createStaticVehicle } from './VehicleModel';
 import { yakGeometry } from './Scenery';
@@ -43,7 +45,7 @@ import { busGeometry, bicycleGeometry, deliveryGeometry, kioskGeometry, minibusG
 import type { TrafficKind } from '../data/types';
 import { tractorGeometry } from './valleyBodies';
 import { ploughGeometry } from './snowBodies';
-import { bearGeometry, figureGeometry, logGeometry, zombieGeometry } from './nightBodies';
+import { createBearArt, logGeometry } from './nightBodies';
 import { TRAFFIC_KINDS } from '../gameplay/Traffic';
 import type { HazardState } from '../gameplay/Hazards';
 import { GeoBuilder } from './geo';
@@ -150,7 +152,7 @@ export class MissionView {
   // Hazards.
   private rocks: InstancedMesh | null = null;
   private drifts: InstancedMesh | null = null;
-  private readonly creatures: { h: HazardState; mesh: Mesh; bubble: Sprite; ghost: boolean; scale: number }[] = [];
+  private readonly creatures: { h: HazardState; mesh: Group; art: CreatureArt; bubble: Sprite; ghost: boolean; scale: number }[] = [];
   private logs: InstancedMesh | null = null;
   private glow: InstancedMesh | null = null;
   private night = false;
@@ -331,30 +333,19 @@ export class MissionView {
     }
     const creatureHazards = hz.hazards.filter((h) => h.def.kind === 'creature');
     if (creatureHazards.length) {
-      const geos = new Map<string, BufferGeometry>();
-      const geoFor = (v: string): BufferGeometry => {
-        let g = geos.get(v);
-        if (!g) {
-          g = v === 'zombie' ? zombieGeometry() : v === 'figure' ? figureGeometry() : v === 'bear' ? bearGeometry() : yetiGeometry();
-          geos.set(v, g);
-          this.disposables.push(g);
-        }
-        return g;
-      };
-      const solidMat = new MeshLambertMaterial({ vertexColors: true });
-      // Spirits are pale and softly glowing, never frightening: the same shapes, translucent.
-      const spiritMat = new MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.55, emissive: 0x9fd8ff, emissiveIntensity: 0.55, depthWrite: false });
-      this.disposables.push(solidMat, spiritMat);
       for (const h of creatureHazards) {
         const v = h.def.variant ?? 'yeti';
         const spirit = v === 'ghost' || v === 'figure';
-        const mesh = new Mesh(geoFor(v === 'ghost' ? 'yeti' : v), spirit ? spiritMat : solidMat);
+        // The imported art covers the yeti, the ghost and the zombie; a lantern figure is drawn as a spirit, a bear has its own model.
+        const art = v === 'bear' ? createBearArt() : createCreatureArt(spirit ? 'ghost' : v === 'zombie' ? 'zombie' : 'yeti');
+        const mesh = art.group;
+        this.disposables.push(art);
         mesh.visible = false;
         const text = v === 'ghost' ? 'Whooo~' : v === 'zombie' ? 'Uhhhh...' : v === 'figure' ? 'Psst...' : v === 'bear' ? 'Grr?' : 'Hello!';
         const bubble = labelSprite(text, spirit ? '#3b4a7a' : v === 'zombie' ? '#4a6a3a' : '#2e7d9a');
         bubble.visible = false;
         this.group.add(mesh, bubble);
-        this.creatures.push({ h, mesh, bubble, ghost: v === 'ghost', scale: v === 'bear' ? 0.9 : v === 'figure' ? 0.7 : 0.62 });
+        this.creatures.push({ h, mesh, art, bubble, ghost: v === 'ghost', scale: v === 'zombie' ? 1.75 : v === 'bear' ? 0.9 : v === 'figure' ? 0.7 : 0.62 });
       }
     }
     const herdHazards = hz.hazards.filter((h) => h.def.kind === 'herd');
@@ -471,7 +462,9 @@ export class MissionView {
           for (let i = 0; i < n; i++) {
             // Little hop of impatience while waiting; wave when the car is close.
             const bob = Math.abs(Math.sin(time * 3 + i * 1.7)) * 0.08;
-            this.v3(v.px + Math.cos(v.heading) * (i - (n - 1) / 2) * 0.85, v.baseY + bob, v.pz - Math.sin(v.heading) * (i - (n - 1) / 2) * 0.85);
+            const x=v.px+Math.cos(v.heading)*(i-(n-1)/2)*0.85;
+            const z=v.pz-Math.sin(v.heading)*(i-(n-1)/2)*0.85;
+            this.v3(x,actorGround(this.rt.course,x,z,v.heading)+bob,z);
             this.q.setFromAxisAngle(UP, v.heading);
             this.m4.compose(this.pos, this.q, this.scl);
             v.people.setMatrixAt(i, this.m4);
@@ -527,8 +520,9 @@ export class MissionView {
         cr.mesh.visible = !!c;
         cr.bubble.visible = !!c && ((cr.h.phase === 'crossing' && Math.abs(c.lateral) < 3) || c.shrug > 0);
         if (c) {
+          cr.art.update(time, c.shrug);
           const bob = cr.ghost ? 0.5 + Math.sin(time * 2.2) * 0.25 : Math.abs(Math.sin(time * 5)) * 0.06;
-          cr.mesh.position.set(c.x, this.ground(c.x, c.z) + bob, c.z);
+          cr.mesh.position.set(c.x, actorGround(this.rt.course,c.x,c.z,c.heading,0.32,0.27) + bob, c.z);
           cr.mesh.rotation.y = c.heading + Math.PI;
           cr.mesh.scale.setScalar(cr.scale);
           cr.bubble.position.set(c.x, cr.mesh.position.y + 3.6, c.z);
@@ -540,7 +534,7 @@ export class MissionView {
         for (let i = 0; i < n; i++) {
           const a = herd![i];
           const sway = a.frozen || a.across ? 0 : Math.sin(time * 4 + i * 1.9) * 0.05;
-          this.v3(a.x, this.ground(a.x, a.z) + sway, a.z);
+          this.v3(a.x, actorGround(this.rt.course,a.x,a.z,a.heading,0.35,0.72) + sway, a.z);
           this.q.setFromAxisAngle(UP, a.heading + Math.PI);
           this.scl.setScalar(1.05 + (i % 3) * 0.06);
           this.m4.compose(this.pos, this.q, this.scl);

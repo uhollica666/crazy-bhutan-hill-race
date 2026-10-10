@@ -40,7 +40,7 @@ export interface Place {
 export class GeoBuilder {
   private readonly parts: BufferGeometry[] = [];
 
-  add(source: BufferGeometry, color: number, p: Place = {}): this {
+  add(source: BufferGeometry, color: number, p: Place = {}, preserveColors = false): this {
     const geo = source.index ? source.toNonIndexed() : source.clone();
     source.dispose();
     geo.deleteAttribute('uv');
@@ -50,7 +50,7 @@ export class GeoBuilder {
     _s.set(p.sx ?? 1, p.sy ?? 1, p.sz ?? 1);
     _m.compose(_p, _q, _s);
     geo.applyMatrix4(_m);
-    geo.computeVertexNormals();
+    if (!geo.getAttribute('normal')) geo.computeVertexNormals();
     _c.setHex(color);
     const n = geo.getAttribute('position').count;
     const col = new Float32Array(n * 3);
@@ -59,7 +59,7 @@ export class GeoBuilder {
       col[i * 3 + 1] = _c.g;
       col[i * 3 + 2] = _c.b;
     }
-    geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+    if (!preserveColors || !geo.getAttribute('color')) geo.setAttribute('color', new Float32BufferAttribute(col, 3));
     this.parts.push(geo);
     return this;
   }
@@ -114,4 +114,25 @@ export class GeoBuilder {
     merged.computeBoundingSphere();
     return merged;
   }
+}
+
+export type Ring = [z: number, halfWidth: number, bottom: number, top: number];
+/** Rounded rectangular sections with smooth side normals and separate flat end caps. */
+export function loft(rings: Ring[]): BufferGeometry {
+  const points:number[]=[],indices:number[]=[];
+  const count=20;
+  for(const [z,w,b,t] of rings) {
+    const r=Math.min(0.19,(t-b)*0.32,w*0.18);
+    for(const [cx,cy,angle] of [[w-r,b+r,-Math.PI/2],[w-r,t-r,0],[-w+r,t-r,Math.PI/2],[-w+r,b+r,Math.PI]])
+      for(let j=0;j<=4;j++){const a=angle+j*Math.PI/8;points.push(cx+Math.cos(a)*r,cy+Math.sin(a)*r,z);}
+  }
+  for(let row=0;row<rings.length-1;row++)for(let i=0;i<count;i++) {
+    const a=row*count+i,b=row*count+(i+1)%count,c=b+count,d=a+count;indices.push(a,b,c,a,c,d);
+  }
+  for(const end of [0,rings.length-1]) {
+    const offset=points.length/3;
+    for(let i=0;i<count;i++)points.push(...points.slice((end*count+i)*3,(end*count+i)*3+3));
+    for(let i=1;i<count-1;i++)if(end===0)indices.push(offset,offset+i+1,offset+i);else indices.push(offset,offset+i,offset+i+1);
+  }
+  const g=new BufferGeometry();g.setAttribute('position',new Float32BufferAttribute(points,3));g.setIndex(indices);g.computeVertexNormals();return g;
 }

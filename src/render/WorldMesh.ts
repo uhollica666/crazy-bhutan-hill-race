@@ -11,6 +11,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  MeshStandardMaterial,
   PlaneGeometry,
   RepeatWrapping,
   SRGBColorSpace,
@@ -23,6 +24,7 @@ import type { Course, FordInfo } from '../world/Course';
 import type { SurfaceId } from '../data/types';
 import { fbm2, lerp, smoothstep } from '../core/math';
 import { PAL } from './palette';
+import { surfaceRelief } from './surfaceRelief';
 
 const _a = new Color();
 const _b = new Color();
@@ -174,7 +176,9 @@ export function buildTerrainMesh(course: Course): Group {
   const normal = new Float32BufferAttribute(nor, 3);
   const color = new Float32BufferAttribute(col, 3);
   const uvAttr = new Float32BufferAttribute(uv, 2);
-  const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true, map: makeTerrainDetail() });
+  const grain = surfaceRelief('terrain', true);
+  const material = new MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0,
+    map: makeTerrainDetail(), bumpMap: grain, bumpScale: 0.055, roughnessMap: grain });
   const group = new Group();
   group.name = 'terrain';
   const TILE = 64; // cells per side (even, so the Low preset's every-second-node triangulation lines up)
@@ -194,13 +198,22 @@ export function buildTerrainMesh(course: Course): Group {
           fine.push(a, c, b, b, c, d);
         }
       }
-      for (let j = tj; j + 2 <= jMax; j += 2) {
-        for (let i = ti; i + 2 <= iMax; i += 2) {
-          const a = i + j * t.nx;
-          const b = a + 2;
-          const c = a + 2 * t.nx;
-          const d = c + 2;
-          coarse.push(a, c, b, b, c, d);
+      for (let j = tj; j < jMax; j += 2) {
+        for (let i = ti; i < iMax; i += 2) {
+          const sx=Math.min(2,iMax-i),sz=Math.min(2,jMax-j);
+          let nearRoad=sx<2||sz<2;
+          for(let dz=0;dz<=sz;dz++)for(let dx=0;dx<=sx;dx++) {
+            const k=i+dx+(j+dz)*t.nx;
+            if(t.roadDist[k]<t.flatHalf+t.blend+t.cell*2||(t.riverDist&&t.riverDist[k]<20))nearRoad=true;
+          }
+          // Keep collision-matching terrain beside roads and river banks even on Low.
+          if(nearRoad)for(let dz=0;dz<sz;dz++)for(let dx=0;dx<sx;dx++) {
+            const a=i+dx+(j+dz)*t.nx,b=a+1,c=a+t.nx,d=c+1;
+            coarse.push(a,c,b,b,c,d);
+          } else {
+            const a=i+j*t.nx,b=a+2,c=a+2*t.nx,d=c+2;
+            coarse.push(a,c,b,b,c,d);
+          }
         }
       }
       const geo = new BufferGeometry();
@@ -549,15 +562,17 @@ export function buildRoadMeshes(course: Course): Group {
     });
     geo.setIndex(all);
     geo.computeVertexNormals();
-    const mats = kinds.map(
-      (k) =>
-        new MeshLambertMaterial({
-          map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : k === 'worn' ? makeRoadTexture('worn') : k === 'frost' ? makeRoadTexture('frost') : k === 'snow' || k === 'packed' || k === 'slush' ? makeSnowTexture(k) : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
-          polygonOffset: true,
-          polygonOffsetFactor: -2,
-          polygonOffsetUnits: -2,
-        }),
-    );
+    const mats = kinds.map((k) => {
+      const relief = surfaceRelief(k ?? 'asphalt');
+      const wet = k === 'wet' || k === 'mud' || k === 'slush' || k === 'ice';
+      return new MeshStandardMaterial({
+        map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : k === 'worn' ? makeRoadTexture('worn') : k === 'frost' ? makeRoadTexture('frost') : k === 'snow' || k === 'packed' || k === 'slush' ? makeSnowTexture(k) : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
+        bumpMap: relief, roughnessMap: relief,
+        bumpScale: k === 'rocky' ? 0.085 : k === 'gravel' ? 0.055 : k === 'ice' ? 0.006 : 0.018,
+        roughness: wet ? 0.48 : 1, metalness: 0,
+        polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      });
+    });
     const mesh = new Mesh(geo, mats);
     mesh.receiveShadow = true;
     mesh.name = 'road-surface';
@@ -650,10 +665,10 @@ export function buildRoadMeshes(course: Course): Group {
     geo.setAttribute('color', new Float32BufferAttribute(col, 3));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const mesh = new Mesh(
-      geo,
-      new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }),
-    );
+    const relief=surfaceRelief('rocky');
+    const uv:number[]=[];for(let i=0;i<pos.length;i+=3)uv.push((pos[i]+pos[i+2])/5,pos[i+1]/2);
+    geo.setAttribute('uv',new Float32BufferAttribute(uv,2));
+    const mesh = new Mesh(geo,new MeshStandardMaterial({vertexColors:true,roughness:0.91,bumpMap:relief,bumpScale:0.06,roughnessMap:relief,side:DoubleSide}));
     mesh.castShadow = false;
     mesh.receiveShadow = true;
     mesh.name = 'parapets';
@@ -700,7 +715,7 @@ function buildFordMesh(course: Course, ford: FordInfo): Mesh {
   geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
   const mesh = new Mesh(
     geo,
-    new MeshLambertMaterial({ map: makeWaterTexture(), color: 0xbfe0ee, emissive: 0x16303c, transparent: true, opacity: 0.74, side: DoubleSide, depthWrite: false }),
+    new MeshStandardMaterial({ roughness: 0.2, metalness: 0.05, map: makeWaterTexture(), color: 0xbfe0ee, transparent: true, opacity: 0.74, side: DoubleSide, depthWrite: false }),
   );
   mesh.name = 'ford-water';
   mesh.renderOrder = 2;
@@ -801,7 +816,7 @@ export function buildPuddles(course: Course): Group | null {
   const group = new Group();
   group.name = 'puddles';
   const tex = makeWaterTexture();
-  const mat = new MeshLambertMaterial({ map: tex, color: 0xc4e2ee, emissive: 0x1a3440, transparent: true, opacity: 0.78, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const mat = new MeshStandardMaterial({ roughness: 0.17, metalness: 0.05, map: tex, color: 0xa3c3cc, transparent: true, opacity: 0.78, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const geo = new CircleGeometry(1, 28);
   geo.rotateX(-Math.PI / 2);
   // Potholes: dark broken ground, no sheen.

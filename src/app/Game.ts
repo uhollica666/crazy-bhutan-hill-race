@@ -1,3 +1,4 @@
+import { saveCosmetic } from '../render/cosmetics';
 import { Vector3 } from 'three';
 import { AudioEngine } from '../audio/AudioEngine';
 import { clamp } from '../core/math';
@@ -36,7 +37,7 @@ import { GameRenderer } from '../render/GameRenderer';
 import { MissionView, Rain } from '../render/MissionView';
 import { assets, loadVehicleAsset, peekVehicleAsset } from '../render/assets';
 import { disposeEnvKit, loadEnvKit } from '../render/envKit';
-import { QUALITY } from '../render/quality';
+import { telemetryQuality } from '../render/quality';
 import { VehicleModel } from '../render/VehicleModel';
 import { GarageScene } from '../render/GarageScene';
 import { World3D } from '../render/World3D';
@@ -326,8 +327,8 @@ export class Game {
       context: () => ({
         appVersion: APP_VERSION,
         platform: platformOf(window),
-        qualityTier: this.store.settings.quality,
-        perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, this.store.settings.quality),
+        qualityTier: telemetryQuality(this.store.settings.quality),
+        perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, telemetryQuality(this.store.settings.quality)),
       }),
     });
     this.leaderboards = new Leaderboards(this.cloud, this.store, storage, APP_VERSION);
@@ -356,11 +357,16 @@ export class Game {
         buyVehicle: (id) => this.buyVehicle(id),
         buyUpgrade: (v, u) => this.buyUpgrade(v, u as UpgradeId),
         setConditions: (i) => this.setConditions(i),
+        cosmetic: (field, value) => {
+          const c = saveCosmetic(this.previewId, field, value);
+          this.model?.applyCosmetics(c); this.garage?.applyCosmetics(c);
+        },
         garageView: (c) => {
           if (c.orbit) this.garage?.orbit(c.orbit[0], c.orbit[1]);
           if (c.zoom) this.garage?.zoom(c.zoom);
           if (c.turn) this.garage?.turn(c.turn);
           if (c.reset) this.garage?.resetView();
+          if (c.view) this.garage?.setView(c.view);
         },
         readBriefing: () => this.readBriefing(),
         toggleDrive: () => this.toggleDrive(),
@@ -499,8 +505,8 @@ export class Game {
     this.touchDetected = window.matchMedia?.('(pointer: coarse)').matches ?? false;
     this.bindEvents();
     this.applySettings({}, true);
-    if (!opts.fixedResolution) {
-      const target = this.store.settings.quality === 'low' ? 30 : 45;
+    if (!opts.fixedResolution && this.store.settings.quality !== 'max') {
+      const target = this.renderer.level === 'low' ? 30 : 45;
       this.adaptive = new AdaptiveResolution(target);
     }
 
@@ -541,8 +547,8 @@ export class Game {
     this.telemetry.track({
       name: 'game_session_started',
       platform: platformOf(window),
-      qualityTier: this.store.settings.quality,
-      perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, this.store.settings.quality),
+      qualityTier: telemetryQuality(this.store.settings.quality),
+      perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, telemetryQuality(this.store.settings.quality)),
     });
   }
 
@@ -675,6 +681,7 @@ export class Game {
     }
     this.renderer.scene.add(this.model.root, this.model.blob);
     this.model.setBlobVisible(!this.renderer.profile.shadows);
+    this.model.setLowDetail(this.renderer.profile.terrainCoarse);
     this.rig.setVehicle(this.vehicleDef);
     this.audio.setVehicle(this.vehicleDef.audio, this.vehicleDef.id);
     this.engineSim.setVehicle(this.vehicleDef);
@@ -691,7 +698,7 @@ export class Game {
   private applyConditions(smooth = false): void {
     if (!this.world) return;
     const c = this.academy || (this.inRun && this.level.weatherZones && this.weatherZone >= 0) ? this.rt.conditions : this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
-    this.world.setConditions(c.weather, c.time, smooth);
+    this.world.setConditions(c.weather, c.time, smooth,this.inRun&&this.conditionIndex===0&&!this.academy);
     this.model?.setHeadlights(this.world.env.lightsOn);
     this.view?.setNight(this.world.env.lightsOn);
     this.model?.setReflection(this.world.env.brightness);
@@ -818,8 +825,10 @@ export class Game {
       if (type === 'warn') this.incident('hazard', 'medium');
       if (type === 'warn') ui.flash('Look out!', hazard.def.label);
       else if (type === 'land') audio.rockfall();
-      else if (type === 'appear') audio.yeti();
-      else if (type === 'scare') {
+      else if (type === 'appear') {
+        if (hazard.def.variant === 'ghost' || hazard.def.variant === 'figure') audio.ghost();
+        else audio.yeti();
+      } else if (type === 'scare') {
         // A ghost passed through, a shambler reached the car, a figure vanished: the passengers are startled (and a little cross).
         if (rt.session.comfort) rt.session.comfort.value = Math.max(0, rt.session.comfort.value - 7);
         const v = hazard.def.variant;
@@ -1001,16 +1010,17 @@ export class Game {
     const s = Object.keys(patch).length ? this.store.updateSettings(patch) : this.store.settings;
     this.audio.setLevels(s);
     if (initial || s.quality !== before) {
-      const q = QUALITY[s.quality];
       this.renderer.setQuality(s.quality);
+      const q = this.renderer.profile;
       this.world?.applyQuality(q);
       this.model?.setBlobVisible(!q.shadows);
+      this.model?.setLowDetail(q.terrainCoarse);
       this.rig.setFar(q.cameraFar);
       this.effects.particles.density = q.particleDensity;
       this.effects.skids.mesh.visible = q.skidMarks;
-      this.adaptive = this.opts.fixedResolution
+      this.adaptive = this.opts.fixedResolution || s.quality === 'max'
         ? null
-        : new AdaptiveResolution(s.quality === 'low' ? 30 : 45);
+        : new AdaptiveResolution(this.renderer.level === 'low' ? 30 : 45);
       this.renderer.setResolutionScale(1);
       this.onResize();
     }
@@ -1920,6 +1930,7 @@ export class Game {
       this.cpuMs += (performance.now() - t0 - this.cpuMs) * 0.08;
       return;
     }
+    this.model.setCondition(this.rt.status.health);
     this.model.sync(body, alpha, this.course, this.time, this.currentRpm());
     if (state === 'playing' && this.rt.session.phase === 'countdown') {
       this.rig.intro = clamp(this.rt.session.countdown / 3, 0, 1);
@@ -2035,7 +2046,7 @@ export class Game {
           ds.loose = sf.looseness * (sf.id === 'asphalt' || sf.id === 'wetAsphalt' ? 0 : 1);
           ds.wet = sf.id === 'wetAsphalt' || sf.id === 'ice' || sf.id === 'slush';
           ds.water = clamp(rt.status.waterDepth / 0.6, 0, 1);
-          ds.surface = sf.id === 'rocky' ? 'gravel' : sf.id === 'grass' ? 'dirt' : sf.id === 'snow' || sf.id === 'packed' ? 'snow' : sf.id === 'slush' ? 'water' : sf.id === 'wetAsphalt' || sf.id === 'ice' || sf.id === 'frost' ? 'asphalt' : sf.id;
+          ds.surface = sf.id;
         }
       }
       ds.dt = dt;
@@ -2396,6 +2407,8 @@ export class Game {
           incidents: this.incidentLog.list().length,
           particlesAlive: this.effects.particles.alive,
           scene: this.garageActive() ? 'garage' : 'world',
+          backgroundBuildings:this.world?.root.getObjectByName('thimphu-background-settlement')?.userData.buildings??0,
+          fogDensity:(this.renderer.scene.fog as {density?:number}|null)?.density??0,
           garageVehicle: this.garage?.shownVehicleId ?? null,
           garageView: this.garage?.view ?? null,
           academy: this.academy?.snapshot() ?? null,

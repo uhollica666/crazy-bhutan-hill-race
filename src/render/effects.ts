@@ -1,6 +1,7 @@
 import {
   BufferAttribute,
   BufferGeometry,
+  Color,
   DynamicDrawUsage,
   Float32BufferAttribute,
   Mesh,
@@ -278,6 +279,8 @@ export class SkidMarks {
   private readonly pos: Float32Array;
   private readonly geo = new BufferGeometry();
   private readonly mat: MeshBasicMaterial;
+  private readonly colours: Float32Array;
+  private readonly colour = new Color();
   private cursor = 0;
   private readonly lastX: number[] = [];
   private readonly lastZ: number[] = [];
@@ -287,14 +290,16 @@ export class SkidMarks {
   constructor(maxQuads = 500) {
     this.maxQuads = maxQuads;
     this.pos = new Float32Array(maxQuads * 4 * 3);
+    this.colours = new Float32Array(maxQuads * 4 * 3);
     // Unused quads collapse to a point far below the world.
     for (let i = 0; i < this.pos.length; i += 3) this.pos[i + 1] = -9999;
     const idx: number[] = [];
     for (let q = 0; q < maxQuads; q++) idx.push(q * 4, q * 4 + 1, q * 4 + 2, q * 4 + 1, q * 4 + 3, q * 4 + 2);
     this.geo.setAttribute('position', new BufferAttribute(this.pos, 3).setUsage(DynamicDrawUsage));
+    this.geo.setAttribute('color', new BufferAttribute(this.colours, 3).setUsage(DynamicDrawUsage));
     this.geo.setIndex(idx);
     this.mat = new MeshBasicMaterial({
-      color: 0x0e0e10,
+      vertexColors: true,
       transparent: true,
       opacity: 0.42,
       depthWrite: false,
@@ -317,6 +322,7 @@ export class SkidMarks {
     hx: number,
     hz: number,
     half = 0.13,
+    tint = 0x0e0e10,
   ): void {
     if (!skidding) {
       this.active[w] = false;
@@ -346,6 +352,12 @@ export class SkidMarks {
         p[q + 9] = x + nx;
         p[q + 10] = y;
         p[q + 11] = z + nz;
+        this.colour.setHex(tint);
+        for (let i = 0; i < 4; i++) {
+          this.colours[q + i * 3] = this.colour.r;
+          this.colours[q + i * 3 + 1] = this.colour.g;
+          this.colours[q + i * 3 + 2] = this.colour.b;
+        }
         this.cursor = (this.cursor + 1) % this.maxQuads;
         this.dirty = true;
       }
@@ -358,6 +370,7 @@ export class SkidMarks {
   flush(): void {
     if (!this.dirty) return;
     this.geo.getAttribute('position').needsUpdate = true;
+    this.geo.getAttribute('color').needsUpdate = true;
     this.dirty = false;
   }
 
@@ -454,10 +467,16 @@ export class VehicleEffects {
             smoke = Math.max(smoke, 14);
             skid = skid || speed > 14;
           }
-          if (w.driven && body.drive > 0.8 && speed < 7) dust = Math.max(dust, 10);
+          if (w.driven && body.drive > 0.8 && speed < 7 && !sf.wet && sf.id !== 'ice') dust = Math.max(dust, 10);
+          const soft = sf.id === 'snow' || sf.id === 'packed' || sf.id === 'mud' || sf.id === 'dirt' || sf.id === 'gravel';
+          if (soft) { dust += smoke * 0.5; smoke = 0; skid = !verge && speed > 3; }
+          if (sf.wet || sf.id === 'ice' || sf.id === 'frost') smoke = 0;
+          if (sf.id === 'water' || sf.id === 'ice' || sf.id === 'wetAsphalt' || sf.id === 'slush') skid = false;
         }
         const c = w.contact;
-        this.skids.add(i, skid, c.x, c.y + 0.09, c.z, this.head.x, this.head.z);
+        const surface = w.surface.id;
+        const mark = surface === 'snow' || surface === 'packed' ? 0x9aafb9 : surface === 'mud' ? 0x33271d : surface === 'dirt' || surface === 'gravel' ? 0x76674f : 0x0e0e10;
+        this.skids.add(i, skid, c.x, c.y + 0.09, c.z, this.head.x, this.head.z, body.def.wheelWidth * 0.46, mark);
         this.spawn(i, dt, dust, c.x, c.y, c.z, body, dr, dg, db, 0.42, 1.1, this.kinds.dust);
         this.spawn(i, dt, smoke, c.x, c.y, c.z, body, 0.92, 0.92, 0.92, 0.3, 0.8, this.kinds.smoke);
         this.spawn(i, dt, mud, c.x, c.y, c.z, body, 0.3, 0.22, 0.15, 0.85, 0.3, this.kinds.mud);

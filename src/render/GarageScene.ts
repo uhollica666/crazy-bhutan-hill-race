@@ -1,3 +1,4 @@
+import type { Cosmetics } from './cosmetics';
 import {
   AmbientLight,
   BoxGeometry,
@@ -49,10 +50,10 @@ export class GarageScene {
   private vehicleId = '';
 
   // Orbit state (radians / metres). `target*` is where input wants the camera, the plain fields follow it smoothly.
-  private az = 0.55;
+  private az = 2.6;
   private pol = 1.32;
   private dist = 7;
-  private tAz = 0.55;
+  private tAz = 2.6;
   private tPol = 1.32;
   private tDist = 7;
   private minDist = 4;
@@ -72,7 +73,7 @@ export class GarageScene {
     const hemi = new HemisphereLight(0xdfe6ff, 0x2c3350, 1.4);
     const amb = new AmbientLight(0xcfd8ff, 0.2);
     this.key = new DirectionalLight(0xf2f5ff, 2.1);
-    this.key.position.set(-4.5, 7, 5);
+    this.key.position.set(-4.5, 7, -5);
     this.key.castShadow = shadows;
     this.key.shadow.mapSize.set(1024, 1024);
     const sc = this.key.shadow.camera;
@@ -83,8 +84,8 @@ export class GarageScene {
     sc.near = 1;
     sc.far = 24;
     this.key.shadow.bias = -0.0006;
-    const rim = new DirectionalLight(0xff4fa8, 1.3);
-    rim.position.set(5, 3.5, -6);
+    const rim = new DirectionalLight(0x87b6db, 1.3);
+    rim.position.set(5, 3.5, 6);
     this.lantern = new PointLight(0xffb45a, 14, 12, 1.6);
     this.lantern.position.set(-3.6, 2.4, -2.2);
     this.scene.add(hemi, amb, this.key, this.key.target, rim, this.lantern);
@@ -112,10 +113,10 @@ export class GarageScene {
 
   /** The workshop: floor, back wall, beams, crates, tyre stacks, a bench and a string of prayer flags. */
   private build(): void {
-    const stone = this.mat(0x30364f);
+    const stone = this.mat(0x3c4140);
     const dark = this.mat(0x131622);
-    const wood = this.mat(0x39405a);
-    const woodDark = this.mat(0x252a3e);
+    const wood = this.mat(0x755640);
+    const woodDark = this.mat(0x403126);
     const maroon = this.mat(0xd12c88);
     const brass = this.mat(0xff8a2a);
 
@@ -134,7 +135,7 @@ export class GarageScene {
     // Back wall (a half ring) with a painted band, and timber posts.
     const ring = new CylinderGeometry(13, 13, 5.2, 36, 1, true, Math.PI * 0.55, Math.PI * 0.9);
     this.geos.push(ring);
-    const wallMat = new MeshLambertMaterial({ color: 0x363e5c, side: DoubleSide });
+    const wallMat = new MeshLambertMaterial({ color: 0x3f4543, side: DoubleSide });
     this.mats.push(wallMat);
     const back = new Mesh(ring, wallMat);
     back.position.y = 2.6;
@@ -212,6 +213,8 @@ export class GarageScene {
   }
 
   /** Shows a vehicle (the real in-game model with upgrades already applied). */
+  applyCosmetics(c: Cosmetics): void { this.model?.applyCosmetics(c); }
+
   setVehicle(def: VehicleDef, asset: VehicleAsset | null): void {
     if (this.model) {
       this.turntable.remove(this.model.root);
@@ -297,8 +300,13 @@ export class GarageScene {
     this.idle = 0;
   }
 
+  setView(view: 'front' | 'rear' | 'side'): void {
+    this.tAz = view === 'front' ? 2.6 : view === 'rear' ? 0.55 : Math.PI / 2;
+    this.tPol = 1.32; this.tDist = this.homeDist; this.idle = 0;
+  }
+
   resetView(): void {
-    this.tAz = 0.55;
+    this.tAz = 2.6;
     this.tPol = 1.32;
     this.tDist = this.homeDist;
     this.idle = 0;

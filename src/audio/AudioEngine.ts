@@ -1,6 +1,7 @@
 import { clamp, lerp } from '../core/math';
 import type { VehicleDef } from '../data/types';
 import { VOICES, voiceFor } from './voices';
+import { surfaceVoice } from './surfaces';
 import type { EngineVoice } from './voices';
 
 export interface AudioLevels {
@@ -157,6 +158,9 @@ export class AudioEngine {
   private gear = 0;
   private wasBraking = 0;
   private lastPop = 0;
+  private nextDebris = 0;
+  private waterContact = false;
+  private boost = 0;
   private duckUntil = 0;
   private duckAmount = 0.5;
   private voice: EngineVoice = VOICES['druk-ranger'];
@@ -392,7 +396,10 @@ export class AudioEngine {
     const t = this.ctx.currentTime;
     const v = this.voice;
     const e = this.engine;
-    e.main.type = v.wave;
+    // Four original firing waveforms replace a generic oscillator buzz; normalization limits level.
+    const real = new Float32Array(v.partials.length);
+    e.main.setPeriodicWave(this.ctx.createPeriodicWave(real, new Float32Array(v.partials)));
+    this.boost = 0;
     e.mainG.gain.setTargetAtTime(0.7, t, 0.05);
     e.harmG.gain.setTargetAtTime(v.harsh * 0.55, t, 0.05);
     e.subG.gain.setTargetAtTime(v.sub * 0.9, t, 0.05);
@@ -495,20 +502,20 @@ export class AudioEngine {
     this.mix.ambience = amb;
     this.mix.weather = wx;
     this.ambLP.frequency.setTargetAtTime(lerp(20000, 1700, clamp(a.fog ?? 0, 0, 1)), t, 0.8);
-    this.wind.gain.gain.setTargetAtTime(0.02 + (a.wind + this.windExtra) * 0.07 + speedFrac * 0.05, t, 0.4);
+    this.wind.gain.gain.setTargetAtTime(0.02 + (a.wind + this.windExtra) * (0.06 + Math.sin(t * 0.37) * 0.008 + Math.sin(t * 0.91) * 0.004) + speedFrac * 0.05, t, 0.4);
     this.wind.lp.frequency.setTargetAtTime(380 + speed * 22 + this.windExtra * 300, t, 0.3);
     const cityAmt = clamp(a.city ?? 0, 0, 1);
     // A town reuses the foliage layer as a murmur of voices and the river layer as the low rumble of distant traffic.
     this.forestLayer?.gain.gain.setTargetAtTime((a.forest ?? 0) * (0.012 + 0.04 * (a.wind + this.windExtra)) + cityAmt * 0.011, t, 0.6);
     this.forestLayer?.bp.frequency.setTargetAtTime(cityAmt > 0 ? 850 + Math.sin(t * 0.45) * 260 : 1500 + (a.wind + this.windExtra) * 900, t, 0.5);
-    this.river?.gain.gain.setTargetAtTime(a.water ? 0.03 + 0.09 * this.riverNear : cityAmt * 0.035, t, 0.8);
+    this.river?.gain.gain.setTargetAtTime(a.water ? (0.025 + 0.085 * this.riverNear) * (0.93 + Math.sin(t * 0.7) * 0.07) : cityAmt * 0.035, t, 0.8);
     if (this.crickets) {
       const lvl = a.night && this.rainLevel < 0.4 ? 0.011 : 0;
       this.crickets.gain.gain.setTargetAtTime(lvl, t, 0.5);
       this.crickets.depth.gain.setTargetAtTime(lvl, t, 0.5);
       this.crickets.lfo.frequency.setTargetAtTime(7 + (Math.sin(t * 0.7) + 1) * 1.8, t, 0.3);
     }
-    this.rainHi?.gain.gain.setTargetAtTime(this.rainLevel * 0.1, t, 1.2);
+    this.rainHi?.gain.gain.setTargetAtTime(this.rainLevel * (0.09 + Math.sin(t * 0.83) * 0.01), t, 1.2);
     this.rainLo?.gain.gain.setTargetAtTime(this.rainLevel * 0.12, t, 1.2);
     this.rainLo?.bp.frequency.setTargetAtTime(420 + this.rainLevel * 400, t, 1.2);
     this.ambientEvents(t);
@@ -538,10 +545,12 @@ export class AudioEngine {
       rpm = this.rpm;
       load = s.throttle;
     }
+    load = clamp(Math.abs(load), 0, 1);
     const r = clamp((rpm - 0.18) / 0.82, 0, 1);
+    this.boost += (load * r - this.boost) * (1 - Math.exp(-Math.max(s.dt, 0.001) * (load > this.boost ? 3 : 7)));
     const f0 = v.idleHz + r * v.rangeHz;
     e.main.frequency.setTargetAtTime(f0, t, 0.03);
-    e.harm.frequency.setTargetAtTime(f0 * 2.005, t, 0.03);
+    e.harm.frequency.setTargetAtTime(f0 * (2.003 + Math.sin(t * 1.7) * v.lump * 0.004), t, 0.03);
     e.sub.frequency.setTargetAtTime(f0 * 0.5, t, 0.03);
     e.lp.frequency.setTargetAtTime(v.cutoff + r * v.cutoffRange * 0.6 + load * v.cutoffRange * 0.5, t, 0.06);
     // Lump: the uneven pulse of a big or lazy engine, strongest when revs are low.
@@ -550,7 +559,7 @@ export class AudioEngine {
     e.raspBp.frequency.setTargetAtTime(500 + r * 1600, t, 0.08);
     e.raspG.gain.setTargetAtTime(v.rasp * (0.03 + 0.12 * load) * (0.4 + r * 0.6), t, 0.06);
     e.whine.frequency.setTargetAtTime(v.whineHz + r * v.whineRange, t, 0.05);
-    e.whineG.gain.setTargetAtTime(v.whine * 0.05 * clamp(load * 1.2 + r * 0.3, 0, 1) * (r > 0.1 ? 1 : 0), t, 0.1);
+    e.whineG.gain.setTargetAtTime(v.whine * 0.05 * clamp(this.boost * 1.4 + r * 0.1, 0, 1) * (r > 0.1 ? 1 : 0), t, 0.1);
     const base = v.gain * (0.085 + 0.085 * load + 0.035 * r);
     e.out.gain.setTargetAtTime(shifting ? base * 0.5 : base, t, shifting ? 0.01 : 0.06);
     this.bus.engine.gain.setTargetAtTime(this.engLevel * TRIM.engine, t, 0.15);
@@ -565,18 +574,27 @@ export class AudioEngine {
     const surf = s.surface ?? (s.wet ? 'water' : s.offRoad ? 'dirt' : 'asphalt');
     const loose = Math.max(s.offRoad ? 0.5 : 0, s.loose ?? 0);
     const roll = s.grounded ? clamp(speed / 30, 0, 1) : 0;
-    this.tyre.gain.gain.setTargetAtTime(roll * (0.09 + loose * 0.05), t, 0.08);
-    this.tyre.bp.frequency.setTargetAtTime((loose > 0.3 ? 260 : s.wet ? 900 : 380) + speed * 22, t, 0.1);
-    const gravel = s.grounded && (surf === 'gravel' || surf === 'dirt' || surf === 'snow') ? roll : 0;
-    this.crunch?.gain.gain.setTargetAtTime(gravel * 0.06, t, 0.08);
-    this.crunch?.depth.gain.setTargetAtTime(gravel * 0.05, t, 0.08);
-    this.crunch?.lfo.frequency.setTargetAtTime(14 + speed * 1.6, t, 0.1);
-    const mud = s.grounded && surf === 'mud' ? roll : 0;
-    this.squelch?.gain.gain.setTargetAtTime(mud * 0.1, t, 0.1);
-    this.squelch?.depth.gain.setTargetAtTime(mud * 0.1, t, 0.1);
-    this.hiss?.gain.gain.setTargetAtTime(s.grounded && s.wet ? roll * 0.05 : 0, t, 0.15);
-    this.splashLayer?.gain.gain.setTargetAtTime((s.water ?? 0) * clamp(speed / 8, 0, 1) * 0.16, t, 0.1);
-    const skid = s.grounded ? clamp((s.slip - 2.5) / 5, 0, 1) * 0.1 + (s.braking && speed > 12 ? 0.04 : 0) : 0;
+    const voice = surfaceVoice(surf);
+    this.tyre.gain.gain.setTargetAtTime(roll * (voice.roll + loose * 0.015), t, 0.08);
+    this.tyre.bp.frequency.setTargetAtTime(voice.cutoff + speed * (surf === 'ice' ? 12 : 22), t, 0.1);
+    this.crunch?.gain.gain.setTargetAtTime(roll * voice.crunch, t, 0.08);
+    this.crunch?.depth.gain.setTargetAtTime(roll * voice.crunch * 0.65, t, 0.08);
+    this.crunch?.lfo.frequency.setTargetAtTime(10 + speed * voice.grainRate, t, 0.1);
+    this.squelch?.gain.gain.setTargetAtTime(roll * voice.mud, t, 0.1);
+    this.squelch?.depth.gain.setTargetAtTime(roll * voice.mud * 0.75, t, 0.1);
+    this.hiss?.gain.gain.setTargetAtTime(roll * Math.max(voice.hiss, s.wet ? 0.035 : 0), t, 0.15);
+    const water = s.grounded && ((s.water ?? 0) > 0.04 || surf === 'water' || surf === 'slush');
+    this.splashLayer?.gain.gain.setTargetAtTime(water ? clamp((s.water ?? 0) + 0.1, 0, 1) * clamp(speed / 8, 0, 1) * 0.16 : 0, t, 0.1);
+    if (water && !this.waterContact && speed > 2) {
+      this.noiseBurst(t, 0.24, 0.035 * clamp(speed / 12, 0, 1), 'bandpass', 1300, 320);
+    }
+    this.waterContact = water;
+    // Sparse stone strikes under the chassis; cap remains the shared one-shot budget.
+    if (s.grounded && (surf === 'gravel' || surf === 'rocky') && speed > 4 && t >= this.nextDebris) {
+      this.nextDebris = t + 0.32 + Math.random() * 0.75;
+      this.noiseBurst(t, 0.045, 0.018 * roll, 'bandpass', surf === 'rocky' ? 850 : 2300, 420);
+    }
+    const skid = s.grounded ? (clamp((s.slip - 2.5) / 5, 0, 1) * 0.1 + (s.braking && speed > 12 ? 0.04 : 0)) * voice.skid : 0;
     this.skid.gain.gain.setTargetAtTime(skid, t, 0.05);
 
     // Air-brake hiss for the heavy diesel after a firm stop-and-release.
@@ -913,7 +931,10 @@ export class AudioEngine {
   /** Distant thunder: a long, low rumble. */
   thunder(): void {
     const ctx = this.ready();
-    if (ctx) this.noiseBurst(ctx.currentTime + 0.25, 2.4, 0.5, 'lowpass', 420, 60, this.bus.weather);
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.noiseBurst(t + 0.25, 2.4, 0.38, 'lowpass', 420, 60, this.bus.weather);
+    this.noiseBurst(t + 0.65, 3.2, 0.065, 'lowpass', 160, 45, this.bus.weather);
   }
 
   /** Rocks coming down. */
@@ -931,8 +952,24 @@ export class AudioEngine {
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime;
-    this.tone(150, t, 0.5, 0.2, 'triangle', this.sfx, 110);
-    this.tone(120, t + 0.45, 0.6, 0.18, 'triangle', this.sfx, 90);
+    this.tone(92, t, 0.7, 0.16, 'triangle', this.sfx, 62);
+    this.tone(184, t + 0.05, 0.5, 0.07, 'sine', this.sfx, 124);
+    this.noiseBurst(t,0.32,0.045,'lowpass',420,160);
+    this.tone(78, t + 0.55, 0.65, 0.12, 'triangle', this.sfx, 56);
+  }
+
+  /** Spectral arrival; only triggered by the existing encounter event. */
+  ghost(): void {
+    const ctx=this.ready(); if(!ctx)return; const t=ctx.currentTime;
+    this.tone(392,t,1.1,0.055,'sine',this.sfx,294);
+    this.tone(587,t+0.12,1.3,0.04,'sine',this.sfx,440);
+    this.noiseBurst(t,0.75,0.035,'bandpass',1200,650);
+  }
+  /** Family-safe creature voice ready for a future zombie encounter consumer. */
+  zombie(): void {
+    const ctx=this.ready();if(!ctx)return;const t=ctx.currentTime;
+    this.tone(105,t,0.5,0.08,'triangle',this.sfx,73);
+    this.noiseBurst(t+0.08,0.38,0.045,'lowpass',580,210);
   }
 
   /** Engine cut out (flooded or out of fuel). */
@@ -946,8 +983,9 @@ export class AudioEngine {
     const ctx = this.ready();
     if (!ctx) return;
     const t = ctx.currentTime;
-    this.tone(392, t, 0.28, 0.1, 'square');
-    this.tone(494, t, 0.28, 0.08, 'square');
+    const f = this.voice.idleHz < 32 ? 220 : this.voice.sub < 0.2 ? 440 : 350;
+    this.tone(f, t, 0.28, 0.1, 'sawtooth');
+    this.tone(f * 1.25, t, 0.28, 0.08, 'sawtooth');
   }
 
   airBrake(): void {

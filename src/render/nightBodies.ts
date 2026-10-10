@@ -1,49 +1,12 @@
+import { Group, Mesh, MeshStandardMaterial } from 'three';
 import type { BufferGeometry } from 'three';
+import type { CreatureArt } from './creatureArt';
 import { GeoBuilder } from './geo';
 
 /**
  * Creatures and strange sights for the night and wilderness missions: a shambling zombie, a hooded lantern figure, a bear.
  * Cartoon-friendly: big eyes, soft shapes, no gore. All face -Z (their direction of travel) and stand on the ground (y = 0).
  */
-
-/** A pale, ragged, hunched zombie: arms out in front, googly eyes, tattered shirt. About 3.2 units tall (drawn at 0.62 scale). */
-export function zombieGeometry(): BufferGeometry {
-  const skin = 0xa9bba2;
-  const g = new GeoBuilder();
-  for (const sx of [-1, 1]) {
-    g.cylinder(0.22, 0.27, 1.05, 0x4a5560, 7, { x: sx * 0.3, y: 0.52, rx: sx * 0.12 });
-    g.box(0.36, 0.2, 0.55, 0x2f2a26, { x: sx * 0.3, y: 0.1, z: -0.1 });
-  }
-  g.box(1.05, 1.25, 0.62, 0x7d6c58, { y: 1.75, z: -0.1, rx: -0.28 });
-  g.box(1.1, 0.2, 0.66, 0x5d5044, { y: 1.1, z: 0.0, rx: -0.28 });
-  g.sphere(0.44, skin, { y: 2.7, z: -0.38 }, 8);
-  for (const sx of [-1, 1]) {
-    g.sphere(0.15, 0xffffff, { x: sx * 0.19, y: 2.8, z: -0.74 }, 6);
-    g.sphere(0.07, 0x1d1512, { x: sx * 0.19, y: 2.78, z: -0.86 }, 5);
-  }
-  g.box(0.3, 0.07, 0.06, 0x3a2a2a, { y: 2.55, z: -0.8 });
-  for (const sx of [-1, 0, 1]) g.box(0.1, 0.22, 0.1, 0x2a2420, { x: sx * 0.2, y: 3.15, z: -0.3, rz: sx * 0.3 });
-  for (const sx of [-1, 1]) {
-    g.cylinder(0.14, 0.12, 1.35, skin, 6, { x: sx * 0.72, y: 2.0, z: -0.7, rx: -1.35 });
-    g.box(0.3, 0.2, 0.2, 0x5d5044, { x: sx * 0.72, y: 1.85, z: -0.2 });
-  }
-  return g.build();
-}
-
-/** A tall hooded figure in a long cloak, holding a glowing lantern out at its side. About 3 units tall. */
-export function figureGeometry(): BufferGeometry {
-  const g = new GeoBuilder();
-  g.cone(0.75, 2.6, 0x2b2f45, 8, { y: 1.3 });
-  g.sphere(0.38, 0x2b2f45, { y: 2.75 }, 8);
-  g.box(0.36, 0.34, 0.12, 0x0d0f18, { y: 2.72, z: -0.34 });
-  g.sphere(0.06, 0xffe9a8, { x: -0.1, y: 2.74, z: -0.4 }, 5);
-  g.sphere(0.06, 0xffe9a8, { x: 0.1, y: 2.74, z: -0.4 }, 5);
-  g.cylinder(0.1, 0.1, 1.2, 0x2b2f45, 6, { x: 0.62, y: 1.9, z: -0.3, rz: -0.9 });
-  g.box(0.3, 0.38, 0.3, 0xffd27a, { x: 1.05, y: 1.5, z: -0.3 });
-  g.box(0.36, 0.06, 0.36, 0x3a3a40, { x: 1.05, y: 1.72, z: -0.3 });
-  g.box(0.36, 0.06, 0.36, 0x3a3a40, { x: 1.05, y: 1.29, z: -0.3 });
-  return g.build();
-}
 
 /** A brown bear on all fours: rounded body, small ears, a pale snout. About 1.6 units tall and 2.4 long. */
 export function bearGeometry(): BufferGeometry {
@@ -89,4 +52,24 @@ export function ruinGeometry(): BufferGeometry {
   g.box(0.25, 0.25, 4.0, 0x4a3524, { x: 2.0, y: 2.6, z: 0.4, rz: 0.4 });
   for (const [x, z] of [[-2.6, 2.2], [2.8, -2.2], [-3.1, -0.5]] as [number, number][]) g.sphere(0.7, 0x2f4a2a, { x, y: 0.6, z, sy: 0.7 }, 6);
   return g.build();
+}
+
+/** The bear in the same shape as the imported creature art, so the mission view can treat all creatures alike. */
+export function createBearArt(): CreatureArt {
+  const geo = bearGeometry();
+  const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
+  const group = new Group();
+  const mesh = new Mesh(geo, mat);
+  mesh.castShadow = true;
+  group.add(mesh);
+  return {
+    group,
+    update() {
+      /* a bear needs no rig */
+    },
+    dispose() {
+      geo.dispose();
+      mat.dispose();
+    },
+  };
 }

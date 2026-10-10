@@ -1,7 +1,10 @@
+import { cityBlock } from './architecture';
 import type { BufferGeometry } from 'three';
 import type { VehicleDef } from '../data/types';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
+import { pitchedRoof, timberWindow } from './worldArt';
+import { personGeometry, touringTraffic } from './trafficArt';
 
 const GLASS = 0x2b3f58;
 const DARK = 0x303034;
@@ -80,18 +83,7 @@ export function cruiserBody(def: VehicleDef): BufferGeometry {
 }
 
 /** A simple generic traffic car (white body so instance colours tint it), with wheels baked in. */
-export function trafficCarGeometry(): BufferGeometry {
-  const g = new GeoBuilder();
-  g.box(1.75, 0.55, 3.9, 0xffffff, { y: 0.55 });
-  g.box(1.55, 0.5, 2.0, 0xffffff, { y: 1.05, z: 0.3 });
-  g.box(1.6, 0.34, 1.8, GLASS, { y: 1.08, z: 0.3 });
-  g.box(1.35, 0.34, 2.05, GLASS, { y: 1.08, z: 0.3 });
-  g.box(1.5, 0.08, 1.9, 0xffffff, { y: 1.32, z: 0.3 });
-  for (const sx of [-1, 1]) for (const z of [-1.2, 1.2]) g.cylinder(0.34, 0.34, 0.24, 0x1c1c1f, 10, { x: sx * 0.86, y: 0.34, z, rz: Math.PI / 2 });
-  g.box(1.4, 0.12, 0.08, 0xfff1b8, { y: 0.62, z: -1.96 });
-  g.box(1.4, 0.12, 0.08, 0xd8262a, { y: 0.62, z: 1.96 });
-  return g.build();
-}
+export const trafficCarGeometry = (): BufferGeometry => touringTraffic('car');
 
 /** A small box lorry (broken down on the road): cab, load bed, warning colour. */
 export function lorryGeometry(): BufferGeometry {
@@ -108,17 +100,7 @@ export function lorryGeometry(): BufferGeometry {
 
 /** A tourist, standing: legs, coat, head, hat, backpack. Colours come from the cast portrait. */
 export function touristGeometry(coat: number, skin: number, hair: number, hat: number | null, pack: number): BufferGeometry {
-  const g = new GeoBuilder();
-  g.cylinder(0.09, 0.1, 0.8, 0x2a3350, 6, { x: -0.1, y: 0.4 });
-  g.cylinder(0.09, 0.1, 0.8, 0x2a3350, 6, { x: 0.1, y: 0.4 });
-  g.cylinder(0.2, 0.24, 0.7, coat, 7, { y: 1.15 });
-  g.sphere(0.17, skin, { y: 1.7 }, 7);
-  g.sphere(0.18, hair, { y: 1.78, sy: 0.6 }, 6);
-  if (hat !== null) g.cone(0.26, 0.22, hat, 7, { y: 1.9 });
-  g.box(0.32, 0.4, 0.2, pack, { y: 1.2, z: 0.2 });
-  g.cylinder(0.05, 0.05, 0.5, skin, 5, { x: -0.3, y: 1.15, rz: 0.25 });
-  g.cylinder(0.05, 0.05, 0.5, skin, 5, { x: 0.3, y: 1.15, rz: -0.25 });
-  return g.build();
+  return personGeometry(coat, skin, hair, hat, pack);
 }
 
 /** A suitcase and a duffel bag for the pile beside waiting tourists. */
@@ -167,37 +149,18 @@ export function stationGeometry(): BufferGeometry {
   g.box(0.3, 7, 0.3, PAL.woodDark, { x: 7, y: 3.5, z: 2.5 });
   g.box(2.2, 1.4, 0.2, 0xe8b53a, { x: 7, y: 7, z: 2.5 });
   g.box(1.6, 0.8, 0.22, 0x2a3350, { x: 7, y: 7, z: 2.55 });
+  for (const sx of [-1.6, 1.6]) {
+    g.cylinder(0.045, 0.045, 1.05, 0x25282a, 6, { x: sx + 0.38, y: 0.98, z: 0.08, rz: 0.12 });
+    g.box(0.09, 0.21, 0.06, 0x1a1d20, { x: sx + 0.44, y: 1.38, z: -0.05, rz: -0.3 });
+    g.box(0.24, 0.08, 0.02, 0x86bda6, { x: sx, y: 1.51, z: -0.3 });
+  }
+  timberWindow(g, -10.5, 2.1, 1.15, 1.2, 1.0);
+  pitchedRoof(g, 5.7, 4.8, 3.5, 0.8, PAL.roofSlate, -9, -1);
   return g.build();
 }
 
 /** A terrace of three shopfronts in Bhutanese style: whitewashed, painted wooden windows, shingle roof. */
-export function shopRowGeometry(): BufferGeometry {
-  const g = new GeoBuilder();
-  const colours = [PAL.maroon, 0x2e7d9a, PAL.gold, 0x4f8a4a];
-  const W = 24;
-  const D = 8;
-  g.box(W, 0.6, D + 0.6, PAL.rock, { y: 0.3 });
-  g.box(W, 8.4, D, PAL.whitewash, { y: 4.8 });
-  g.box(W + 0.3, 0.45, D + 0.3, PAL.woodDark, { y: 4.3 });
-  g.box(W + 0.3, 0.4, D + 0.3, PAL.woodDark, { y: 8.8 });
-  for (let i = 0; i < 3; i++) {
-    const x = -8 + i * 8;
-    const c = colours[i % colours.length];
-    g.box(3.6, 2.6, 0.16, c, { x, y: 1.9, z: D / 2 + 0.06 }); // shop front
-    g.box(3.0, 2.0, 0.2, 0x2a2220, { x, y: 1.8, z: D / 2 + 0.07 });
-    g.box(4.2, 0.5, 0.3, 0xf6c452, { x, y: 3.4, z: D / 2 + 0.12 }); // sign
-    for (const wx of [-2, 0, 2]) {
-      g.box(1.3, 1.5, 0.14, PAL.wood, { x: x + wx, y: 6.0, z: D / 2 + 0.05 });
-      g.box(1.0, 1.15, 0.2, PAL.windowDark, { x: x + wx, y: 6.0, z: D / 2 + 0.06 });
-      g.box(1.5, 0.2, 0.16, c, { x: x + wx, y: 6.85, z: D / 2 + 0.1 });
-    }
-  }
-  const alpha = 0.3;
-  g.box(W + 2, 0.28, D / 2 + 1.4, PAL.roofSlate, { y: 9.9, z: D / 4 + 0.5, rx: alpha });
-  g.box(W + 2, 0.28, D / 2 + 1.4, PAL.roofSlate, { y: 9.9, z: -D / 4 - 0.5, rx: -alpha });
-  g.box(W + 2.1, 0.32, 0.5, PAL.roofSlate, { y: 10.7 });
-  return g.build();
-}
+export const shopRowGeometry = (): BufferGeometry => cityBlock('shops');
 
 export function clockTowerGeometry(): BufferGeometry {
   const g = new GeoBuilder();

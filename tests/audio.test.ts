@@ -27,6 +27,8 @@ class FakeNode {
   stopped = false;
   type = '';
   buffer: unknown = null;
+  periodicWave: unknown = null;
+  setPeriodicWave(wave: unknown): void { this.periodicWave = wave; }
   loop = false;
   gain = new FakeParam();
   frequency = new FakeParam();
@@ -65,6 +67,7 @@ class FakeContext {
   }
   createGain = () => this.make('gain');
   createOscillator = () => this.make('osc');
+  createPeriodicWave = (real: Float32Array, imag: Float32Array) => ({ real, imag });
   createBiquadFilter = () => this.make('filter');
   createDynamicsCompressor = () => this.make('compressor');
   createBufferSource = () => this.make('src');

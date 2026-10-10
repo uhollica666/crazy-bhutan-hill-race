@@ -2,7 +2,7 @@ import {
   BackSide,
   Color,
   DirectionalLight,
-  Fog,
+  FogExp2,
   HemisphereLight,
   Mesh,
   MeshBasicMaterial,
@@ -14,8 +14,9 @@ import {
 import type { Course } from '../world/Course';
 import type { TimeOfDay, WeatherKind } from '../data/types';
 import { TIME, WEATHER } from '../data/weather';
-import { clamp, lerp } from '../core/math';
+import { clamp, lerp, smoothstep } from '../core/math';
 import { buildMountainRing } from './mountains';
+import { MistField } from './MistField';
 import { PAL } from './palette';
 import type { QualityProfile } from './quality';
 
@@ -55,7 +56,13 @@ export class Environment {
   private readonly sky: Mesh;
   private readonly skyMat: ShaderMaterial;
   private readonly ridges: Mesh;
-  private readonly fog: Fog;
+  private readonly fog: FogExp2;
+  private readonly course:Course;
+  private routeWeather=false;
+  private elapsed=0;
+  private fogAmount=0;
+  private readonly haze:MistField;
+  setRouteWeather(on:boolean):void {this.routeWeather=on;}
   private readonly fogColor = new Color(PAL.fog);
   private readonly mistColor = new Color(PAL.mist);
   private readonly sunDir = SUN_OFFSET.clone().normalize();
@@ -85,11 +92,12 @@ export class Environment {
     readonly scene: Scene,
     course: Course,
   ) {
+    this.course=course;
     const look = course.level.look;
     this.look = look;
     this.fogColor.setHex(look.fog ?? PAL.fog);
     this.mistColor.setHex(look.mist ?? PAL.mist);
-    this.fog = new Fog(this.fogColor.getHex(), 120, 800);
+    this.fog = new FogExp2(this.fogColor.getHex(), 0.0015);
     scene.fog = this.fog;
     scene.background = new Color(this.fogColor.getHex());
     this.mistStrength = course.level.atmosphere.summitMist;
@@ -142,13 +150,14 @@ export class Environment {
 
     this.ridges = this.buildRidges(course, this.fogColor.getHex());
     scene.add(this.ridges);
+    this.haze=new MistField(course);scene.add(this.haze.mesh);
   }
 
   /** Faceted mountain ranges (forested foothills, bare rock, snow caps) in three hazy layers around the level. */
   private buildRidges(course: Course, hazeColor: number): Mesh {
-    const b = course.level.terrain.bounds;
-    const cx = (b.minX + b.maxX) / 2;
-    const cz = (b.minZ + b.maxZ) / 2;
+    // Distant backdrop stays outside the camera; a fixed 820m ring could cut across long routes.
+    const cx = 0;
+    const cz = 0;
     const seed = course.level.scenery.seed;
     const look = course.level.look;
     const snowFree = (look.snowFrom ?? 165) > 1000;
@@ -169,7 +178,7 @@ export class Environment {
         snowLine: snowFree ? 0.97 : 0.58,
       },
     );
-    const mat = new MeshBasicMaterial({ vertexColors: true, fog: false });
+    const mat = new MeshBasicMaterial({ vertexColors: true, fog: true });
     const mesh = new Mesh(geo, mat);
     mesh.frustumCulled = false;
     mesh.name = 'ridges';
@@ -178,6 +187,7 @@ export class Environment {
 
   applyQuality(q: QualityProfile): void {
     this.baseFogFar = q.fogFar * this.visibility * this.weatherVis;
+    this.haze.setQuality(q.surfaceDetail);
     this.sun.castShadow = q.shadows;
     if (q.shadows) {
       this.sun.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
@@ -221,12 +231,13 @@ export class Environment {
     if (baseFogFar !== undefined) this.baseFogFar = baseFogFar * this.visibility * this.weatherVis;
     else this.baseFogFar = (this.baseFogFar / Math.max(0.01, this.prevWeatherVis)) * this.weatherVis;
     this.prevWeatherVis = this.weatherVis;
-    this.visLag = smooth ? clamp(effectiveBefore / Math.max(0.01, this.weatherVis), 0.15, 8) : 1;
+    this.visLag = smooth ? clamp(effectiveBefore / Math.max(0.01, this.weatherVis), 0.03, 20) : 1;
     this.applyFog();
   }
 
   /** Eases the fog toward the current weather (called every frame). */
   tick(dt: number): void {
+    this.elapsed+=dt;
     if (Math.abs(this.visLag - 1) < 0.003) {
       if (this.visLag !== 1) {
         this.visLag = 1;
@@ -234,7 +245,7 @@ export class Environment {
       }
       return;
     }
-    this.visLag += (1 - this.visLag) * (1 - Math.exp(-dt / 2.2));
+    this.visLag += (1 - this.visLag) * (1 - Math.exp(-dt / 5.5));
     this.applyFog();
   }
 
@@ -255,22 +266,33 @@ export class Environment {
   setProgress(f: number): void {
     const t = Math.min(1, Math.max(0, (f - this.mistStart) / Math.max(0.1, 0.95 - this.mistStart)));
     this.mist = t * t * (3 - 2 * t) * this.mistStrength;
+    let regional=0;
+    if(this.routeWeather)for(const zone of this.course.level.weatherZones??[]) {
+      const strength=zone.weather==='denseFog'?1:zone.weather==='fog'?0.7:zone.weather==='blizzard'?0.8:0;
+      const span=this.course.finishS-this.course.startS,edge=280/span;
+      const fadeIn=clamp((f-zone.from+edge)/edge,0,1),fadeOut=clamp((zone.to+edge-f)/edge,0,1);
+      const weight=Math.min(fadeIn,fadeOut);regional=Math.max(regional,strength*weight*weight*(3-2*weight));
+    }
+    const effectiveVis=clamp(this.weatherVis*this.visLag,0.06,1);
+    this.fogAmount=Math.max(this.mist,regional,smoothstep(0.12,0.85,1-effectiveVis)*0.85);
     this.applyFog();
   }
 
   private applyFog(): void {
-    const lag = this.visLag;
-    this.fog.near = lerp(120 * this.visibility * this.weatherVis * lag, 14, this.mist);
-    this.fog.far = lerp(this.baseFogFar * lag, 230 * Math.min(1, this.weatherVis * lag + 0.25), this.mist);
+    const reach=lerp(this.baseFogFar*this.visLag,230*Math.min(1,this.weatherVis*this.visLag+0.25),this.mist);
+    // Exponential extinction has no opaque far plane: shapes disappear gradually into haze.
+    this.fog.density=Math.max(1.35/Math.max(65,reach),this.fogAmount*0.0075);
     this.fog.color.copy(this.fogColor).lerp(this.mistColor, this.mist);
     if (this.flashLevel > 0) this.fog.color.lerp(this.scratch.setHex(0xe8eeff), this.flashLevel * 0.5);
     (this.scene.background as Color).copy(this.fog.color);
-    this.skyMat.uniforms.uMist.value = this.mist;
+    this.skyMat.uniforms.uMist.value = Math.max(this.mist,this.fogAmount*0.9);
   }
 
   /** Keeps the sky centred on the camera and the shadow frustum on the car. */
   follow(camera: Vector3, focus: Vector3): void {
     this.sky.position.copy(camera);
+    this.ridges.position.set(camera.x,0,camera.z);
+    this.haze.update(camera,this.elapsed,this.fogAmount,this.fog.color);
     this.sun.target.position.copy(focus);
     this.sun.position.set(
       focus.x + SUN_OFFSET.x,
@@ -281,6 +303,7 @@ export class Environment {
   }
 
   dispose(): void {
+    this.haze.dispose();this.scene.remove(this.haze.mesh);
     this.scene.remove(this.hemi, this.sun, this.sun.target, this.sky, this.ridges);
     this.sky.geometry.dispose();
     this.skyMat.dispose();

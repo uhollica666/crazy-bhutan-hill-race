@@ -5,7 +5,7 @@ import { listVehicles, STARTER_VEHICLE } from '../data/vehicles';
 import { MAX_UPGRADE_LEVEL, nextUpgradeCost } from '../data/upgrades';
 import type { UpgradeId } from '../data/types';
 
-export type QualityLevel = 'low' | 'medium' | 'high';
+export type QualityLevel = 'auto' | 'low' | 'medium' | 'high' | 'max';
 export type TouchMode = 'auto' | 'on' | 'off';
 
 export interface Settings {
@@ -140,7 +140,7 @@ export const emptySave = (quality: QualityLevel = 'medium'): SaveData => ({
   stats: { missionsPlayed: 0, creditsEarned: 0, campaignCompleted: false },
 });
 
-const isQuality = (v: unknown): v is QualityLevel => v === 'low' || v === 'medium' || v === 'high';
+const isQuality = (v: unknown): v is QualityLevel => v === 'auto' || v === 'low' || v === 'medium' || v === 'high' || v === 'max';
 const isTouch = (v: unknown): v is TouchMode => v === 'auto' || v === 'on' || v === 'off';
 const isMedal = (v: unknown): v is Medal => v === 'gold' || v === 'silver' || v === 'bronze' || v === 'none';
 const num = (v: unknown, fallback: number, lo: number, hi: number): number =>

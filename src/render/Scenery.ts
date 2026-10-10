@@ -1,6 +1,9 @@
+import { stupaGeometry } from './architecture';
 import {
   BufferGeometry,
   Color,
+  CanvasTexture,
+  PointLight,
   DoubleSide,
   Float32BufferAttribute,
   Group,
@@ -8,7 +11,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
+  MeshStandardMaterial,
   Quaternion,
   Vector3,
 } from 'three';
@@ -18,7 +21,9 @@ import { createRoadHit } from '../world/Road';
 import type { LandmarkDef } from '../data/types';
 import { fbm2, lerp, mulberry32, smoothstep } from '../core/math';
 import { GeoBuilder } from './geo';
+import { mountainPine, shaggyYak, villageHouse, slenderCypress } from './worldArt';
 import { peekEnvKit } from './envKit';
+import { grassTuft, flagFabric } from './surfaceArt';
 import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
 import { bridgeGeometry, cliffGeometry, plazaGeometry, retainWallGeometry, runwayGeometry, signpostGeometry, stallGeometry, trolleyGeometry, viewpointGeometry } from './trafficBodies';
@@ -41,117 +46,20 @@ import {
 
 // ---------------------------------------------------------------- geometry kits
 
-function pineGeometry(): BufferGeometry {
-  return new GeoBuilder()
-    .cylinder(0.16, 0.22, 1.2, PAL.bark, 5, { y: 0.6 })
-    .cone(1.75, 2.6, PAL.pineDark, 7, { y: 2.2 })
-    .cone(1.35, 2.4, PAL.pineMid, 7, { y: 3.6, ry: 0.4 })
-    .cone(0.95, 2.2, PAL.pineDark, 7, { y: 4.9 })
-    .build();
-}
-
-function cypressGeometry(): BufferGeometry {
-  return new GeoBuilder()
-    .cylinder(0.15, 0.2, 1.4, PAL.bark, 5, { y: 0.7 })
-    .cone(1.05, 7.2, PAL.cypress, 6, { y: 4.6 })
-    .cone(0.72, 3.4, PAL.pineMid, 6, { y: 8.0, ry: 0.5 })
-    .build();
-}
 
 function rockGeometry(): BufferGeometry {
   return new GeoBuilder().rock(PAL.rock, { sy: 0.72 }).build();
 }
 
-function houseGeometry(): BufferGeometry {
-  const W = 9;
-  const D = 6.4;
-  const g = new GeoBuilder();
-  g.box(W + 0.5, 3.2, D + 0.5, PAL.rock, { y: -1.4 }); // stone plinth, buries slopes
-  g.box(W, 5.7, D, PAL.whitewash, { y: 2.95 }); // limewashed walls
-  g.box(W + 0.18, 0.45, D + 0.18, PAL.woodDark, { y: 3.0 }); // floor band
-  g.box(W + 0.18, 0.4, D + 0.18, PAL.woodDark, { y: 5.7 }); // eaves band
-  g.box(W + 0.3, 0.12, D + 0.3, PAL.roofRed, { y: 5.95 }); // painted fascia
 
-  const win = (x: number, y: number, z: number, ry: number): void => {
-    g.box(1.5, 1.55, 0.14, PAL.wood, { x, y, z, ry });
-    g.box(1.15, 1.2, 0.2, PAL.windowDark, { x, y, z, ry });
-    g.box(1.7, 0.22, 0.16, PAL.maroon, { x, y: y + 0.88, z, ry });
-  };
-  for (const sx of [-2.8, 0, 2.8]) {
-    win(sx, 4.4, D / 2 + 0.04, 0);
-    win(sx, 4.4, -D / 2 - 0.04, 0);
-  }
-  win(-W / 2 - 0.04, 4.4, 0, Math.PI / 2);
-  win(W / 2 + 0.04, 4.4, 0, Math.PI / 2);
-  for (const sx of [-1.4, 1.8]) g.box(0.6, 0.8, 0.12, PAL.windowDark, { x: sx, y: 1.7, z: D / 2 + 0.03 });
-  g.box(1.3, 2.1, 0.14, PAL.woodDark, { x: -3.1, y: 1.15, z: D / 2 + 0.05 });
-
-  // Gabled roof with deep eaves, slate coloured.
-  const H = 2.3;
-  const alpha = Math.atan2(H, D / 2);
-  const slope = Math.hypot(H, D / 2);
-  const eave = 1.5;
-  const len = slope + eave;
-  const midZ = (D / 2 + Math.cos(alpha) * eave) / 2;
-  const midY = 5.95 + H / 2 - (Math.sin(alpha) * eave) / 2;
-  g.box(W + 2.6, 0.26, len, PAL.roofSlate, { y: midY, z: midZ, rx: alpha });
-  g.box(W + 2.6, 0.26, len, PAL.roofSlate, { y: midY, z: -midZ, rx: -alpha });
-  g.box(W + 2.7, 0.3, 0.5, PAL.roofSlate, { y: 5.95 + H + 0.05 });
-  // Gable ends (triangles of whitewash under the roof).
-  for (const sx of [-1, 1]) {
-    g.add(gableTriangle(D, H), PAL.whitewash, { x: sx * (W / 2 - 0.02), y: 5.95 });
-  }
-  // Roof-top prayer flag pole.
-  g.cylinder(0.06, 0.08, 4.2, PAL.woodDark, 5, { x: W / 2 + 0.7, y: 5.95 + H + 0.8 });
-  g.quad(0.7, 2.2, PAL.flagWhite, { x: W / 2 + 0.7, y: 5.95 + H + 1.8, z: 0.4 });
-  return g.build();
-}
-
-function gableTriangle(depth: number, height: number): BufferGeometry {
-  const g = new BufferGeometry();
-  const d = depth / 2;
-  g.setAttribute(
-    'position',
-    new Float32BufferAttribute([0, 0, -d, 0, 0, d, 0, height, 0, 0, 0, -d, 0, height, 0, 0, 0, d], 3),
-  );
-  return g;
-}
-
-function chortenGeometry(): BufferGeometry {
-  return new GeoBuilder()
-    .box(3.4, 0.6, 3.4, PAL.whitewash, { y: 0.3 })
-    .box(2.8, 0.55, 2.8, PAL.whitewash, { y: 0.88 })
-    .frustum(2.3, 2.0, 0.9, PAL.whitewash, { y: 1.6 })
-    .sphere(1.15, PAL.whitewash, { y: 2.45, sy: 0.95 }, 10)
-    .cylinder(1.0, 1.05, 0.28, PAL.maroon, 10, { y: 3.2 })
-    .box(1.05, 0.85, 1.05, PAL.gold, { y: 3.8 })
-    .cone(0.62, 1.7, PAL.gold, 8, { y: 5.1 })
-    .sphere(0.2, PAL.gold, { y: 6.05 }, 6)
-    .box(3.4, 0.12, 3.4, PAL.wall, { y: -0.04 })
-    .build();
-}
-
-export function yakGeometry(): BufferGeometry {
-  return new GeoBuilder()
-    .box(1.0, 0.95, 2.0, PAL.yak, { y: 1.15 })
-    .box(1.12, 0.55, 1.8, 0x2a1e19, { y: 0.7 }) // long skirt of hair
-    .box(0.9, 0.5, 0.9, PAL.yak, { y: 1.75, z: -0.3 }) // shoulder hump
-    .box(0.5, 0.5, 0.6, PAL.yak, { y: 1.3, z: -1.2 })
-    .box(0.28, 0.24, 0.3, 0x6a5a50, { y: 1.15, z: -1.55 })
-    .cone(0.07, 0.5, PAL.yakHorn, 5, { x: 0.3, y: 1.7, z: -1.15, rz: -0.9 })
-    .cone(0.07, 0.5, PAL.yakHorn, 5, { x: -0.3, y: 1.7, z: -1.15, rz: 0.9 })
-    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: 0.3, y: 0.35, z: -0.7 })
-    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: -0.3, y: 0.35, z: -0.7 })
-    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: 0.3, y: 0.35, z: 0.7 })
-    .box(0.18, 0.7, 0.18, 0x2a1e19, { x: -0.3, y: 0.35, z: 0.7 })
-    .build();
-}
+export const yakGeometry = (): BufferGeometry => shaggyYak();
 
 /** Waving cloth: a plain vertex-coloured mesh plus a per-vertex `sway` weight driven in the vertex shader. */
 class ClothBuilder {
   readonly pos: number[] = [];
   readonly col: number[] = [];
   readonly sway: number[] = [];
+  readonly uv:number[]=[];
   private readonly c = new Color();
 
   /** Quad from four corners (a=top-left, b=top-right, c=bottom-right, d=bottom-left) with sway weights. */
@@ -163,6 +71,7 @@ class ClothBuilder {
       this.pos.push(p.x, p.y, p.z);
       this.col.push(this.c.r, this.c.g, this.c.b);
       this.sway.push(sway[i]);
+      this.uv.push(...[[0,1],[1,1],[1,0],[0,0]][i]);
     }
   }
 
@@ -171,6 +80,7 @@ class ClothBuilder {
     const g = new BufferGeometry();
     g.setAttribute('position', new Float32BufferAttribute(this.pos, 3));
     g.setAttribute('color', new Float32BufferAttribute(this.col, 3));
+    g.setAttribute('uv', new Float32BufferAttribute(this.uv, 2));
     g.setAttribute('sway', new Float32BufferAttribute(this.sway, 1));
     g.computeVertexNormals();
     g.computeBoundingSphere();
@@ -184,6 +94,8 @@ interface Instances {
   mesh: InstancedMesh;
   total: number;
   densityScaled: boolean;
+  highGeo?: BufferGeometry;
+  lowGeo?: BufferGeometry;
 }
 
 /**
@@ -193,7 +105,13 @@ interface Instances {
 export class Scenery {
   readonly group = new Group();
   private readonly instances: Instances[] = [];
+  private readonly lampPositions:Vector3[]=[];
+  private readonly lampLights:PointLight[]=[];
+  private lightBudget=0;
+  private lampsOn=false;
+  private lastLightUpdate=-1;
   private readonly disposables: { dispose(): void }[] = [];
+  private lowGeometry = false;
   private readonly uniforms = { uTime: { value: 0 }, uAmp: { value: 1 } };
 
   constructor(
@@ -206,15 +124,29 @@ export class Scenery {
     this.setQuality(density, wind);
   }
 
-  setQuality(density: number, wind: boolean): void {
+  setQuality(density: number, wind: boolean, streetLights=0): void {
+    this.lightBudget=streetLights;this.lastLightUpdate=-1;
+    this.lowGeometry = density <= 0.45;
     for (const inst of this.instances) {
       if (inst.densityScaled) inst.mesh.count = Math.floor(inst.total * density);
+      if (inst.lowGeo && inst.highGeo) inst.mesh.geometry = this.lowGeometry ? inst.lowGeo : inst.highGeo;
     }
     this.uniforms.uAmp.value = wind ? 1 : 0;
   }
 
-  update(time: number): void {
+  update(time: number, camera?: Vector3): void {
     this.uniforms.uTime.value = time;
+    if(camera&&(this.lastLightUpdate<0||time-this.lastLightUpdate>0.5)){
+      this.lastLightUpdate=time;
+      const nearest=this.lampsOn?this.lampPositions.filter(p=>p.distanceToSquared(camera)<10000).sort((a,b)=>a.distanceToSquared(camera)-b.distanceToSquared(camera)):[];
+      this.lampLights.forEach((light,i)=>{light.visible=i<this.lightBudget&&i<nearest.length;if(light.visible)light.position.copy(nearest[i]);});
+    }
+    if (camera) for (const inst of this.instances) {
+      if (!inst.lowGeo || !inst.highGeo) continue;
+      const sphere = inst.mesh.boundingSphere;
+      const distant = sphere ? camera.distanceTo(sphere.center) - sphere.radius > 150 : false;
+      inst.mesh.geometry = this.lowGeometry || distant ? inst.lowGeo : inst.highGeo;
+    }
   }
 
   dispose(): void {
@@ -222,8 +154,8 @@ export class Scenery {
     this.group.clear();
   }
 
-  private propMaterial(): MeshLambertMaterial {
-    const m = new MeshLambertMaterial({ vertexColors: true });
+  private propMaterial(): MeshStandardMaterial {
+    const m = new MeshStandardMaterial({ vertexColors: true, roughness:0.88, metalness:0.02 });
     this.disposables.push(m);
     return m;
   }
@@ -231,13 +163,15 @@ export class Scenery {
   private registerInstanced(
     geo: BufferGeometry,
     mats: Matrix4[],
-    material: MeshLambertMaterial,
+    material: MeshStandardMaterial,
     densityScaled: boolean,
     tint = 0,
     rng: () => number = Math.random,
+    lowGeo?: BufferGeometry,
   ): void {
     if (!mats.length) {
       geo.dispose();
+      lowGeo?.dispose();
       return;
     }
     // Instances are grouped into square cells and each cell becomes its own InstancedMesh (sharing one geometry):
@@ -252,6 +186,7 @@ export class Scenery {
     }
     const c = new Color();
     this.disposables.push(geo);
+    if (lowGeo) this.disposables.push(lowGeo);
     for (const list of cells.values()) {
       const mesh = new InstancedMesh(geo, material, list.length);
       list.forEach((m, i) => {
@@ -265,9 +200,10 @@ export class Scenery {
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
       mesh.frustumCulled = true;
+      mesh.castShadow = true; mesh.receiveShadow = true;
       this.group.add(mesh);
       this.disposables.push(mesh);
-      this.instances.push({ mesh, total: list.length, densityScaled });
+      this.instances.push({ mesh, total: list.length, densityScaled, highGeo: lowGeo ? geo : undefined, lowGeo });
     }
   }
 
@@ -277,13 +213,16 @@ export class Scenery {
   /** Street lamps glow at dusk and night and look unlit in daylight. */
   setLamps(on: boolean): void {
     this.lampMat?.color.setScalar(on ? 1.15 : 0.4);
+    this.lampsOn=on;this.lastLightUpdate=-1;
   }
 
   private addLamps(mats: Matrix4[]): void {
     if (!mats.length) return;
     const pole = new GeoBuilder()
-      .cylinder(0.08, 0.12, 5.6, PAL.woodDark, 6, { y: 2.8 })
-      .box(1.1, 0.08, 0.1, PAL.woodDark, { y: 5.55, x: 0.45 })
+      .cylinder(0.075, 0.14, 5.6, 0x495459, 12, { y: 2.8 })
+      .cylinder(0.2,0.24,0.35,0x7e8786,12,{y:0.175})
+      .box(0.6,0.12,0.42,0x374147,{y:5.54,x:0.95})
+      .box(1.1, 0.08, 0.1, 0x495459, { y: 5.55, x: 0.45 })
       .build();
     const head = new GeoBuilder().box(0.5, 0.18, 0.34, 0xffe9a8, { y: 5.45, x: 0.95 }).build();
     const poles = new InstancedMesh(pole, this.propMaterial(), mats.length);
@@ -292,6 +231,7 @@ export class Scenery {
     const heads = new InstancedMesh(head, this.lampMat, mats.length);
     mats.forEach((m, i) => {
       poles.setMatrixAt(i, m);
+      this.lampPositions.push(new Vector3(0.95,5.35,0).applyMatrix4(m));
       heads.setMatrixAt(i, m);
     });
     for (const mesh of [poles, heads]) {
@@ -301,6 +241,7 @@ export class Scenery {
       this.disposables.push(mesh);
     }
     this.disposables.push(pole, head, this.lampMat);
+    for(let i=0;i<6;i++){const light=new PointLight(0xffdfae,12,20,2);light.visible=false;this.group.add(light);this.lampLights.push(light);}
   }
 
   private build(): void {
@@ -392,8 +333,8 @@ export class Scenery {
       }
       split(list, avail.length).forEach((part, i) => this.registerInstanced(kit.geo(avail[i]) as BufferGeometry, part, material, densityScaled, tint, rng));
     };
-    varied(['pine_a', 'pine_b'], pines, pineGeometry, 0.14);
-    varied(['cypress', 'spruce'], cypresses, cypressGeometry, 0.12);
+    split(pines, 2).forEach((list, i) => this.registerInstanced(mountainPine(i), list, material, true, 0.14, rng, mountainPine(i, true)));
+    this.registerInstanced(slenderCypress(), cypresses, material, true, 0.12, rng);
     this.registerInstanced(
       broadleafGeometry(level.look.leaf ?? 0x7fae4a),
       broadleaf,
@@ -429,8 +370,8 @@ export class Scenery {
     }
     varied(['rock_a', 'rock_b', 'rock_c'], rocks, rockGeometry, 0.1);
 
-    // ---- roadside dressing (kit only; skipped when the kit is missing): grass, ferns, cairns
-    if (kit) {
+    // ---- roadside dressing: curved grass blades and optional kit ferns/cairns
+    {
       const snowy = level.weather === 'snow';
       const grassA: Matrix4[] = [];
       const grassB: Matrix4[] = [];
@@ -478,11 +419,11 @@ export class Scenery {
         cairns.push(compose(x, h - 0.05, z, rng() * 6.28, 0.9 + rng() * 0.4));
       }
       const one = (name: string, list: Matrix4[], tint: number, scaled = true): void => {
-        const g = kit.geo(name);
+        const g = kit?.geo(name);
         if (g && list.length) this.registerInstanced(g, list, material, scaled, tint, rng);
       };
-      one('grass_a', grassA, 0.2);
-      one('grass_b', grassB, 0.2);
+      this.registerInstanced(grassTuft(11),grassA,material,true,0.12,rng,grassTuft(3));
+      this.registerInstanced(grassTuft(9),grassB,material,true,0.16,rng,grassTuft(3));
       one('fern', ferns, 0.15);
       one('cairn', cairns, 0.06, false);
     }
@@ -792,8 +733,8 @@ export class Scenery {
       }
     }
 
-    varied(['house_0', 'house_1', 'house_2'], houses, houseGeometry, 0, false);
-    varied(['chorten'], chortens, chortenGeometry, 0, false);
+    split(houses, 3).forEach((list, i) => this.registerInstanced(villageHouse(i), list, material, false, 0, rng));
+    this.registerInstanced(stupaGeometry(), chortens, material, false);
     if (kit && maniWalls.length) this.registerInstanced(kit.geo('mani_wall') as BufferGeometry, maniWalls, material, false, 0.05, rng);
     this.registerInstanced(yakGeometry(), yaks, material, false);
     this.registerInstanced(dzongGeometry(), dzongs, material, false);
@@ -847,7 +788,9 @@ export class Scenery {
     }
     const clothGeo = cloth.build();
     if (clothGeo) {
-      const m = new MeshLambertMaterial({ vertexColors: true, side: DoubleSide });
+      const fabric:CanvasTexture=flagFabric();
+      const m = new MeshStandardMaterial({ map:fabric,roughness:0.96,vertexColors: true, side: DoubleSide });
+      this.disposables.push(fabric);
       m.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
         shader.uniforms.uTime = this.uniforms.uTime;
         shader.uniforms.uAmp = this.uniforms.uAmp;

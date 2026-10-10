@@ -1,7 +1,8 @@
-import { Group, Mesh, MeshLambertMaterial } from 'three';
-import type { Material, Scene, Vector3 } from 'three';
+import { Group, Mesh, MeshStandardMaterial } from 'three';
+import type { Material, Scene, Vector3, Texture } from 'three';
 import type { Course } from '../world/Course';
 import type { TimeOfDay, WeatherKind } from '../data/types';
+import { CitySettlement } from './CitySettlement';
 import { Environment } from './Environment';
 import { Gates } from './Gates';
 import { Scenery } from './Scenery';
@@ -17,7 +18,9 @@ export class World3D {
   readonly gates: Gates;
   private readonly terrain: Group;
   private rivers: RiverMesh | null = null;
+  private settlement:CitySettlement|null=null;
   private lastTime = -1;
+  private readonly relief = new WeakMap<MeshStandardMaterial, {bump:Texture|null; rough:Texture|null}>();
 
   constructor(
     private readonly scene: Scene,
@@ -41,6 +44,7 @@ export class World3D {
     if (puddles) this.root.add(puddles);
     this.scenery = new Scenery(course, quality.propDensity, quality.windSway);
     this.root.add(this.scenery.group);
+    if(course.level.id==='thimphu-pickup'){this.settlement=new CitySettlement(course);this.root.add(this.settlement.group);}
     this.gates = new Gates(course);
     this.root.add(this.gates.group);
     this.env = new Environment(scene, course);
@@ -50,7 +54,9 @@ export class World3D {
 
   applyQuality(q: QualityProfile): void {
     this.env.applyQuality(q);
-    this.scenery.setQuality(q.propDensity, q.windSway);
+    this.settlement?.setQuality(q.propDensity);
+    this.scenery.setQuality(q.propDensity, q.windSway, q.streetLights);
+    this.rivers?.applyQuality(q.surfaceDetail);
     this.terrain.traverse((o) => {
       (o as Mesh).receiveShadow = q.shadows;
     });
@@ -58,11 +64,20 @@ export class World3D {
     // Shadow-receiving materials need a recompile when shadows are switched on or off.
     this.root.traverse((o) => {
       const m = (o as Mesh).material as Material | Material[] | undefined;
-      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true));
+      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => {
+          if(x instanceof MeshStandardMaterial){
+            if(!this.relief.has(x))this.relief.set(x,{bump:x.bumpMap,rough:x.roughnessMap});
+            const saved=this.relief.get(x)!;
+            x.bumpMap=q.surfaceDetail?saved.bump:null;x.roughnessMap=q.surfaceDetail?saved.rough:null;
+            for(const tex of [x.map,saved.bump,saved.rough])if(tex){tex.anisotropy=q.anisotropy;tex.needsUpdate=true;}
+          }
+          x.needsUpdate=true;
+        });
     });
   }
 
-  setConditions(weather: WeatherKind, time: TimeOfDay, smooth = false): void {
+  setConditions(weather: WeatherKind, time: TimeOfDay, smooth = false, routeWeather=false): void {
+    this.env.setRouteWeather(routeWeather);
     this.env.setConditions(weather, time, undefined, smooth);
     this.scenery.setLamps(this.env.lightsOn && time !== 'day');
   }
@@ -72,7 +87,7 @@ export class World3D {
     const dt = this.lastTime < 0 ? 0 : Math.min(0.1, Math.max(0, time - this.lastTime));
     this.lastTime = time;
     this.env.tick(dt);
-    this.scenery.update(time);
+    this.scenery.update(time, camera);
     this.gates.update(time);
     this.env.setProgress(progress);
     this.env.follow(camera, focus);
@@ -83,14 +98,19 @@ export class World3D {
     this.root.traverse((o) => {
       const mesh = o as Mesh;
       if (mesh.geometry) mesh.geometry.dispose();
-      const m = mesh.material as MeshLambertMaterial | MeshLambertMaterial[] | undefined;
+      const m = mesh.material as MeshStandardMaterial | MeshStandardMaterial[] | undefined;
       if (m)
         (Array.isArray(m) ? m : [m]).forEach((x) => {
           // Terrain detail and road textures are created per world: release them with it.
           x.map?.dispose();
+          const saved=this.relief.get(x);
+          const bump=saved?.bump??x.bumpMap,rough=saved?.rough??x.roughnessMap;
+          bump?.dispose();
+          if(rough!==bump)rough?.dispose();
           x.dispose();
         });
     });
+    this.settlement?.dispose();
     this.scenery.dispose();
     this.gates.dispose();
     this.env.dispose();

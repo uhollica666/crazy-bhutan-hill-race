@@ -9,6 +9,8 @@
  */
 export interface EngineVoice {
   wave: OscillatorType;
+  /** Firing harmonics from a custom original waveform, normalized by Web Audio. */
+  partials: number[];
   idleHz: number;
   rangeHz: number;
   /** 0..1 level of the 2x harmonic (square) layer. */
@@ -39,6 +41,7 @@ export interface EngineVoice {
 export const VOICES: Record<string, EngineVoice> = {
   // A small, thin, buzzy three-cylinder. Works hard, sounds it.
   'dzo-hatch': {
+    partials: [0, 1, 0.12, 0.48, 0.06, 0.22, 0.02, 0.12],
     wave: 'square',
     idleHz: 44,
     rangeHz: 150,
@@ -59,6 +62,7 @@ export const VOICES: Record<string, EngineVoice> = {
   },
   // A heavy diesel: deep, lazy, clattering, with a turbo that whistles at the top.
   'tourist-coaster': {
+    partials: [0, 1, 0.68, 0.24, 0.36, 0.18, 0.16, 0.1],
     wave: 'sawtooth',
     idleHz: 29,
     rangeHz: 72,
@@ -79,6 +83,7 @@ export const VOICES: Record<string, EngineVoice> = {
   },
   // A smooth, modern six: calm at cruise, a soft turbo, nothing dramatic.
   'druk-ranger': {
+    partials: [0, 1, 0.18, 0.14, 0.06, 0.045, 0.025, 0.01],
     wave: 'sawtooth',
     idleHz: 37,
     rangeHz: 112,
@@ -99,6 +104,7 @@ export const VOICES: Record<string, EngineVoice> = {
   },
   // A big V8 with a supercharger: the lowest, fullest voice, a burbling idle and a rising whine.
   'dragon-cruiser': {
+    partials: [0, 1, 0.54, 0.32, 0.11, 0.2, 0.04, 0.12],
     wave: 'sawtooth',
     idleHz: 25,
     rangeHz: 96,

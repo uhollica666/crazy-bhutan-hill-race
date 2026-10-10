@@ -1,3 +1,4 @@
+import { stupaGeometry } from './architecture';
 import type { BufferGeometry } from 'three';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
@@ -13,11 +14,7 @@ const WHITE = PAL.whitewash;
 
 /** One small chorten (about 1.3 m wide, 2 m tall) added to a builder at (x, y, z). */
 function chorten(g: GeoBuilder, x: number, y: number, z: number): void {
-  g.box(1.3, 0.45, 1.3, WHITE, { x, y: y + 0.22, z });
-  g.box(1.05, 0.85, 1.05, WHITE, { x, y: y + 0.85, z });
-  g.box(1.1, 0.26, 1.1, PAL.maroon, { x, y: y + 1.0, z });
-  g.cone(0.95, 0.5, SLATE, 4, { x, y: y + 1.5, z, ry: Math.PI / 4 });
-  g.cone(0.13, 0.42, PAL.gold, 6, { x, y: y + 1.95, z });
+  g.add(stupaGeometry(),0xffffff,{x,y,z,sx:0.32,sy:0.32,sz:0.32},true);
 }
 
 /** The 108 chortens: six terraced rows (24, 22, 20, 18, 14, 10 = 108) on a stepped stone mound, with the great chorten behind. About 44 x 24 m. */
