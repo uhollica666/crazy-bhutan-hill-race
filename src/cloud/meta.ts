@@ -17,6 +17,11 @@ export interface CloudMeta {
   lastSyncedAt: number | null;
   /** The display name last known for this player. */
   displayName: string | null;
+  /**
+   * Set by the developer reset: this device deliberately started again from nothing. While set, a cloud copy that
+   * differs is never restored or overwritten silently: the player is asked (the usual conflict screen).
+   */
+  resetHold: boolean;
   /** Copies of the local save taken before anything cloud-related replaced it; kept until a later sync confirms. */
   backups: { at: number; reason: string; data: SaveData }[];
 }
@@ -41,6 +46,7 @@ const fresh = (): CloudMeta => ({
   pendingSince: null,
   lastSyncedAt: null,
   displayName: null,
+  resetHold: false,
   backups: [],
 });
 
@@ -59,7 +65,7 @@ export class CloudMetaStore {
       if (raw) {
         const o = JSON.parse(raw) as Partial<CloudMeta>;
         if (o && o.schema === 1 && typeof o.deviceId === 'string' && o.deviceId.length >= 8) {
-          return { ...fresh(), ...o, deviceId: o.deviceId, backups: Array.isArray(o.backups) ? o.backups.slice(-MAX_BACKUPS) : [] };
+          return { ...fresh(), ...o, resetHold: o.resetHold === true, deviceId: o.deviceId, backups: Array.isArray(o.backups) ? o.backups.slice(-MAX_BACKUPS) : [] };
         }
       }
     } catch {

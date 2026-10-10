@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import { AudioEngine } from '../audio/AudioEngine';
 import { clamp } from '../core/math';
-import { levelTimes, listLevels, paceFor } from '../data/levels';
+import { ACADEMY_ID, getAcademy, levelTimes, listLevels, paceFor } from '../data/levels';
 import { getCast, getStory } from '../data/story';
 import type { CastMember } from '../data/story';
 import { MAX_UPGRADE_LEVEL, UPGRADES, applyUpgrades, nextUpgradeCost, upgradePreview } from '../data/upgrades';
@@ -58,6 +58,9 @@ import type { Settings } from '../storage/SaveStore';
 import { SaveStore, openBrowserStorage } from '../storage/SaveStore';
 import { MiniMap } from '../ui/MiniMap';
 import { TouchControls } from '../ui/TouchControls';
+import { TutorialController } from '../tutorial/TutorialController';
+import { TutorialStore } from '../tutorial/TutorialStore';
+import { TutorialUI } from '../ui/TutorialUI';
 import { CloudUI } from '../ui/CloudUI';
 import { FeedbackScreen } from '../ui/FeedbackScreen';
 import { Heatmap } from '../ui/Heatmap';
@@ -148,6 +151,11 @@ export class Game {
   private readonly feedbackSent: SentLog;
   private readonly feedbackTransport: FeedbackTransport;
   private readonly attempts = new Map<string, number>();
+  /** Route 0 (Driver's Academy): its own small progress document, never part of the game save or the cloud. */
+  readonly tutorialStore: TutorialStore;
+  private readonly tutorialUI: TutorialUI;
+  private academy: TutorialController | null = null;
+  private academyOffered = false;
   private stuckFor = 0;
   private stuckCooldown = 0;
   private fuelReported = false;
@@ -305,6 +313,7 @@ export class Game {
       opts.uiHost,
       {
         openLevels: () => this.openLevels(),
+        openAcademy: () => void this.startAcademy(),
         openGarageFree: () => this.openGarageFree(),
         chooseLevel: (id) => void this.chooseLevel(id),
         previewVehicle: (id) => this.previewVehicle(id),
@@ -346,6 +355,26 @@ export class Game {
     );
     this.about.onFeedback(() => this.openFeedback('about'));
     this.briefing = new BriefingScreen({ host: opts.uiHost, click, onClose: () => undefined });
+    this.tutorialStore = new TutorialStore(storage as unknown as Storage | null);
+    this.tutorialUI = new TutorialUI(opts.uiHost, {
+      ok: () => {
+        this.audio.click();
+        this.academy?.dismissCard();
+      },
+      retry: () => {
+        this.audio.click();
+        this.academy?.retryLesson();
+      },
+      replay: () => {
+        this.audio.click();
+        this.academy?.replayTip();
+      },
+      skip: () => {
+        this.audio.click();
+        this.academy?.skipLesson();
+      },
+      finish: () => void this.academyFinish(),
+    });
     this.feedback = new FeedbackScreen({
       host: opts.uiHost,
       appVersion: APP_VERSION,
@@ -377,6 +406,28 @@ export class Game {
       onClose: () => this.afterOverlay(),
     });
     this.input = new InputManager(window);
+    if (params.has('dev')) this.addDeveloperReset();
+  }
+
+  /** Only with ?dev=1: a clearly labelled, confirmed button in Settings that starts a brand-new player. */
+  private addDeveloperReset(): void {
+    const anchor = this.opts.uiHost.querySelector('#btn-settings-feedback');
+    const row = anchor?.parentElement;
+    if (!row) return;
+    const b = document.createElement('button');
+    b.className = 'btn ghost';
+    b.type = 'button';
+    b.id = 'btn-dev-reset';
+    b.innerHTML = '<span>Developer: reset to a new player</span>';
+    b.addEventListener('click', () => {
+      const ok = window.confirm(
+        'Developer reset: this clears medals, credits, vehicles, upgrades, records and the tutorial on THIS device. Settings, other storage and your sign-in are kept, and nothing online is changed. Continue?',
+      );
+      if (!ok) return;
+      (this.opts.uiHost.querySelector('#btn-settings-back') as HTMLElement | null)?.click();
+      void this.resetProgress();
+    });
+    row.appendChild(b);
   }
 
   async init(): Promise<void> {
@@ -478,7 +529,8 @@ export class Game {
 
   /** A driving incident for the on-device log and, with consent, the statistics summary. */
   private incident(type: IncidentType, severity: Severity = 'low'): void {
-    if (!this.inRun || !this.rt) return;
+    // Training drives are not part of the statistics.
+    if (!this.inRun || !this.rt || this.level.id === ACADEMY_ID) return;
     this.telemetry.track({
       name: 'incident',
       type,
@@ -491,7 +543,7 @@ export class Game {
 
   /** The player leaves a mission that is still being driven (quit, restart, change vehicle). */
   private noteAbandon(): void {
-    if (!this.inRun || !this.rt || this.rt.session.phase !== 'running') return;
+    if (!this.inRun || !this.rt || this.level.id === ACADEMY_ID || this.rt.session.phase !== 'running') return;
     this.incident('abandoned', 'low');
     this.telemetry.track({ name: 'mission_failed', levelId: this.level.id, vehicleId: this.vehicleDef.id, reason: 'abandoned', seconds: Math.round(this.rt.session.time) });
   }
@@ -612,7 +664,7 @@ export class Game {
   /** Weather and time of day for the selected conditions, on the world, the particles and the sound. */
   private applyConditions(): void {
     if (!this.world) return;
-    const c = this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
+    const c = this.academy ? this.rt.conditions : this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
     this.world.setConditions(c.weather, c.time);
     this.model?.setHeadlights(this.world.env.lightsOn);
     this.model?.setReflection(this.world.env.brightness);
@@ -628,7 +680,7 @@ export class Game {
       water: !!this.level.ford || this.level.terrain.valleyDepth > 0,
       forest: clamp(this.level.scenery.trees / 700, 0, 1),
       bells: this.level.region !== undefined && c.time !== 'night' && this.level.mission.kind !== 'circuit',
-      fog: c.weather === 'fog' ? 0.8 : c.weather === 'snow' ? 0.3 : 0,
+      fog: c.weather === 'denseFog' ? 1 : c.weather === 'fog' ? 0.8 : c.weather === 'snow' ? 0.3 : 0,
     });
     this.audio.setWeather(WEATHER[c.weather].rain, WEATHER[c.weather].wind / 4);
   }
@@ -650,6 +702,10 @@ export class Game {
       ui.clearDispatchSoon(3200);
     });
     e.on('checkpoint', ({ index, split }) => {
+      if (level.id === ACADEMY_ID) {
+        this.world?.gates.setNext(index + 1);
+        return;
+      }
       ui.flash(
         `Checkpoint ${index + 1}/${level.checkpoints.length}`,
         `${level.checkpoints[index].label} - ${split.toFixed(1)}s`,
@@ -899,6 +955,7 @@ export class Game {
   private updateTouch(): void {
     const wanted = this.touchWanted();
     document.body.classList.toggle('touch', wanted);
+    this.tutorialUI.setTouch(wanted);
     if (wanted) this.ui.showRotateHint();
     this.rig.shakeScale = this.reducedMotion ? 0.12 : wanted ? 0.6 : 1;
     this.touch.setVisible(wanted && this.flow.state === 'playing');
@@ -1057,7 +1114,23 @@ export class Game {
     this.rig.intro = 0;
   }
 
+  private hasAnyProgress(): boolean {
+    return this.store.data.history.length > 0 || this.levels.some((l) => this.store.levelRecord(l.id).completions > 0);
+  }
+
   private openLevels(): void {
+    // A brand-new player is offered the Driver's Academy once, automatically; "Skip for now" is remembered.
+    if (!this.academyOffered && this.tutorialStore.shouldOffer(this.hasAnyProgress())) {
+      this.academyOffered = true;
+      this.tutorialUI.showWelcome(
+        () => void this.startAcademy(),
+        () => {
+          this.tutorialStore.markSkipped();
+          this.openLevels();
+        },
+      );
+      return;
+    }
     this.menuScreen = 'levels';
     this.freeGarage = false;
     this.showLevelsScreen();
@@ -1070,6 +1143,108 @@ export class Game {
     const keep = owned.find((v) => v.id === this.baseVehicle.id) ?? owned[0] ?? this.vehicles[0];
     this.pickVehicle(keep);
     this.openGarageScreen();
+  }
+
+  /** Route 0: always the stock Druk Ranger on loan (4x4 capable), no garage, no briefing, no rewards. */
+  private async startAcademy(): Promise<void> {
+    if (this.loadingLevel) return;
+    this.tutorialUI.hideModal();
+    this.freeGarage = false;
+    this.menuScreen = 'levels';
+    await this.loadLevel(getAcademy());
+    this.conditionIndex = 0;
+    this.pickVehicle(getVehicle('druk-ranger'), true);
+    this.beginRun();
+  }
+
+  /** Puts the world and car back to the player's selected mission after leaving the Academy. */
+  private async restoreAfterAcademy(): Promise<void> {
+    const sel = resolveSelection(this.store.selection, this.levels, this.vehicles, this.store.progress, this.store.garage.owned);
+    await this.loadLevel(sel.level);
+    this.conditionIndex = 0;
+    this.pickVehicle(sel.vehicle);
+  }
+
+  private disposeAcademy(): void {
+    this.academy?.dispose();
+    this.academy = null;
+    this.tutorialUI.hide();
+  }
+
+  private academyHost() {
+    return {
+      scene: this.renderer.scene,
+      toast: (t: string) => this.ui.toast(t, undefined, undefined, 4500),
+      flash: (a: string, b?: string) => this.ui.flash(a, b ?? ''),
+      placeAt: (m: number) => this.academyPlaceAt(m),
+      setConditions: (c: { weather: import('../data/types').WeatherKind; time: import('../data/types').TimeOfDay }) => {
+        this.rt.setConditions(c);
+        this.applyConditions();
+      },
+      highlight: (sel: readonly string[]) => this.tutorialUI.highlight(sel),
+      sound: (k: 'step' | 'lesson') => (k === 'lesson' ? this.audio.checkpoint() : this.audio.pickup()),
+    };
+  }
+
+  /** Teleports the car to `m` metres from the start line (training retries): keeps fuel and damage. */
+  private academyPlaceAt(m: number): void {
+    const s = this.course.startS + m;
+    const p = this.course.poseAt(s);
+    this.rt.body.place(this.course, p.x, p.z, p.tx, p.tz);
+    this.rt.motion.reset();
+    this.rt.session.lastSafeS = s;
+    this.acc = 0;
+    this.rig.snap();
+  }
+
+  /** The route's finish: graduation screen, with a way to practise again. */
+  private academyFinished(): void {
+    if (!this.flow.dispatch('finish')) return;
+    const ac = this.academy;
+    ac?.end();
+    this.input.captureKeys = false;
+    this.touch.setVisible(false);
+    this.audio.setDriving(false);
+    this.audio.finish();
+    this.rig.orbit = true;
+    this.ui.setCountdown(null);
+    this.ui.hideHud();
+    this.tutorialUI.showComplete(
+      {
+        firstTime: !this.tutorialStore.completed,
+        essentialDone: ac?.essentialsDone ? 1 : 0,
+        essentialTotal: 1,
+        lessonsDone: ac?.lessonsDone ?? 0,
+        lessonsTotal: 10,
+      },
+      () => void this.academyFinish(),
+      () => this.restart(),
+      () => this.quitToMenu(),
+    );
+  }
+
+  /** "Done, start the game": records the Academy as completed and opens Route 1. */
+  private async academyFinish(): Promise<void> {
+    this.tutorialStore.markCompleted();
+    this.disposeAcademy();
+    this.leaveRun();
+    this.menuScreen = 'levels';
+    await this.chooseLevel(this.levels[0].id);
+  }
+
+  /** Developer-only: back to a brand-new player (progress, credits, vehicles, upgrades, records, tutorial). */
+  async resetProgress(): Promise<void> {
+    this.disposeAcademy();
+    if (this.inRun) this.leaveRun();
+    this.store.resetToFresh();
+    this.tutorialStore.reset();
+    this.cloud.noteLocalReset();
+    this.attempts.clear();
+    this.pendingCampaign = false;
+    this.academyOffered = false;
+    await this.restoreAfterAcademy();
+    this.showMenu();
+    this.ui.toast('Progress reset to a new player (developer).', undefined, undefined, 4000);
   }
 
   private async chooseLevel(id: string): Promise<void> {
@@ -1290,6 +1465,10 @@ export class Game {
   }
 
   private openGarageFromRun(): void {
+    if (this.level.id === ACADEMY_ID) {
+      this.ui.toast("The Academy lends you a car. The garage opens once you start the game.", undefined, undefined, 3500);
+      return;
+    }
     this.noteAbandon();
     this.leaveRun();
     this.freeGarage = false;
@@ -1298,6 +1477,7 @@ export class Game {
 
   /** Leaves a run (pause/finish) back to the menu flow without choosing a menu screen. */
   private leaveRun(): void {
+    this.disposeAcademy();
     if (this.flow.state !== 'menu') this.flow.dispatch('quit');
     this.inRun = false;
     this.ui.hideHud();
@@ -1320,23 +1500,26 @@ export class Game {
     if (this.flow.state === 'menu') this.flow.dispatch('start');
     else this.flow.dispatch('restart');
     this.inRun = true;
+    this.disposeAcademy();
     this.buildRun();
     this.applyConditions();
-    this.store.noteMissionPlayed();
     const level = this.level;
+    const isAcademy = level.id === ACADEMY_ID;
+    if (!isAcademy) this.store.noteMissionPlayed();
     const c = level.conditions[this.conditionIndex];
     const attempt = (this.attempts.get(level.id) ?? 0) + 1;
     this.attempts.set(level.id, attempt);
     this.fuelReported = false;
     this.stuckFor = 0;
-    this.telemetry.track({ name: 'vehicle_selected', vehicleId: this.vehicleDef.id });
-    this.telemetry.track({ name: 'mission_started', levelId: level.id, vehicleId: this.vehicleDef.id, conditions: `${c.weather}-${c.time}`, attempt });
-    this.analytics.track({
-      name: 'mission_start',
-      levelId: level.id,
-      vehicleId: this.vehicleDef.id,
-      conditions: `${c.weather}/${c.time}`,
-    });
+    if (!isAcademy) this.telemetry.track({ name: 'vehicle_selected', vehicleId: this.vehicleDef.id });
+    if (!isAcademy) this.telemetry.track({ name: 'mission_started', levelId: level.id, vehicleId: this.vehicleDef.id, conditions: `${c.weather}-${c.time}`, attempt });
+    if (!isAcademy)
+      this.analytics.track({
+        name: 'mission_start',
+        levelId: level.id,
+        vehicleId: this.vehicleDef.id,
+        conditions: `${c.weather}/${c.time}`,
+      });
     this.ai = this.autodriveOn ? new MissionDriver(this.rt) : null;
 
     this.ui.hideFlow();
@@ -1350,9 +1533,16 @@ export class Game {
       mode: this.store.settings.hudMode,
     });
     this.engineSim.reset();
-    this.ui.setCountdown(String(Math.ceil(this.rt.session.countdown)));
     const story = getStory(level.id);
-    this.ui.setDispatch(story ? { title: story.headline, goal: story.quick.goal } : null);
+    if (isAcademy) {
+      // Training starts at once: no countdown, no dispatch card, no clock to beat.
+      this.rt.session.countdown = 0.001;
+      this.ui.setCountdown(null);
+      this.ui.setDispatch(null);
+    } else {
+      this.ui.setCountdown(String(Math.ceil(this.rt.session.countdown)));
+      this.ui.setDispatch(story ? { title: story.headline, goal: story.quick.goal } : null);
+    }
     this.world?.gates.setNext(0);
     this.touch.reset();
     this.rig.setShowcase(false);
@@ -1365,10 +1555,15 @@ export class Game {
     this.warnHold = 0;
     this.issueCooldown = 0;
     this.updateTouch();
+    if (isAcademy) this.academy = new TutorialController(this.rt, this.academyHost(), this.tutorialUI, this.tutorialStore);
     (document.activeElement as HTMLElement | null)?.blur?.();
   }
 
   private endRun(r: RaceResult): void {
+    if (this.level.id === ACADEMY_ID) {
+      this.academyFinished();
+      return;
+    }
     if (!this.flow.dispatch('finish')) return;
     const rt = this.rt;
     const level = this.level;
@@ -1457,6 +1652,7 @@ export class Game {
 
   private pause(): void {
     if (!this.flow.dispatch('pause')) return;
+    this.academy?.notePause();
     this.ui.showPause();
     this.input.captureKeys = false;
     this.audio.setDriving(false);
@@ -1465,6 +1661,7 @@ export class Game {
 
   private resume(): void {
     if (!this.flow.dispatch('resume')) return;
+    this.academy?.noteResume();
     this.ui.hidePause();
     this.input.captureKeys = true;
     this.audio.setDriving(true);
@@ -1483,8 +1680,10 @@ export class Game {
   private quitToMenu(): void {
     this.noteAbandon();
     if (!this.flow.dispatch('quit')) return;
+    const wasAcademy = this.level.id === ACADEMY_ID;
     this.leaveRun();
-    this.showMenu();
+    if (wasAcademy) void this.restoreAfterAcademy().then(() => this.showMenu());
+    else this.showMenu();
   }
 
   /** Puts the car back on the road at the last safe point, keeping fuel and damage. */
@@ -1649,6 +1848,13 @@ export class Game {
     const cmd = this.cmd;
     const rt = this.rt;
     const phase = rt.session.phase;
+    if (this.academy?.holding) {
+      // An explanation card is open: the car is held until "Got it".
+      cmd.steer = cmd.throttle = cmd.brake = 0;
+      this.acc = 0;
+      this.lastSteps = 0;
+      return;
+    }
     if (phase === 'countdown') {
       cmd.steer = cmd.throttle = cmd.brake = 0;
     } else if (this.ai instanceof MissionDriver) {
@@ -1748,6 +1954,11 @@ export class Game {
             ? `Stop in the zone to drop off: ${this.level.finishLabel}`
             : o.label;
       h.distance = o.distance;
+      if (this.academy) {
+        h.objectiveKind = 'checkpoint';
+        h.objective = this.academy.objectiveLabel();
+        h.distance = null;
+      }
       h.progress = this.lastProgress;
       h.fuel = rt.status.fuel;
       h.health = rt.status.health;
@@ -1777,6 +1988,7 @@ export class Game {
       } else {
         h.comfort = null;
       }
+      if (this.academy && s.phase === 'running') this.academy.update(dt, this.cmd);
       this.ui.updateHud(h);
       this.serviceSound(dt);
       this.minimapTimer += dt;
@@ -1859,6 +2071,10 @@ export class Game {
     }
     const here = rt.stops.servicesHere(rt.s, rt.lateral, speed, halfWidth);
     if (here) {
+      if (!here.kinds.length) {
+        h.prompt = 'Drop-off zone: stay stopped';
+        return;
+      }
       const kinds = here.kinds.filter((k) =>
         k === 'refuel' ? rt.status.fuel < 0.995 : rt.status.health < 99.5,
       );
@@ -1970,8 +2186,13 @@ export class Game {
           scene: this.garageActive() ? 'garage' : 'world',
           garageVehicle: this.garage?.shownVehicleId ?? null,
           garageView: this.garage?.view ?? null,
+          academy: this.academy?.snapshot() ?? null,
+          tutorial: { ...this.tutorialStore.data },
         };
       },
+      startAcademy: () => this.startAcademy(),
+      /** Developer reset to a brand-new player (see Game.resetProgress). */
+      resetProgress: () => this.resetProgress(),
       /** Teleport onto the road at a distance (for tests). It does not change what the mission requires. */
       warp: (s: number) => {
         const p = this.course.poseAt(s);
@@ -2033,6 +2254,8 @@ export class Game {
     this.feedback.dispose();
     this.about.dispose();
     this.briefing.dispose();
+    this.disposeAcademy();
+    this.tutorialUI.dispose();
     disposeEnvKit();
     assets.dispose();
     this.renderer.dispose();

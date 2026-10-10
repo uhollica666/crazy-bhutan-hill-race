@@ -42,6 +42,8 @@ export class Course implements PhysicsWorld {
   /** 0..1 how wet the roads are right now (set by the weather system). */
   wetness = 0;
 
+  /** Shallow puddles in road coordinates (distance along the road, lateral offset, radius). */
+  readonly puddles: { s: number; lateral: number; r: number }[] = [];
   private readonly surfaceIds: SurfaceId[] = ['asphalt'];
   private readonly sampleSurface: Uint8Array;
   private readonly shoulderSurface: SurfaceId;
@@ -59,6 +61,7 @@ export class Course implements PhysicsWorld {
       if (this.checkpointS[i] <= this.checkpointS[i - 1])
         throw new Error(`Level ${level.id}: checkpoints must ascend`);
     }
+    for (const p of level.puddles ?? []) this.puddles.push({ s: this.startS + p.at * span, lateral: p.lateral, r: p.radius });
     this.shoulderSurface = level.shoulder ?? 'gravel';
     this.sampleSurface = new Uint8Array(this.road.count);
     for (const seg of level.surfaces ?? []) {
@@ -100,8 +103,18 @@ export class Course implements PhysicsWorld {
     } else {
       const i = Math.min(this.road.count - 1, Math.max(0, Math.round((h.s / this.road.length) * (this.road.count - 1))));
       id = this.surfaceIds[this.sampleSurface[i]];
+      for (const p of this.puddles) {
+        const ds = (h.s - p.s) / (p.r * 1.35);
+        const dl = (h.lateral - p.lateral) / p.r;
+        if (ds * ds + dl * dl < 1) return 'water';
+      }
     }
     return this.wetness > 0 ? wetSurface(id, this.wetness) : id;
+  }
+
+  /** The paved/unpaved surface of the road bed at sample `i` (before weather and puddles); the renderer uses it to draw dirt, gravel, rock or mud instead of asphalt. */
+  roadSurfaceAtSample(i: number): SurfaceId {
+    return this.surfaceIds[this.sampleSurface[i]];
   }
 
   /** Depth of water over the road bed at a point (0 outside the ford). */

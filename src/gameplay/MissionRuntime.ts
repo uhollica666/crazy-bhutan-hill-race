@@ -68,7 +68,9 @@ export class MissionRuntime {
   readonly stops: StopManager;
   readonly weather = new WeatherState();
   readonly motion = new MotionSampler();
-  readonly conditions: ConditionsDef;
+  conditions: ConditionsDef;
+  /** Progress beyond this road distance does not count for checkpoints or the finish (training lessons set it). */
+  progressCap = Infinity;
   hazards: HazardSystem | null = null;
   traffic: TrafficSystem | null = null;
   rival: Rival | null = null;
@@ -170,6 +172,7 @@ export class MissionRuntime {
     this.serviceRequest = null;
     this.recoverCount = 0;
     this.rivalFinish = null;
+    this.progressCap = Infinity;
     this.s = course.startS;
     this.lateral = 0;
     if (opts.skipCountdown) this.session.countdown = 0.001;
@@ -183,6 +186,13 @@ export class MissionRuntime {
     this.motion.reset();
     this.recoverCount++;
     this.events.emit('recovered', undefined);
+  }
+
+  /** Changes weather and time of day during a run (the training route does this lesson by lesson). */
+  setConditions(c: Pick<ConditionsDef, 'weather' | 'time'>): void {
+    this.conditions = { ...this.conditions, weather: c.weather, time: c.time };
+    this.weather.set(c);
+    this.course.wetness = this.weather.wetness;
   }
 
   setDriveMode(mode: Drivetrain): Drivetrain {
@@ -214,14 +224,17 @@ export class MissionRuntime {
 
     // Collisions: damage, comfort and feedback.
     const impact = body.consumeImpact();
-    if (impact > 2.5) {
+    // A training barrier is soft: bumping it never costs condition or comfort.
+    const touchedId = body.obstacleContact ? this.touchedObstacle() : -1;
+    const soft = touchedId >= 0 && this.course.obstacles.tags[touchedId] === 'gate';
+    if (impact > 2.5 && !soft) {
       const damage = status.impact(impact);
       session.feedImpact(impact);
       this.events.emit('impact', { speed: impact, damage });
     }
     if (body.obstacleContact) {
       body.obstacleContact = false;
-      const id = this.touchedObstacle();
+      const id = soft ? -1 : touchedId;
       if (id >= 0) {
         const h = this.hazards?.touched(id);
         if (h) this.events.emit('touched', h);
@@ -256,7 +269,7 @@ export class MissionRuntime {
     else if (speed > 3) this.serviceRequest = null;
 
     // Race rules see progress only up to the first unfinished required pickup.
-    session.update(dt, Math.min(this.s, this.stops.gateS()), this.lateral, speed);
+    session.update(dt, Math.min(this.s, this.stops.gateS(), this.progressCap), this.lateral, speed);
     if (session.phase === 'running' && this.motion.sample(body, dt)) {
       session.feedMotion(dt, this.motion.lateral, this.motion.longitudinal, this.motion.roll);
     } else if (session.phase !== 'running') {

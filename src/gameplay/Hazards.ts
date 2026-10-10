@@ -15,6 +15,19 @@ export interface Boulder {
   obstacle: number;
 }
 
+export interface HerdAnimal {
+  x: number;
+  z: number;
+  heading: number;
+  lateral: number;
+  /** Seconds before this animal sets off. */
+  delay: number;
+  obstacle: number;
+  across: boolean;
+  /** Startled: stands still until the car has slowed down. */
+  frozen: boolean;
+}
+
 export interface HazardState {
   def: HazardDef;
   phase: HazardPhase;
@@ -25,6 +38,8 @@ export interface HazardState {
   boulders: Boulder[];
   /** creature (yeti) */
   creature: { x: number; z: number; heading: number; lateral: number; pause: number; obstacle: number; shrug: number } | null;
+  /** herd: animals crossing the road one after another (never more than HERD_MAX). */
+  herd: HerdAnimal[] | null;
   /** brokenTruck */
   truck: { x: number; z: number; heading: number; obstacles: number[] } | null;
   timer: number;
@@ -42,6 +57,8 @@ type HazardEvents = {
 export const MIN_FREE_WIDTH = 4.4;
 const FALL_SECONDS = 1.6;
 const CROSS_SPEED = 1.5;
+const HERD_SPEED = 1.15;
+export const HERD_MAX = 6;
 
 /**
  * Controlled, seeded road events. Every hazard registers obstacles with the course, never leaves the road
@@ -65,6 +82,7 @@ export class HazardSystem {
         side: rng() < 0.5 ? -1 : 1,
         boulders: [],
         creature: null,
+        herd: null,
         truck: null,
         timer: 0,
       });
@@ -80,6 +98,8 @@ export class HazardSystem {
       h.boulders.length = 0;
       if (h.creature) ob.remove(h.creature.obstacle);
       h.creature = null;
+      if (h.herd) h.herd.forEach((a) => ob.remove(a.obstacle));
+      h.herd = null;
       if (h.truck) h.truck.obstacles.forEach((id) => ob.remove(id));
       h.truck = null;
       h.timer = 0;
@@ -113,11 +133,11 @@ export class HazardSystem {
     for (const h of this.hazards) {
       switch (h.def.kind) {
         case 'landslide': {
-          if (h.phase === 'dormant' && playerS >= h.s - 135) {
+          if (h.phase === 'dormant' && playerS >= h.s - 135 && playerS <= h.s + 30) {
             h.phase = 'warning';
             this.events.emit('warn', h);
           }
-          if (h.phase === 'warning' && playerS >= h.s - 75) {
+          if (h.phase === 'warning' && playerS >= h.s - 75 && playerS <= h.s + 30) {
             this.layoutLandslide(h, playerS > h.s - 50);
           }
           if (h.phase === 'falling') {
@@ -140,6 +160,10 @@ export class HazardSystem {
         }
         case 'creature': {
           this.updateCreature(h, dt, playerS, playerSpeed);
+          break;
+        }
+        case 'herd': {
+          this.updateHerd(h, dt, playerS, playerSpeed);
           break;
         }
         default:
@@ -211,7 +235,9 @@ export class HazardSystem {
       // Cross only when the road is clear: the player is stopped, far away, or already past.
       const ahead = h.s - playerS;
       const arrival = ahead / Math.max(playerSpeed, 1);
-      const safe = ahead < -8 || playerSpeed < 2.5 && ahead > 14 || arrival > 6.5 && ahead > 22;
+      const safe = h.def.reactive
+        ? ahead < 75
+        : ahead < -8 || (playerSpeed < 2.5 && ahead > 14) || (arrival > 6.5 && ahead > 22);
       if (safe) {
         h.phase = 'crossing';
         this.events.emit('cross', h);
@@ -225,7 +251,10 @@ export class HazardSystem {
         c.pause += dt; // stops in the middle of the road to wave at the car
       } else {
         const dir = Math.sign(target - lat);
-        c.lateral = lat + dir * CROSS_SPEED * dt;
+        const ahead2 = h.s - playerS;
+        // A reactive creature that sees a fast car close by hurries off the road (still gentle: no panic, no damage to it).
+        const hurry = h.def.reactive && ahead2 > -2 && ahead2 < 16 && playerSpeed > 7 ? 2.2 : 1;
+        c.lateral = lat + dir * CROSS_SPEED * hurry * dt;
         if ((target - c.lateral) * dir <= 0) {
           c.lateral = target;
           h.phase = 'done';
@@ -245,6 +274,105 @@ export class HazardSystem {
     }
   }
 
+  private updateHerd(h: HazardState, dt: number, playerS: number, playerSpeed: number): void {
+    const road = this.course.road;
+    const ob = this.course.obstacles;
+    const side = h.side;
+    const far = road.wallOffset + 2.4;
+    if (h.phase === 'dormant' && playerS >= h.s - 150 && playerS <= h.s + 2) {
+      const n = Math.max(2, Math.min(HERD_MAX, h.def.count ?? 4));
+      const rng = mulberry32(h.def.seed + 11);
+      h.herd = [];
+      for (let i = 0; i < n; i++) {
+        const along = (i - (n - 1) / 2) * 3.4 + (rng() - 0.5) * 0.8;
+        const f = this.frame(h.s + along, -side * (far + rng() * 1.2));
+        h.herd.push({
+          x: f.x,
+          z: f.z,
+          heading: Math.atan2(side * -f.tz, side * f.tx),
+          lateral: -side * (far + rng() * 1.2),
+          delay: i * 1.5 + rng() * 1.2,
+          obstacle: ob.add(f.x, f.z, 1.0, { push: 0.9, restitution: 0.3, tag: 'herd' }),
+          across: false,
+          frozen: false,
+        });
+      }
+      h.phase = 'waiting';
+      h.timer = 0;
+      this.events.emit('appear', h);
+    }
+    const herd = h.herd;
+    if (!herd) return;
+    if (h.phase === 'waiting') {
+      // They set off once the car is close enough to matter: they never wait for a car that is far away.
+      if (h.s - playerS < 95) {
+        h.phase = 'crossing';
+        h.timer = 0;
+        this.events.emit('cross', h);
+      }
+    }
+    if (h.phase === 'crossing') {
+      h.timer += dt;
+      let allAcross = true;
+      for (const a of herd) {
+        if (a.across) continue;
+        allAcross = false;
+        const target = side * far;
+        if (h.timer < a.delay) continue;
+        // Startled by a fast car close by: stand still until it has slowed down.
+        const ahead = h.s - playerS;
+        a.frozen = Math.abs(a.lateral) < road.halfWidth + 1 && ahead > -4 && ahead < 18 && playerSpeed > 6;
+        if (a.frozen) {
+          ob.move(a.obstacle, a.x, a.z, 0, 0);
+          continue;
+        }
+        const dir = Math.sign(target - a.lateral);
+        a.lateral += dir * HERD_SPEED * dt;
+        if ((target - a.lateral) * dir <= 0) {
+          a.lateral = target;
+          a.across = true;
+        }
+        const along = this.alongOf(a, h);
+        const f = this.frame(h.s + along, a.lateral);
+        a.x = f.x;
+        a.z = f.z;
+        a.heading = Math.atan2(dir * -f.tz, dir * f.tx);
+        ob.move(a.obstacle, a.x, a.z, dir * -f.tz * HERD_SPEED, dir * f.tx * HERD_SPEED);
+      }
+      if (allAcross) {
+        herd.forEach((a) => ob.remove(a.obstacle));
+        h.phase = 'done';
+        this.events.emit('gone', h);
+      }
+    }
+  }
+
+  /** Each animal keeps its own spot along the road while it crosses. */
+  private alongOf(a: HerdAnimal, h: HazardState): number {
+    const f = this.frame(h.s, 0);
+    // Project the animal's last position back onto the road direction through the hazard point.
+    return (a.x - f.x) * f.tx + (a.z - f.z) * f.tz;
+  }
+
+  /** Puts the named hazards back to their starting state (used when a training lesson is retried). */
+  resetIds(ids: string[]): void {
+    const ob = this.course.obstacles;
+    for (const h of this.hazards) {
+      if (!ids.includes(h.def.id)) continue;
+      for (const b of h.boulders) ob.remove(b.obstacle);
+      h.boulders.length = 0;
+      if (h.creature) ob.remove(h.creature.obstacle);
+      h.creature = null;
+      if (h.herd) h.herd.forEach((a) => ob.remove(a.obstacle));
+      h.herd = null;
+      if (h.truck) h.truck.obstacles.forEach((id) => ob.remove(id));
+      h.truck = null;
+      h.timer = 0;
+      h.phase = h.def.kind === 'brokenTruck' ? 'static' : 'dormant';
+      if (h.def.kind === 'brokenTruck') this.placeTruck(h);
+    }
+  }
+
   /** Reports a vehicle contact with an obstacle so the owner can react (the yeti shrugs, etc.). */
   touched(obstacleId: number): HazardState | null {
     for (const h of this.hazards) {
@@ -252,6 +380,9 @@ export class HazardSystem {
         h.creature.shrug = 1.5;
         return h;
       }
+      if (h.herd?.some((x) => x.obstacle === obstacleId)) return h;
+      if (h.boulders.some((b) => b.obstacle === obstacleId)) return h;
+      if (h.truck?.obstacles.includes(obstacleId)) return h;
     }
     return null;
   }

@@ -36,6 +36,8 @@ import {
   yetiGeometry,
 } from './vehicleBodies';
 import { createStaticVehicle } from './VehicleModel';
+import { yakGeometry } from './Scenery';
+import type { HazardState } from '../gameplay/Hazards';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
 
@@ -138,8 +140,8 @@ export class MissionView {
 
   // Hazards.
   private rocks: InstancedMesh | null = null;
-  private yeti: Mesh | null = null;
-  private yetiBubble: Sprite | null = null;
+  private readonly creatures: { h: HazardState; mesh: Mesh; bubble: Sprite; ghost: boolean }[] = [];
+  private readonly herds: { h: HazardState; mesh: InstancedMesh }[] = [];
   private lorries: { mesh: Mesh; tri: Mesh }[] = [];
   private readonly signs: { group: Group; dispose: () => void }[] = [];
 
@@ -250,7 +252,16 @@ export class MissionView {
     const road = this.rt.course.road;
     const pose = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
     for (const h of hz.hazards) {
-      const label = h.def.kind === 'landslide' ? 'ROCKFALL AREA' : h.def.kind === 'creature' ? 'YETI CROSSING' : 'BROKEN DOWN VEHICLE';
+      const label =
+        h.def.kind === 'landslide'
+          ? 'ROCKFALL AREA'
+          : h.def.kind === 'creature'
+            ? h.def.variant === 'ghost'
+              ? 'SPIRIT CROSSING'
+              : 'YETI CROSSING'
+            : h.def.kind === 'herd'
+              ? 'ANIMALS ON ROAD'
+              : 'BROKEN DOWN VEHICLE';
       const sign = buildSign(label, '#f0c23a', '#2a2220');
       road.at(h.s - (h.def.kind === 'brokenTruck' ? 50 : 80), pose);
       const lat = -h.side * (road.wallOffset + 1.2);
@@ -267,15 +278,35 @@ export class MissionView {
       this.group.add(this.rocks);
       this.disposables.push(geo, this.rocks.material as MeshLambertMaterial);
     }
-    if (hz.hazards.some((h) => h.def.kind === 'creature')) {
+    const creatureHazards = hz.hazards.filter((h) => h.def.kind === 'creature');
+    if (creatureHazards.length) {
       const geo = yetiGeometry();
+      const yetiMat = new MeshLambertMaterial({ vertexColors: true });
+      // The lantern spirit: the same friendly silhouette, pale and softly glowing (it is not frightening).
+      const ghostMat = new MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.55, emissive: 0x9fd8ff, emissiveIntensity: 0.55, depthWrite: false });
+      this.disposables.push(geo, yetiMat, ghostMat);
+      for (const h of creatureHazards) {
+        const ghost = h.def.variant === 'ghost';
+        const mesh = new Mesh(geo, ghost ? ghostMat : yetiMat);
+        mesh.visible = false;
+        const bubble = labelSprite(ghost ? 'Whooo~' : 'Hello!', ghost ? '#3b4a7a' : '#2e7d9a');
+        bubble.visible = false;
+        this.group.add(mesh, bubble);
+        this.creatures.push({ h, mesh, bubble, ghost });
+      }
+    }
+    const herdHazards = hz.hazards.filter((h) => h.def.kind === 'herd');
+    if (herdHazards.length) {
+      const geo = yakGeometry();
       const mat = new MeshLambertMaterial({ vertexColors: true });
-      this.yeti = new Mesh(geo, mat);
-      this.yeti.visible = false;
-      this.yetiBubble = labelSprite('Hello!', '#2e7d9a');
-      this.yetiBubble.visible = false;
-      this.group.add(this.yeti, this.yetiBubble);
       this.disposables.push(geo, mat);
+      for (const h of herdHazards) {
+        const mesh = new InstancedMesh(geo, mat, 6);
+        mesh.count = 0;
+        mesh.frustumCulled = false;
+        this.group.add(mesh);
+        this.herds.push({ h, mesh });
+      }
     }
     for (const h of hz.hazards) {
       if (h.def.kind !== 'brokenTruck' || !h.truck) continue;
@@ -376,17 +407,33 @@ export class MissionView {
         this.rocks.count = n;
         this.rocks.instanceMatrix.needsUpdate = true;
       }
-      if (this.yeti && this.yetiBubble) {
-        const h = hz.hazards.find((x) => x.def.kind === 'creature');
-        const c = h?.creature;
-        this.yeti.visible = !!c;
-        this.yetiBubble.visible = !!c && (h?.phase === 'crossing' && Math.abs(c.lateral) < 3 || c.shrug > 0);
+      for (const cr of this.creatures) {
+        const c = cr.h.creature;
+        cr.mesh.visible = !!c;
+        cr.bubble.visible = !!c && ((cr.h.phase === 'crossing' && Math.abs(c.lateral) < 3) || c.shrug > 0);
         if (c) {
-          this.yeti.position.set(c.x, this.ground(c.x, c.z) + Math.abs(Math.sin(time * 5)) * 0.06, c.z);
-          this.yeti.rotation.y = c.heading + Math.PI;
-          this.yeti.scale.setScalar(0.62);
-          this.yetiBubble.position.set(c.x, this.yeti.position.y + 3.6, c.z);
+          const bob = cr.ghost ? 0.5 + Math.sin(time * 2.2) * 0.25 : Math.abs(Math.sin(time * 5)) * 0.06;
+          cr.mesh.position.set(c.x, this.ground(c.x, c.z) + bob, c.z);
+          cr.mesh.rotation.y = c.heading + Math.PI;
+          cr.mesh.scale.setScalar(0.62);
+          cr.bubble.position.set(c.x, cr.mesh.position.y + 3.6, c.z);
         }
+      }
+      for (const hd of this.herds) {
+        const herd = hd.h.herd;
+        const n = herd ? Math.min(6, herd.length) : 0;
+        for (let i = 0; i < n; i++) {
+          const a = herd![i];
+          const sway = a.frozen || a.across ? 0 : Math.sin(time * 4 + i * 1.9) * 0.05;
+          this.v3(a.x, this.ground(a.x, a.z) + sway, a.z);
+          this.q.setFromAxisAngle(UP, a.heading + Math.PI);
+          this.scl.setScalar(1.05 + (i % 3) * 0.06);
+          this.m4.compose(this.pos, this.q, this.scl);
+          hd.mesh.setMatrixAt(i, this.m4);
+        }
+        this.scl.setScalar(1);
+        hd.mesh.count = n;
+        hd.mesh.instanceMatrix.needsUpdate = true;
       }
     }
 

@@ -123,7 +123,7 @@ function chortenGeometry(): BufferGeometry {
     .build();
 }
 
-function yakGeometry(): BufferGeometry {
+export function yakGeometry(): BufferGeometry {
   return new GeoBuilder()
     .box(1.0, 0.95, 2.0, PAL.yak, { y: 1.15 })
     .box(1.12, 0.55, 1.8, 0x2a1e19, { y: 0.7 }) // long skirt of hair

@@ -1,4 +1,5 @@
 import type { LevelDef, VehicleDef } from '../types';
+import { ACADEMY_ID, academy } from './academy';
 import { EXTENSIONS } from './extensions';
 import { extendLevel } from './extend';
 import { RAW_LEVELS } from './raw';
@@ -13,7 +14,13 @@ const registry = new Map<string, LevelDef>(
   }),
 );
 
+export { ACADEMY_ID };
+
+/** Route 0 is reachable by id only: it is never part of `listLevels()` (the ten-mission campaign). */
+export const getAcademy = (): LevelDef => academy;
+
 export const getLevel = (id: string): LevelDef => {
+  if (id === ACADEMY_ID) return academy;
   const def = registry.get(id);
   if (!def) throw new Error(`Unknown level "${id}"`);
   return def;

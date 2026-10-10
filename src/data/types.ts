@@ -161,7 +161,7 @@ export interface RoadPointDef {
 
 export type SurfaceId = 'asphalt' | 'wetAsphalt' | 'dirt' | 'gravel' | 'rocky' | 'mud' | 'water' | 'grass';
 
-export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'heavyRain' | 'fog' | 'snow';
+export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'heavyRain' | 'fog' | 'denseFog' | 'snow';
 export type TimeOfDay = 'day' | 'dusk' | 'night';
 
 /** Conditions a mission can be driven in. The first entry of `LevelDef.conditions` is the default. */
@@ -193,7 +193,7 @@ export interface StopDef {
   who?: string;
 }
 
-export type HazardKind = 'landslide' | 'creature' | 'brokenTruck';
+export type HazardKind = 'landslide' | 'creature' | 'brokenTruck' | 'herd';
 
 export interface HazardDef {
   id: string;
@@ -203,6 +203,22 @@ export interface HazardDef {
   /** Seeds the layout, so a given mission always plays the same way. */
   seed: number;
   label: string;
+  /** creature: the friendly yeti (default) or a pale lantern ghost seen in the dark. */
+  variant?: 'yeti' | 'ghost';
+  /** Creatures and herds that react to the car: they set off as it approaches and hurry if it comes in fast. */
+  reactive?: boolean;
+  /** herd: how many animals cross together (default 4). */
+  count?: number;
+}
+
+/** A shallow puddle lying on the road: tyres splash and lose some grip, but it never stalls a car. */
+export interface PuddleDef {
+  /** Fraction (0..1) of the playable stretch. */
+  at: number;
+  /** Lateral offset from the centre line (m, + = right of travel). */
+  lateral: number;
+  /** Radius (m). */
+  radius: number;
 }
 
 export interface TrafficDef {
@@ -348,6 +364,8 @@ export interface LevelDef {
   surfaces?: { from: number; to: number; surface: SurfaceId }[];
   /** Surface of the shoulder next to the asphalt. */
   shoulder?: SurfaceId;
+  /** Shallow puddles on the road (training route and wet stretches). */
+  puddles?: PuddleDef[];
   /** Optional ford: the road dips under water between these fractions of the road. */
   ford?: { from: number; to: number; depth: number };
   terrain: {

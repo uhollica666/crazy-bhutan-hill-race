@@ -13,6 +13,8 @@ import { renderCampaignMap, renderMapPreview } from './CampaignMap';
 export interface UIActions {
   /** Main menu "Drive": open mission select. */
   openLevels(): void;
+  /** Starts (or replays) Route 0, the Driver's Academy. */
+  openAcademy(): void;
   /** Main menu "Garage": vehicles and upgrades without a mission. */
   openGarageFree(): void;
   /** Mission card chosen (unlocked): loads the level and opens the garage. */
@@ -249,6 +251,7 @@ export class UI {
         <header class="sheet-head">
           <button class="icon-btn" id="btn-levels-back" data-back type="button" aria-label="Back to menu">${ICONS.left}</button>
           <div><h2 id="levels-title">Choose a mission</h2><div class="muted" id="levels-progress"></div></div>
+          <button class="btn ghost" id="btn-academy" type="button" title="Route 0: learn the controls and the road"><span>Driver's Academy</span></button>
           <button class="btn ghost view-toggle" id="btn-levels-view" type="button" aria-pressed="false"><span>List view</span></button>
           <span class="wallet" id="levels-wallet" title="Driving credits"></span>
         </header>
@@ -465,6 +468,7 @@ export class UI {
     on('#btn-menu-settings', () => this.openSettings('menu'));
     on('#btn-menu-feedback', () => this.actions.openFeedback('menu'));
     on('#btn-credit', () => this.actions.openAbout());
+    on('#btn-academy', () => this.actions.openAcademy());
     on('#btn-levels-back', () => this.actions.back(), true);
     on('#btn-garage-back', () => this.actions.back(), true);
     on('#btn-veh-prev', () => this.cycleVehicle(-1));

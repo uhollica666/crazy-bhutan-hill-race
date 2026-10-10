@@ -2,6 +2,7 @@ import {
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
+  CircleGeometry,
   Color,
   DoubleSide,
   Float32BufferAttribute,
@@ -18,6 +19,7 @@ import {
 } from 'three';
 import type { Object3D } from 'three';
 import type { Course } from '../world/Course';
+import type { SurfaceId } from '../data/types';
 import { fbm2, lerp, smoothstep } from '../core/math';
 import { PAL } from './palette';
 
@@ -271,6 +273,92 @@ function makeRoadTexture(): CanvasTexture {
   return tex;
 }
 
+/** Tiling texture for an unpaved road surface: dirt with wheel ruts, loose gravel, broken rock or wet mud. */
+function makeUnpavedTexture(kind: 'dirt' | 'gravel' | 'rocky' | 'mud'): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 256;
+  const g = c.getContext('2d')!;
+  const base = { dirt: '#8c6f48', gravel: '#9a9084', rocky: '#6d675f', mud: '#4a3727' }[kind];
+  g.fillStyle = base;
+  g.fillRect(0, 0, 128, 256);
+  // Large soft patches so the surface is never one flat colour.
+  for (let i = 0; i < 46; i++) {
+    const v = kind === 'mud' ? 30 + Math.random() * 26 : 90 + Math.random() * 70;
+    const tint = kind === 'dirt' ? [v, v * 0.78, v * 0.5] : kind === 'mud' ? [v * 1.1, v * 0.85, v * 0.6] : [v, v * 0.97, v * 0.92];
+    g.fillStyle = 'rgba(' + tint.map((x) => Math.floor(x)).join(',') + ',0.35)';
+    g.beginPath();
+    g.ellipse(Math.random() * 128, Math.random() * 256, 8 + Math.random() * 18, 6 + Math.random() * 16, Math.random() * 3, 0, Math.PI * 2);
+    g.fill();
+  }
+  const specks = kind === 'gravel' ? 1700 : kind === 'rocky' ? 520 : 900;
+  for (let i = 0; i < specks; i++) {
+    const light = Math.random() < 0.5;
+    const v = light ? 150 + Math.random() * 90 : 30 + Math.random() * 40;
+    const size = kind === 'rocky' ? 3 + Math.random() * 7 : 1 + Math.random() * 3;
+    g.fillStyle = 'rgba(' + Math.floor(v) + ',' + Math.floor(v * 0.96) + ',' + Math.floor(v * 0.9) + ',' + (kind === 'mud' ? 0.25 : 0.6) + ')';
+    if (kind === 'rocky') {
+      const x = Math.random() * 128;
+      const y = Math.random() * 256;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + size, y + size * 0.3);
+      g.lineTo(x + size * 0.6, y + size);
+      g.lineTo(x - size * 0.4, y + size * 0.7);
+      g.closePath();
+      g.fill();
+    } else {
+      g.fillRect(Math.random() * 128, Math.random() * 256, size, size);
+    }
+  }
+  if (kind === 'dirt' || kind === 'mud') {
+    // Two wheel ruts and a grassy crown, so it reads as a track rather than a road.
+    g.fillStyle = kind === 'mud' ? 'rgba(20,14,9,0.55)' : 'rgba(60,42,24,0.42)';
+    g.fillRect(34, 0, 14, 256);
+    g.fillRect(82, 0, 14, 256);
+    if (kind === 'mud') {
+      g.fillStyle = 'rgba(150,175,190,0.35)';
+      for (let i = 0; i < 9; i++) g.fillRect(34 + Math.random() * 60, Math.random() * 256, 10 + Math.random() * 12, 3);
+    }
+    g.fillStyle = 'rgba(88,104,52,0.38)';
+    g.fillRect(58, 0, 12, 256);
+  }
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/** Soft ripple texture for puddles and fords. */
+function makeWaterTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#6a93a6';
+  g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 26; i++) {
+    g.strokeStyle = 'rgba(' + (190 + Math.random() * 60) + ',235,255,' + (0.18 + Math.random() * 0.25) + ')';
+    g.lineWidth = 1 + Math.random() * 1.5;
+    g.beginPath();
+    const x = Math.random() * 128;
+    const y = Math.random() * 128;
+    g.ellipse(x, y, 6 + Math.random() * 18, 2 + Math.random() * 4, 0, 0, Math.PI * 2);
+    g.stroke();
+  }
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  return tex;
+}
+
+const unpavedKind = (id: SurfaceId): 'dirt' | 'gravel' | 'rocky' | 'mud' | null =>
+  id === 'dirt' || id === 'grass' ? 'dirt' : id === 'gravel' ? 'gravel' : id === 'rocky' ? 'rocky' : id === 'mud' ? 'mud' : null;
+
 /** Asphalt ribbon, gravel shoulders and stone parapets, built from the same road samples physics uses. */
 export function buildRoadMeshes(course: Course): Group {
   const road = course.road;
@@ -302,8 +390,17 @@ export function buildRoadMeshes(course: Course): Group {
         uv[o * 2 + 1] = road.ss[i] / 10;
       }
     }
-    const idx: number[] = [];
+    // One index range per surface, so the ribbon is drawn as asphalt, dirt, gravel, rock or mud where the level says so.
+    const kinds: (string | null)[] = ['asphalt'];
+    const buckets: number[][] = [[]];
     for (let i = 0; i < n - 1; i++) {
+      const k = unpavedKind(course.roadSurfaceAtSample(i));
+      let bi = kinds.indexOf(k);
+      if (bi < 0) {
+        bi = kinds.push(k) - 1;
+        buckets.push([]);
+      }
+      const idx = buckets[bi];
       for (let c = 0; c < cols - 1; c++) {
         const a = i * cols + c;
         const b = a + 1;
@@ -315,17 +412,25 @@ export function buildRoadMeshes(course: Course): Group {
     const geo = new BufferGeometry();
     geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
     geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
-    geo.setIndex(idx);
-    geo.computeVertexNormals();
-    const mat = new MeshLambertMaterial({
-      map: makeRoadTexture(),
-      polygonOffset: true,
-      polygonOffsetFactor: -2,
-      polygonOffsetUnits: -2,
+    const all: number[] = [];
+    buckets.forEach((b, bi) => {
+      geo.addGroup(all.length, b.length, bi);
+      for (const v of b) all.push(v);
     });
-    const mesh = new Mesh(geo, mat);
+    geo.setIndex(all);
+    geo.computeVertexNormals();
+    const mats = kinds.map(
+      (k) =>
+        new MeshLambertMaterial({
+          map: k === 'asphalt' || k === null ? makeRoadTexture() : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud'),
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        }),
+    );
+    const mesh = new Mesh(geo, mats);
     mesh.receiveShadow = true;
-    mesh.name = 'asphalt';
+    mesh.name = 'road-surface';
     group.add(mesh);
   }
 
@@ -450,11 +555,39 @@ export function buildFordWater(course: Course): Mesh | null {
   geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
   geo.setIndex(idx);
   geo.computeVertexNormals();
+  // Ripples run along the road; the strip's UVs follow the road so the texture flows with the current.
+  const uv: number[] = [];
+  for (let i = 0; i <= steps; i++) uv.push(0, i * 0.5, 4, i * 0.5);
+  geo.setAttribute('uv', new Float32BufferAttribute(uv, 2));
   const mesh = new Mesh(
     geo,
-    new MeshLambertMaterial({ color: PAL.water, transparent: true, opacity: 0.7, side: DoubleSide, depthWrite: false }),
+    new MeshLambertMaterial({ map: makeWaterTexture(), color: 0xbfe0ee, emissive: 0x16303c, transparent: true, opacity: 0.74, side: DoubleSide, depthWrite: false }),
   );
   mesh.name = 'ford-water';
   mesh.renderOrder = 2;
   return mesh;
+}
+
+/** Shallow puddles lying on the road: flat rippled discs just above the surface (physics: Course.surfaceIdAt -> water). */
+export function buildPuddles(course: Course): Group | null {
+  if (!course.puddles.length) return null;
+  const group = new Group();
+  group.name = 'puddles';
+  const tex = makeWaterTexture();
+  const mat = new MeshLambertMaterial({ map: tex, color: 0xc4e2ee, emissive: 0x1a3440, transparent: true, opacity: 0.78, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+  const geo = new CircleGeometry(1, 28);
+  geo.rotateX(-Math.PI / 2);
+  const p = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
+  for (const pd of course.puddles) {
+    course.road.at(pd.s, p);
+    const x = p.x - p.tz * pd.lateral;
+    const z = p.z + p.tx * pd.lateral;
+    const mesh = new Mesh(geo, mat);
+    mesh.position.set(x, course.terrain.heightAt(x, z) + 0.1, z);
+    mesh.rotation.y = Math.atan2(p.tx, p.tz);
+    mesh.scale.set(pd.r, 1, pd.r * 1.35);
+    mesh.renderOrder = 2;
+    group.add(mesh);
+  }
+  return group;
 }

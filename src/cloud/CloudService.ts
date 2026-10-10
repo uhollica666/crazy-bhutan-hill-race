@@ -2,7 +2,7 @@ import type { SaveStore } from '../storage/SaveStore';
 import { generateName, validateDisplayName } from './names';
 import type { CloudMetaStore } from './meta';
 import { applyPayload, combine, decide, summarise, toPayload } from './payload';
-import type { CloudSnapshot, PayloadSummary, SyncPayload } from './payload';
+import type { CloudSnapshot, PayloadSummary, SyncDecision, SyncPayload } from './payload';
 import { CloudError } from './types';
 import type { CloudBackend, CloudUser, ConnectionState, SyncState } from './types';
 
@@ -422,7 +422,9 @@ export class CloudService {
       return false;
     }
     const base = this.meta.data.base && this.meta.data.uid === user.uid ? this.meta.data.base : null;
-    const d = decide(local, cloud, base);
+    const d0 = decide(local, cloud, base);
+    // After a developer reset the old cloud copy must neither come back by itself nor be overwritten by the empty one.
+    const d: SyncDecision = this.meta.data.resetHold && cloud && d0.kind !== 'inSync' ? { kind: 'conflict' } : d0;
     switch (d.kind) {
       case 'inSync':
         if (cloud) this.markSynced(cloud.payload, cloud.revision);
@@ -468,7 +470,7 @@ export class CloudService {
 
   private markSynced(payload: SyncPayload, revision: number): void {
     const now = Date.now();
-    this.meta.update({ base: { payload: structuredClone(payload), revision }, lastSyncedAt: now, uid: this.uid });
+    this.meta.update({ base: { payload: structuredClone(payload), revision }, lastSyncedAt: now, uid: this.uid, resetHold: false });
     this.set({ sync: 'synced', lastSyncedAt: now, message: null, conflict: null });
   }
 
@@ -491,6 +493,11 @@ export class CloudService {
   }
 
   // ------------------------------------------------------------------------------------------- conflict
+
+  /** Called by the developer reset: see CloudMeta.resetHold. Reads, writes and deletes nothing online. */
+  noteLocalReset(): void {
+    this.meta.update({ resetHold: true });
+  }
 
   /**
    * The player's choice when this device and the cloud have both changed (or the cloud copy is unreadable). A copy of

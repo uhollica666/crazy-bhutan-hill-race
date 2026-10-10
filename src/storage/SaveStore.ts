@@ -436,6 +436,16 @@ export class SaveStore {
     this.persist(this.data, reason);
   }
 
+  /**
+   * Developer reset: a brand-new player. Medals, records, credits, vehicles, upgrades, selection, history and stories are
+   * cleared; settings (volume, quality, controls) are kept. Nothing outside the game save is touched.
+   */
+  resetToFresh(): void {
+    const settings = this.data.settings;
+    this.data = { ...emptySave(this.defaultQuality), settings: { ...settings } };
+    this.persist(this.data, 'local');
+  }
+
   /** A deep copy of the current document (backups, comparisons). */
   snapshot(): SaveData {
     return structuredClone(this.data);
