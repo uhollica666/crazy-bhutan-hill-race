@@ -44,7 +44,8 @@ export interface UIActions {
   garageView(cmd: { orbit?: [number, number]; zoom?: number; turn?: number; reset?: boolean; view?: 'front' | 'rear' | 'side' }): void;
   readBriefing(): void;
   toggleDrive(): void;
-  requestService(kind: ServiceKind): void;
+  /** Pit-stop service of the given kind (null = whichever is on offer); with a guest at the kerb it checks their ID instead. */
+  requestService(kind: ServiceKind | null): void;
   openAbout(): void;
   /** Campaign-complete screen: go back to the mission map. */
   campaignContinue(): void;
@@ -401,14 +402,14 @@ export class UI {
             <div class="controls-grid" data-help-pane="touch" hidden>
               <span>Steer</span><span>Slide the bar or turn the wheel with one thumb; release to centre</span>
               <span>GAS / BRAKE</span><span>Hold with the other thumb. BRAKE also reverses once stopped</span>
-              <span>HUD buttons</span><span>4x4, pit-stop service and recover appear on screen when they apply</span>
+              <span>HUD buttons</span><span>4x4, pit-stop service, Check ID and recover appear on screen when they apply</span>
               <span>Layout</span><span>Choose the steering style, a left-handed layout and larger controls here and under Accessibility</span>
             </div>
             <div class="controls-grid" data-help-pane="pad" hidden>
               <span>Left stick</span><span>Steer</span>
               <span>RT / LT</span><span>Gas / brake (and reverse)</span>
               <span>X</span><span>Switch 4x2 / 4x4</span>
-              <span>Bumpers</span><span>Pit-stop service</span>
+              <span>Bumpers</span><span>Pit-stop service, and checking a guest's ID</span>
               <span>Y</span><span>Recover to the last checkpoint</span>
               <span>Start</span><span>Pause</span>
               <span>D-pad, A, B</span><span>Move, confirm and go back in menus</span>
@@ -486,6 +487,7 @@ export class UI {
     on('#btn-drive', () => this.actions.toggleDrive());
     on('#btn-refuel', () => this.actions.requestService('refuel'));
     on('#btn-repair', () => this.actions.requestService('repair'));
+    on('#btn-check-id', () => this.actions.requestService(null));
     on('#btn-resume', () => this.actions.resume());
     on('#btn-restart', () => this.actions.restart());
     on('#btn-pause-garage', () => this.actions.openGarage());

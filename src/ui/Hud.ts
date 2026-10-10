@@ -39,6 +39,8 @@ export interface HudState {
   conditions: string;
   /** Pit-stop on offer where the car is stopped, or the one in progress. */
   service: { kinds: ServiceKind[]; active: ServiceKind | null; progress: number } | null;
+  /** A guest at the kerb whose ID can be checked against the manifest (shows the Check ID button; E / a gamepad bumper do the same). */
+  idCheck: boolean;
   /** Context line (e.g. "Stop in the yellow zone"), or ''. */
   prompt: string;
   rival: { gap: number; label: string } | null;
@@ -59,6 +61,8 @@ const FUEL_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true" class="gi"><path d="M5 20V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15zM15 9h2a2 2 0 0 1 2 2v6a1.5 1.5 0 0 1-3 0v-3h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M7.5 6h5v4h-5z" fill="currentColor"/></svg>';
 const WRENCH_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true" class="gi"><path d="M14.5 4a5 5 0 0 0-4.6 6.9L3.5 17.3a1.9 1.9 0 0 0 2.7 2.7l6.4-6.4A5 5 0 0 0 19.5 9l-3 3-2.8-.7L13 8.5l3-3A5 5 0 0 0 14.5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+const ID_ICON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" class="gi"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="11" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.8 16.2c.6-1.8 1.9-2.6 3.2-2.6s2.6.8 3.2 2.6M14.5 10h4M14.5 13.5h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
 const GUEST_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true" class="gi"><circle cx="9" cy="8" r="3.2" fill="currentColor"/><path d="M3 20c0-3.6 2.7-6 6-6s6 2.4 6 6z" fill="currentColor"/><circle cx="17" cy="9" r="2.4" fill="currentColor" opacity=".7"/><path d="M15.5 14.4c3 0 5.5 1.9 5.5 5.6h-4.2" fill="currentColor" opacity=".7"/></svg>';
 const ENGINE_ICON =
@@ -145,6 +149,7 @@ export function hudMarkup(): string {
       <span class="prompt-btns">
         <button class="btn" id="btn-refuel" type="button" hidden>${FUEL_ICON}<span>Refuel (E)</span></button>
         <button class="btn" id="btn-repair" type="button" hidden>${WRENCH_ICON}<span>Repair (E)</span></button>
+        <button class="btn primary" id="btn-check-id" type="button" title="Check this guest's ID against the manifest (E, or a gamepad bumper)" hidden>${ID_ICON}<span>Check ID (E)</span></button>
       </span>
       <div class="svc-bar" id="svc-bar" hidden><i id="svc-fill"></i></div>
     </div>
@@ -343,6 +348,7 @@ export class Hud {
     const kinds = h.service?.kinds ?? [];
     this.hidden('#btn-refuel', !kinds.includes('refuel'));
     this.hidden('#btn-repair', !kinds.includes('repair'));
+    this.hidden('#btn-check-id', !h.idCheck);
     this.hidden('#svc-bar', !h.service?.active);
     this.width('#svc-fill', `${Math.round((h.service?.progress ?? 0) * 100)}%`);
 

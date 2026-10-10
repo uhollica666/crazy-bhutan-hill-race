@@ -43,6 +43,8 @@ export interface Objective {
 export const STOP_RADIUS = 9;
 /** Pickup boarding time (s) while stopped inside the zone. */
 export const BOARD_SECONDS = 2.4;
+/** Boarding speed of a guest whose ID has not been checked yet (1 = normal). */
+export const UNCHECKED_BOARDING_RATE = 0.5;
 const STOP_SPEED = 1.6;
 
 /**
@@ -143,7 +145,10 @@ export class StopManager {
         if (inZone && stopped) {
           boardingHere = st;
           st.state = 'active';
-          st.progress = Math.min(1, st.progress + dt / BOARD_SECONDS);
+          // A guest who still has to be checked against the manifest hesitates at the door, which leaves time to check the ID
+          // (a button tap or a bumper press is as quick as E, but not instant).
+          const rate = st.def.clue && !st.verified ? UNCHECKED_BOARDING_RATE : 1;
+          st.progress = Math.min(1, st.progress + (dt * rate) / BOARD_SECONDS);
           if (st.progress >= 1) {
             st.state = 'done';
             if (st.def.kind === 'pickup') {

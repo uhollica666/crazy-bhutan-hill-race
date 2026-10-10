@@ -242,6 +242,7 @@ export class Game {
     party: 0,
     conditions: '',
     service: null,
+    idCheck: false,
     prompt: '',
     rival: null,
     headlights: false,
@@ -2281,6 +2282,7 @@ export class Game {
     const halfWidth = rt.course.road.halfWidth;
     const act = rt.stops.active;
     h.service = null;
+    h.idCheck = false;
     h.prompt = '';
     if (act) {
       h.service = { kinds: [act.kind], active: act.kind, progress: act.stop.progress };
@@ -2305,8 +2307,15 @@ export class Game {
       return;
     }
     const chk = rt.stops.checkHere(rt.s, rt.lateral, halfWidth);
-    if (chk && chk.state !== 'active') {
-      h.prompt = speed > 1.6 ? 'Someone is waiting here: stop to check their ID (E)' : 'Guest at the kerb: press E to check their ID against the manifest';
+    if (chk) {
+      // The same check is the Check ID button (touch and mouse), E, or a gamepad bumper, available while they wait and while they board.
+      h.idCheck = speed <= 2.4;
+      h.prompt =
+        chk.state === 'active'
+          ? `Guest boarding... ${Math.round(chk.progress * 100)}%. Check their ID now`
+          : speed > 2.4
+            ? 'Someone is waiting here: stop to check their ID'
+            : 'Guest at the kerb: check their ID against the manifest';
       return;
     }
     const gate = rt.stops.gate;
