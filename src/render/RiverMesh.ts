@@ -80,11 +80,22 @@ export function makeFlowTexture(): CanvasTexture {
 export class RiverMesh {
   readonly group = new Group();
   private readonly tex: CanvasTexture;
+  private readonly wave = {value:0};
+  private readonly detail = {value:1};
+  applyQuality(detail:number):void {this.detail.value=detail;}
 
   constructor(course: Course) {
     this.group.name = 'rivers';
     this.tex = makeFlowTexture();
     const mat = new MeshStandardMaterial({ roughness: 0.24, metalness: 0.04, map: this.tex, vertexColors: true, transparent: true, opacity: 0.9, side: DoubleSide, depthWrite: false });
+    mat.onBeforeCompile=shader=>{
+      shader.uniforms.riverTime=this.wave;shader.uniforms.riverDetail=this.detail;
+      shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nuniform float riverTime;\nuniform float riverDetail;').replace('#include <begin_vertex>',`#include <begin_vertex>
+        transformed.y += (sin(position.x*1.4+riverTime*1.8)+sin(position.z*2.1-riverTime*2.4))*0.008*riverDetail;`);
+      shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform float riverTime;\nuniform float riverDetail;').replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+        normal = normalize(normal + vec3(sin(vViewPosition.x*3.0+riverTime*1.7)*0.055*riverDetail,cos(vViewPosition.y*4.0-riverTime*2.1)*0.035*riverDetail,0.0));`);
+    };
+    mat.customProgramCacheKey=()=> 'river-ripple-v1';
     const terrain = course.terrain;
     const rng = mulberry32(course.level.terrain.seed * 7 + 3);
     const rocks: Matrix4[] = [];
@@ -174,6 +185,7 @@ export class RiverMesh {
 
   /** Scrolls the surface pattern along the current. */
   update(time: number): void {
+    this.wave.value=time;
     this.tex.offset.y = -time * FLOW;
   }
 }

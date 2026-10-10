@@ -1,3 +1,4 @@
+import { actorGround } from './grounding';
 import { createCreatureArt } from './creatureArt';
 import type { CreatureArt } from './creatureArt';
 import {
@@ -425,7 +426,9 @@ export class MissionView {
           for (let i = 0; i < n; i++) {
             // Little hop of impatience while waiting; wave when the car is close.
             const bob = Math.abs(Math.sin(time * 3 + i * 1.7)) * 0.08;
-            this.v3(v.px + Math.cos(v.heading) * (i - (n - 1) / 2) * 0.85, v.baseY + bob, v.pz - Math.sin(v.heading) * (i - (n - 1) / 2) * 0.85);
+            const x=v.px+Math.cos(v.heading)*(i-(n-1)/2)*0.85;
+            const z=v.pz-Math.sin(v.heading)*(i-(n-1)/2)*0.85;
+            this.v3(x,actorGround(this.rt.course,x,z,v.heading)+bob,z);
             this.q.setFromAxisAngle(UP, v.heading);
             this.m4.compose(this.pos, this.q, this.scl);
             v.people.setMatrixAt(i, this.m4);
@@ -475,7 +478,7 @@ export class MissionView {
         if (c) {
           cr.art.update(time, c.shrug);
           const bob = cr.ghost ? 0.5 + Math.sin(time * 2.2) * 0.25 : Math.abs(Math.sin(time * 5)) * 0.06;
-          cr.mesh.position.set(c.x, this.ground(c.x, c.z) + bob, c.z);
+          cr.mesh.position.set(c.x, actorGround(this.rt.course,c.x,c.z,c.heading,0.32,0.27) + bob, c.z);
           cr.mesh.rotation.y = c.heading + Math.PI;
           cr.mesh.scale.setScalar(0.62);
           cr.bubble.position.set(c.x, cr.mesh.position.y + 3.6, c.z);
@@ -487,7 +490,7 @@ export class MissionView {
         for (let i = 0; i < n; i++) {
           const a = herd![i];
           const sway = a.frozen || a.across ? 0 : Math.sin(time * 4 + i * 1.9) * 0.05;
-          this.v3(a.x, this.ground(a.x, a.z) + sway, a.z);
+          this.v3(a.x, actorGround(this.rt.course,a.x,a.z,a.heading,0.35,0.72) + sway, a.z);
           this.q.setFromAxisAngle(UP, a.heading + Math.PI);
           this.scl.setScalar(1.05 + (i % 3) * 0.06);
           this.m4.compose(this.pos, this.q, this.scl);

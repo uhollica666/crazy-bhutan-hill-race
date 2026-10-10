@@ -51,16 +51,15 @@ export function personGeometry(coat: number, skin: number, hair: number, hat: nu
   const g = new GeoBuilder();
   g.add(humanBase(coat, skin, hair), 0xffffff, {}, true);
   // Eyes, collar and a jacket fastening give readable faces at pickup distance.
-  for (const x of [-0.045,0.045]) g.sphere(0.016,0x242829,{x,y:1.63,z:-0.107},6);
   for (const side of [-1,1]) g.box(0.055,0.09,0.016,0xe8ddd0,{x:side*0.035,y:1.42,z:-0.13,rz:side*0.3});
   g.box(0.014,0.37,0.014,0x8b9395,{y:1.21,z:-0.145});
   if (hat !== null) {
-    g.cylinder(0.22, 0.22, 0.025, hat, 12, { y: 1.74 });
-    g.cylinder(0.12, 0.15, 0.13, hat, 10, { y: 1.8 });
+    g.cylinder(0.22, 0.22, 0.025, hat, 12, { y: 1.79 });
+    g.cylinder(0.12, 0.15, 0.13, hat, 10, { y: 1.86 });
   }
   if (pack !== null) {
     g.sphere(0.19, pack, { y: 1.14, z: 0.2, sx: 0.8, sy: 1.3, sz: 0.6 }, 8);
-    for (const side of [-1, 1]) g.box(0.035, 0.37, 0.025, 0x343536, { x: side * 0.13, y: 1.17, z: -0.145 });
+    for (const side of [-1, 1]) g.box(0.022, 0.34, 0.014, 0x343536, { x: side * 0.13, y: 1.17, z: -0.145 });
   }
   return g.build();
 }

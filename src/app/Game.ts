@@ -37,7 +37,7 @@ import { GameRenderer } from '../render/GameRenderer';
 import { MissionView, Rain } from '../render/MissionView';
 import { assets, loadVehicleAsset, peekVehicleAsset } from '../render/assets';
 import { disposeEnvKit, loadEnvKit } from '../render/envKit';
-import { QUALITY } from '../render/quality';
+import { telemetryQuality } from '../render/quality';
 import { VehicleModel } from '../render/VehicleModel';
 import { GarageScene } from '../render/GarageScene';
 import { World3D } from '../render/World3D';
@@ -327,8 +327,8 @@ export class Game {
       context: () => ({
         appVersion: APP_VERSION,
         platform: platformOf(window),
-        qualityTier: this.store.settings.quality,
-        perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, this.store.settings.quality),
+        qualityTier: telemetryQuality(this.store.settings.quality),
+        perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, telemetryQuality(this.store.settings.quality)),
       }),
     });
     this.leaderboards = new Leaderboards(this.cloud, this.store, storage, APP_VERSION);
@@ -366,7 +366,7 @@ export class Game {
           if (c.zoom) this.garage?.zoom(c.zoom);
           if (c.turn) this.garage?.turn(c.turn);
           if (c.reset) this.garage?.resetView();
-          if (c.view) this.garage?.view(c.view);
+          if (c.view) this.garage?.setView(c.view);
         },
         readBriefing: () => this.readBriefing(),
         toggleDrive: () => this.toggleDrive(),
@@ -505,8 +505,8 @@ export class Game {
     this.touchDetected = window.matchMedia?.('(pointer: coarse)').matches ?? false;
     this.bindEvents();
     this.applySettings({}, true);
-    if (!opts.fixedResolution) {
-      const target = this.store.settings.quality === 'low' ? 30 : 45;
+    if (!opts.fixedResolution && this.store.settings.quality !== 'max') {
+      const target = this.renderer.level === 'low' ? 30 : 45;
       this.adaptive = new AdaptiveResolution(target);
     }
 
@@ -547,8 +547,8 @@ export class Game {
     this.telemetry.track({
       name: 'game_session_started',
       platform: platformOf(window),
-      qualityTier: this.store.settings.quality,
-      perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, this.store.settings.quality),
+      qualityTier: telemetryQuality(this.store.settings.quality),
+      perfTier: perfTierOf(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory, telemetryQuality(this.store.settings.quality)),
     });
   }
 
@@ -983,17 +983,17 @@ export class Game {
     const s = Object.keys(patch).length ? this.store.updateSettings(patch) : this.store.settings;
     this.audio.setLevels(s);
     if (initial || s.quality !== before) {
-      const q = QUALITY[s.quality];
       this.renderer.setQuality(s.quality);
+      const q = this.renderer.profile;
       this.world?.applyQuality(q);
       this.model?.setBlobVisible(!q.shadows);
       this.model?.setLowDetail(q.terrainCoarse);
       this.rig.setFar(q.cameraFar);
       this.effects.particles.density = q.particleDensity;
       this.effects.skids.mesh.visible = q.skidMarks;
-      this.adaptive = this.opts.fixedResolution
+      this.adaptive = this.opts.fixedResolution || s.quality === 'max'
         ? null
-        : new AdaptiveResolution(s.quality === 'low' ? 30 : 45);
+        : new AdaptiveResolution(this.renderer.level === 'low' ? 30 : 45);
       this.renderer.setResolutionScale(1);
       this.onResize();
     }

@@ -1,6 +1,6 @@
 # Human base provenance
 
-- Author: Quaternius, Universal Base Characters — Standard, Superhero Male FullBody.
+- Author: Quaternius, Universal Base Characters â€” Standard, Superhero Male FullBody.
 - Primary source/license: https://quaternius.com/packs/universalbasecharacters.html (CC0 1.0 Universal).
 - Free pack: https://quaternius.itch.io/universal-base-characters
 - Downloaded source GLB: https://github.com/programasweights/avatar/blob/main/public/assets/character.glb

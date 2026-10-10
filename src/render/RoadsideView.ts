@@ -1,3 +1,4 @@
+import { actorGround } from './grounding';
 import { humanBase, crowdMaterial } from './people';
 import {
   BoxGeometry,
@@ -276,7 +277,7 @@ export class RoadsideView {
       arm.add(armMesh);
       arm.position.set(0.28, 1.5, 0);
       group.add(arm);
-      group.position.set(x, course.terrain.heightAt(x, z), z);
+      group.position.set(x, actorGround(course,x,z), z);
       group.rotation.y = Math.atan2(pl.side * -this.pose.tz, pl.side * this.pose.tx);
       scene.add(group);
       this.officers.push({ group, arm, s });
@@ -311,7 +312,7 @@ export class RoadsideView {
         red.position.set(0, 3.05, -0.17 * dir);
         green.position.set(0, 2.5, -0.17 * dir);
         group.add(pole, box, red, green);
-        group.position.set(x, course.terrain.heightAt(x, z), z);
+        group.position.set(x, actorGround(course,x,z), z);
         // The lamps face the traffic arriving at this end.
         group.rotation.y = Math.atan2(-this.pose.tx * dir, -this.pose.tz * dir) + Math.PI;
         scene.add(group);
@@ -664,7 +665,7 @@ export class RoadsideView {
         // Walkers face along the road; people standing face the road.
         const face = w.idle ? Math.atan2(-this.pose.tz * Math.sign(w.lat), this.pose.tx * Math.sign(w.lat)) : Math.atan2(-this.pose.tx * dir, -this.pose.tz * dir);
         this.q.setFromAxisAngle(UP, face);
-        this.m4.compose(this.pos.set(x, this.course.terrain.heightAt(x, z) + bob, z), this.q, this.scl.setScalar(w.scale));
+        this.m4.compose(this.pos.set(x, actorGround(this.course,x,z,face)+bob, z), this.q, this.scl.setScalar(w.scale));
         mesh.setMatrixAt(i, this.m4);
       }
       this.scl.setScalar(1);
@@ -683,7 +684,7 @@ export class RoadsideView {
         const x = gz.x + gz.nx * gz.off;
         const z = gz.z + gz.nz * gz.off;
         this.q.setFromAxisAngle(UP, gz.rot + Math.sin(time * 0.4 + i) * 0.05);
-        this.m4.compose(this.pos.set(x, this.course.terrain.heightAt(x, z), z), this.q, this.scl.setScalar(gz.scale));
+        this.m4.compose(this.pos.set(x, actorGround(this.course,x,z,gz.rot,0.35,0.72), z), this.q, this.scl.setScalar(gz.scale));
         this.yakMesh.setMatrixAt(i, this.m4);
       }
       this.scl.setScalar(1);
@@ -705,7 +706,7 @@ export class RoadsideView {
           const dz = this.pose.tx * p.dir;
           this.q.setFromAxisAngle(UP, Math.atan2(-dx, -dz));
           const bob = p.state === 'cross' ? Math.abs(Math.sin(time * 7 + i)) * 0.07 : 0;
-          this.m4.compose(this.pos.set(x, this.course.terrain.heightAt(x, z) + bob, z), this.q, this.scl);
+          this.m4.compose(this.pos.set(x, actorGround(this.course,x,z,Math.atan2(-dx,-dz))+bob, z), this.q, this.scl);
           this.pedMesh.setMatrixAt(i++, this.m4);
         }
       }

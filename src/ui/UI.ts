@@ -285,7 +285,7 @@ export class UI {
             <div class="veh-name"><h3 id="veh-name"></h3><div class="veh-dots" id="veh-dots" aria-hidden="true"></div></div>
             <button class="icon-btn" id="btn-veh-next" type="button" aria-label="Next vehicle">${ICONS.right}</button>
           </div>
-          <p class="veh-blurb" id="veh-blurb"></p><details class="cosmetic-panel" open><summary>Personalize your vehicle</summary><div id="veh-cosmetics"></div><small>Cosmetics only · saved on this device</small></details>
+          <p class="veh-blurb" id="veh-blurb"></p><details class="cosmetic-panel" open><summary>Personalize your vehicle</summary><div id="veh-cosmetics"></div><small>Cosmetics only Â· saved on this device</small></details>
           <div class="stats" id="veh-stats"></div>
           <div class="veh-facts" id="veh-facts"></div>
           <div class="veh-status" id="veh-status" aria-live="polite"></div>
@@ -372,8 +372,8 @@ export class UI {
           </div>
           <div class="tab-panel" id="pane-graphics" role="tabpanel" aria-labelledby="tab-graphics" hidden>
             <div class="field"><label for="set-quality">Quality</label>
-              <select id="set-quality"><option value="low">Low (best for phones)</option><option value="medium">Medium</option><option value="high">High</option></select></div>
-            <p class="hint-text">Low drops shadows and thins the scenery, terrain, rain and effects, and lowers the render resolution. Anti-aliasing applies on the next launch.</p>
+              <select id="set-quality"><option value="auto">Auto (recommended)</option><option value="low">Low (best for phones)</option><option value="medium">Medium</option><option value="high">High</option><option value="max">Max (full resolution, heavy GPU load)</option></select></div>
+            <p class="hint-text">Low drops shadows and thins the scenery, terrain, rain and effects, and lowers the render resolution. Auto chooses a tier from available hardware and adapts resolution during play. Max enables 4096px shadows, more weather particles and nearby lights, and keeps full render resolution. Anti-aliasing applies on the next launch.</p>
           </div>
           <div class="tab-panel" id="pane-controls" role="tabpanel" aria-labelledby="tab-controls" hidden>
             <div class="field"><label for="set-touch">On-screen touch controls</label>

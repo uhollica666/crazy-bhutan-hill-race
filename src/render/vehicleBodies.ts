@@ -1,3 +1,4 @@
+import { cityBlock } from './architecture';
 import type { BufferGeometry } from 'three';
 import type { VehicleDef } from '../data/types';
 import { GeoBuilder } from './geo';
@@ -159,39 +160,7 @@ export function stationGeometry(): BufferGeometry {
 }
 
 /** A terrace of three shopfronts in Bhutanese style: whitewashed, painted wooden windows, shingle roof. */
-export function shopRowGeometry(): BufferGeometry {
-  const g = new GeoBuilder();
-  const colours = [PAL.maroon, 0x2e7d9a, PAL.gold, 0x4f8a4a];
-  const W = 24;
-  const D = 8;
-  g.box(W, 0.6, D + 0.6, PAL.rock, { y: 0.3 });
-  g.box(W, 8.4, D, PAL.whitewash, { y: 4.8 });
-  g.box(W + 0.3, 0.45, D + 0.3, PAL.woodDark, { y: 4.3 });
-  g.box(W + 0.3, 0.4, D + 0.3, PAL.woodDark, { y: 8.8 });
-  for (let i = 0; i < 3; i++) {
-    const x = -8 + i * 8;
-    const c = colours[i % colours.length];
-    g.box(3.6, 2.6, 0.16, c, { x, y: 1.9, z: D / 2 + 0.06 }); // shop front
-    g.box(3.0, 2.0, 0.2, 0x2a2220, { x, y: 1.8, z: D / 2 + 0.07 });
-    g.box(4.2, 0.5, 0.3, 0xf6c452, { x, y: 3.4, z: D / 2 + 0.12 }); // sign
-    for (const wx of [-2, 0, 2]) {
-      g.box(1.3, 1.5, 0.14, PAL.wood, { x: x + wx, y: 6.0, z: D / 2 + 0.05 });
-      g.box(1.0, 1.15, 0.2, PAL.windowDark, { x: x + wx, y: 6.0, z: D / 2 + 0.06 });
-      g.box(1.5, 0.2, 0.16, c, { x: x + wx, y: 6.85, z: D / 2 + 0.1 });
-    }
-  }
-  const alpha = 0.3;
-  g.box(W + 2, 0.28, D / 2 + 1.4, PAL.roofSlate, { y: 9.9, z: D / 4 + 0.5, rx: alpha });
-  g.box(W + 2, 0.28, D / 2 + 1.4, PAL.roofSlate, { y: 9.9, z: -D / 4 - 0.5, rx: -alpha });
-  g.box(W + 2.1, 0.32, 0.5, PAL.roofSlate, { y: 10.7 });
-  for (let i = 0; i < 3; i++) {
-    const x = -8 + i * 8;
-    for (const wx of [-2, 0, 2]) timberWindow(g, x + wx, 6, D / 2 + 0.23, 1.3, 1.5);
-    for (const dx of [-1.5, 0, 1.5]) g.box(0.08, 2.05, 0.055, PAL.wood, { x: x + dx, y: 1.8, z: D / 2 + 0.2 });
-    g.box(4.2, 0.09, 1.5, colours[i], { x, y: 3.1, z: D / 2 + 0.75, rx: 0.2 });
-  }
-  return g.build();
-}
+export const shopRowGeometry = (): BufferGeometry => cityBlock('shops');
 
 export function clockTowerGeometry(): BufferGeometry {
   const g = new GeoBuilder();

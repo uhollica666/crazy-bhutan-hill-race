@@ -211,7 +211,7 @@ export class VehicleModel {
   setReflection(k: number): void {
     for (const m of this.mats) {
       const std = m as MeshStandardMaterial;
-      if (std.isMeshStandardMaterial && std.envMap) std.envMapIntensity = 0.5 * k;
+      if (std.isMeshStandardMaterial && std.envMap) std.envMapIntensity = 0.85 * k;
     }
   }
 

@@ -16,7 +16,7 @@ for obj in list(bpy.context.scene.objects):
     bpy.context.view_layer.update()
 positions=[];normals=[];regions=[]
 for obj in list(bpy.context.scene.objects):
- if obj.type!='MESH':continue
+ if obj.type!='MESH' or not any(mod.type=='ARMATURE' for mod in obj.modifiers):continue
  bpy.context.view_layer.objects.active=obj
  for mod in list(obj.modifiers):bpy.ops.object.modifier_apply(modifier=mod.name)
  dec=obj.modifiers.new('Crowd topology','DECIMATE');dec.ratio=0.24
@@ -29,8 +29,10 @@ for obj in list(bpy.context.scene.objects):
    positions.extend([round(-v.x,5),round(v.z,5),round(v.y,5)])
    normals.extend([round(-n.x,5),round(n.z,5),round(n.y,5)])
    # Garment/skin IDs are semantic, so crowd palettes can vary independently.
-   region=0 if v.z>1.48 or (abs(v.x)>0.29 and v.z<1.06) else 1 if v.z>0.87 else 2 if v.z>0.13 else 3
-   if v.z>1.68:region=4
+   region=0 if v.z>1.55 or (abs(v.x)>0.29 and v.z<1.0) else 1 if v.z>0.9 else 2 if v.z>0.13 else 3
+   if v.z>1.74 and v.y>-0.085:region=4
+   if obj.name=='Eyes':region=5
+   if obj.name=='Eyebrows':region=4
    regions.append(region)
 out=ROOT/'src/render/peopleBase.json'
 out.write_text(json.dumps(dict(position=positions,normal=normals,region=regions),separators=(',',':')))

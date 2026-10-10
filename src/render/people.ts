@@ -3,7 +3,7 @@ import raw from './peopleBase.json?raw';
 const base = JSON.parse(raw) as {position:number[];normal:number[];region:number[]};
 /** CC0 Quaternius base, posed and simplified offline. Semantic garment colours preserve skin in crowds. */
 export function humanBase(coat:number, skin:number, hair:number, noSignalArm: boolean | 'both'=false): BufferGeometry {
-  const palette=[skin,coat,0x303948,0x22272c,hair].map(c=>new Color(c));
+  const palette=[skin,coat,0x303948,0x22272c,hair,0x242829].map(c=>new Color(c));
   const p:number[]=[],n:number[]=[],colors:number[]=[];
   for(let i=0;i<base.region.length;i+=3) {
     if(noSignalArm && [0,1,2].some(j=>(noSignalArm === 'both' ? Math.abs(base.position[(i+j)*3]) : base.position[(i+j)*3])>0.23 && base.position[(i+j)*3+1]>0.76 && base.position[(i+j)*3+1]<1.48)) continue;

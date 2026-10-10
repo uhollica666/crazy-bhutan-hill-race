@@ -1,3 +1,4 @@
+import { branch, foliage } from './organic';
 import type { BufferGeometry } from 'three';
 import { Color } from 'three';
 import { GeoBuilder } from './geo';
@@ -15,14 +16,14 @@ const shade = (hex: number, k: number): number => {
 /** Broadleaf tree: three lobes of foliage (willow / poplar / maple feel via the level's leaf colour). */
 export function broadleafGeometry(leaf: number): BufferGeometry {
   const g = new GeoBuilder();
-  g.cylinder(0.16, 0.3, 3.8, PAL.bark, 7, { y: 1.9 });
-  for (let i = 0; i < 7; i++) {
-    const a = i * Math.PI * 2 / 7, y = 3.2 + i % 3 * 0.42;
-    const x = Math.cos(a) * 1.15, z = Math.sin(a) * 1.15;
-    g.cylinder(0.05, 0.09, 1.7, PAL.bark, 6, { x: x * 0.5, y: y - 0.3, z: z * 0.5, rz: 0.9, ry: -a });
-    g.sphere(1.35, shade(leaf, 0.85 + i % 3 * 0.12), { x, y: y + 0.6, z, sy: 0.95 }, 7);
+  branch(g,[0,0,0],[0.1,3.9,0],0.26,PAL.bark);
+  for (let i=0;i<8;i++) {
+    const a=i*2.399,reach=0.9+(i%3)*0.36,y=3.1+(i%3)*0.58;
+    const x=Math.cos(a)*reach,z=Math.sin(a)*reach;
+    branch(g,[0.06,2.4+i%2*0.6,0],[x,y,z],0.075,PAL.bark);
+    for(let j=0;j<3;j++)g.add(foliage(0.88,shade(leaf,0.93+(i%3)*0.06),i*3+j),0xffffff,{x:x+Math.cos(j*2.1+a)*0.45,y:y+0.45+j%2*0.38,z:z+Math.sin(j*2.1+a)*0.45,sy:0.87},true);
   }
-  g.sphere(1.65, leaf, { y: 4.6, sy: 0.9 }, 8);
+  g.add(foliage(1.1,leaf,13),0xffffff,{y:5.2,sy:0.82},true);
   return g.build();
 }
 

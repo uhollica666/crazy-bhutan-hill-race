@@ -6,7 +6,7 @@ Developer: Novarah Interactives, a subdivision of Novarah Technologies. Setting,
 
 Stage 6V adds a CC0 Quaternius human base for tourists, pedestrians, police, crowds and driver/creature authoring. Vehicles, other creatures, environment art, materials and synthesized sounds in this remake remain project-authored. Source provenance and the supplied license are recorded in [assets-src/characters/README.md](assets-src/characters/README.md) and [QUATERNIUS-LICENSE.txt](assets-src/characters/QUATERNIUS-LICENSE.txt).
 
-The human source is Quaternius **Universal Base Characters — Standard / Superhero Male FullBody**, accessed 10 October 2026. [Primary author page](https://quaternius.com/packs/universalbasecharacters.html), [free distribution](https://quaternius.itch.io/universal-base-characters), [redistributed source GLB](https://github.com/programasweights/avatar/blob/main/public/assets/character.glb). License: [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/). Source pose, geometry and rig were adapted and simplified by the project; no third-party animation clips were imported.
+The human source is Quaternius **Universal Base Characters â€” Standard / Superhero Male FullBody**, accessed 10 October 2026. [Primary author page](https://quaternius.com/packs/universalbasecharacters.html), [free distribution](https://quaternius.itch.io/universal-base-characters), [redistributed source GLB](https://github.com/programasweights/avatar/blob/main/public/assets/character.glb). License: [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/). Source pose, geometry and rig were adapted and simplified by the project; no third-party animation clips were imported.
 
 ## Table
 

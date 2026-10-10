@@ -198,13 +198,22 @@ export function buildTerrainMesh(course: Course): Group {
           fine.push(a, c, b, b, c, d);
         }
       }
-      for (let j = tj; j + 2 <= jMax; j += 2) {
-        for (let i = ti; i + 2 <= iMax; i += 2) {
-          const a = i + j * t.nx;
-          const b = a + 2;
-          const c = a + 2 * t.nx;
-          const d = c + 2;
-          coarse.push(a, c, b, b, c, d);
+      for (let j = tj; j < jMax; j += 2) {
+        for (let i = ti; i < iMax; i += 2) {
+          const sx=Math.min(2,iMax-i),sz=Math.min(2,jMax-j);
+          let nearRoad=sx<2||sz<2;
+          for(let dz=0;dz<=sz;dz++)for(let dx=0;dx<=sx;dx++) {
+            const k=i+dx+(j+dz)*t.nx;
+            if(t.roadDist[k]<t.flatHalf+t.blend+t.cell*2||(t.riverDist&&t.riverDist[k]<20))nearRoad=true;
+          }
+          // Keep collision-matching terrain beside roads and river banks even on Low.
+          if(nearRoad)for(let dz=0;dz<sz;dz++)for(let dx=0;dx<sx;dx++) {
+            const a=i+dx+(j+dz)*t.nx,b=a+1,c=a+t.nx,d=c+1;
+            coarse.push(a,c,b,b,c,d);
+          } else {
+            const a=i+j*t.nx,b=a+2,c=a+2*t.nx,d=c+2;
+            coarse.push(a,c,b,b,c,d);
+          }
         }
       }
       const geo = new BufferGeometry();
@@ -656,10 +665,10 @@ export function buildRoadMeshes(course: Course): Group {
     geo.setAttribute('color', new Float32BufferAttribute(col, 3));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const mesh = new Mesh(
-      geo,
-      new MeshLambertMaterial({ vertexColors: true, flatShading: true, side: DoubleSide }),
-    );
+    const relief=surfaceRelief('rocky');
+    const uv:number[]=[];for(let i=0;i<pos.length;i+=3)uv.push((pos[i]+pos[i+2])/5,pos[i+1]/2);
+    geo.setAttribute('uv',new Float32BufferAttribute(uv,2));
+    const mesh = new Mesh(geo,new MeshStandardMaterial({vertexColors:true,roughness:0.91,bumpMap:relief,bumpScale:0.06,roughnessMap:relief,side:DoubleSide}));
     mesh.castShadow = false;
     mesh.receiveShadow = true;
     mesh.name = 'parapets';

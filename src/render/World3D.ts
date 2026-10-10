@@ -1,5 +1,5 @@
 import { Group, Mesh, MeshStandardMaterial } from 'three';
-import type { Material, Scene, Vector3 } from 'three';
+import type { Material, Scene, Vector3, Texture } from 'three';
 import type { Course } from '../world/Course';
 import type { TimeOfDay, WeatherKind } from '../data/types';
 import { Environment } from './Environment';
@@ -18,6 +18,7 @@ export class World3D {
   private readonly terrain: Group;
   private rivers: RiverMesh | null = null;
   private lastTime = -1;
+  private readonly relief = new WeakMap<MeshStandardMaterial, {bump:Texture|null; rough:Texture|null}>();
 
   constructor(
     private readonly scene: Scene,
@@ -50,7 +51,8 @@ export class World3D {
 
   applyQuality(q: QualityProfile): void {
     this.env.applyQuality(q);
-    this.scenery.setQuality(q.propDensity, q.windSway);
+    this.scenery.setQuality(q.propDensity, q.windSway, q.streetLights);
+    this.rivers?.applyQuality(q.surfaceDetail);
     this.terrain.traverse((o) => {
       (o as Mesh).receiveShadow = q.shadows;
     });
@@ -58,7 +60,15 @@ export class World3D {
     // Shadow-receiving materials need a recompile when shadows are switched on or off.
     this.root.traverse((o) => {
       const m = (o as Mesh).material as Material | Material[] | undefined;
-      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true));
+      if (m) (Array.isArray(m) ? m : [m]).forEach((x) => {
+          if(x instanceof MeshStandardMaterial){
+            if(!this.relief.has(x))this.relief.set(x,{bump:x.bumpMap,rough:x.roughnessMap});
+            const saved=this.relief.get(x)!;
+            x.bumpMap=q.surfaceDetail?saved.bump:null;x.roughnessMap=q.surfaceDetail?saved.rough:null;
+            for(const tex of [x.map,saved.bump,saved.rough])if(tex){tex.anisotropy=q.anisotropy;tex.needsUpdate=true;}
+          }
+          x.needsUpdate=true;
+        });
     });
   }
 
@@ -88,8 +98,10 @@ export class World3D {
         (Array.isArray(m) ? m : [m]).forEach((x) => {
           // Terrain detail and road textures are created per world: release them with it.
           x.map?.dispose();
-          x.bumpMap?.dispose();
-          if (x.roughnessMap !== x.bumpMap) x.roughnessMap?.dispose();
+          const saved=this.relief.get(x);
+          const bump=saved?.bump??x.bumpMap,rough=saved?.rough??x.roughnessMap;
+          bump?.dispose();
+          if(rough!==bump)rough?.dispose();
           x.dispose();
         });
     });

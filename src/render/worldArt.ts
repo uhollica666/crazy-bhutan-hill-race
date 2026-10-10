@@ -1,3 +1,4 @@
+import { branch, foliage } from './organic';
 import type { BufferGeometry } from 'three';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
@@ -65,35 +66,44 @@ export function villageHouse(variant = 0): BufferGeometry {
 
 export function mountainPine(variant = 0, low = false): BufferGeometry {
   const g = new GeoBuilder();
-  g.cylinder(0.09, 0.23, 5.4, PAL.bark, 7, { y: 2.7 });
-  for (let tier = 0; tier < 5; tier++) {
-    const y = 1.35 + tier * 0.85, radius = 1.65 - tier * 0.25;
-    g.cone(radius, 1.6, tier % 2 ? PAL.pineDark : PAL.pineMid, 9, { y: y + 0.75, ry: tier * 0.61 + variant });
-    for (let branch = 0; branch < (low ? 0 : 5); branch++) {
-      const a = branch * Math.PI * 2 / 5 + tier * 0.67 + variant;
-      g.cylinder(0.025, 0.04, radius * 0.85, PAL.bark, 5,
-        { x: Math.cos(a) * radius * 0.35, y: y + 0.12, z: Math.sin(a) * radius * 0.35, rz: Math.PI / 2, ry: -a });
-      g.cone(radius * 0.34, 0.9, PAL.pineDark, 6,
-        { x: Math.cos(a) * radius * 0.65, y: y + 0.25, z: Math.sin(a) * radius * 0.65, ry: a });
+  branch(g,[0,0,0],[0.08,5.7,0.03],0.19,PAL.bark);
+  for(let tier=0;tier<(low?4:7);tier++) {
+    const y=1.7+tier*(low?1.1:0.64),r=1.52-tier*(low?0.3:0.19);
+    const count=low?3:5;
+    for(let j=0;j<count;j++) {
+      const a=j*Math.PI*2/count+tier*0.83+variant*0.7;
+      const x=Math.cos(a)*r*0.66,z=Math.sin(a)*r*0.66;
+      if(!low)branch(g,[0,y+0.15,0],[x,y-0.19,z],0.035,PAL.bark);
+      g.add(foliage(r*0.48,tier%2?PAL.pineDark:PAL.pineMid,tier+j+variant,low),0xffffff,{x,y:y+0.05,z,sx:1.32,sy:0.54,sz:1.32},true);
     }
   }
+  g.add(foliage(0.34,PAL.pineMid,variant,low),0xffffff,{y:5.78,sy:1.85},true);
   return g.build();
+}
+
+export function slenderCypress():BufferGeometry {
+ const g=new GeoBuilder();branch(g,[0,0,0],[0,8.6,0],0.19,PAL.bark);
+ for(let i=0;i<7;i++)g.add(foliage(0.9-i*0.075,PAL.cypress,i),0xffffff,{x:Math.sin(i*2)*0.14,y:2.6+i*0.86,z:Math.cos(i)*0.12,sy:1.55},true);
+ return g.build();
 }
 
 export function shaggyYak(): BufferGeometry {
   const g = new GeoBuilder();
-  g.sphere(0.7, PAL.yak, { y: 1.12, sy: 0.85, sx: 0.77, sz: 1.55 }, 10);
-  g.sphere(0.5, PAL.yak, { y: 1.52, z: -0.45, sy: 0.8 }, 8);
-  g.sphere(0.36, PAL.yak, { y: 1.24, z: -1.02, sx: 0.82, sz: 1.2 }, 8);
+  g.sphere(0.7, PAL.yak, { y: 1.12, sy: 0.85, sx: 0.77, sz: 1.55 }, 18);
+  g.sphere(0.5, PAL.yak, { y: 1.52, z: -0.45, sy: 0.8 }, 16);
+  g.sphere(0.36, PAL.yak, { y: 1.24, z: -1.02, sx: 0.82, sz: 1.2 }, 16);
   g.sphere(0.22, 0x65574d, { y: 1.06, z: -1.32, sx: 0.86, sy: 0.7 }, 7);
   for (const side of [-1, 1]) {
-    g.sphere(0.026, 0x151313, { x: side * 0.23, y: 1.34, z: -1.2 }, 5);
+    g.sphere(0.033, 0x171a18, { x: side * 0.245, y: 1.34, z: -1.2 }, 10);
+    g.sphere(0.01,0xcdd2bd,{x:side*0.272,y:1.35,z:-1.204},6);
+    g.sphere(0.032,0x241e1a,{x:side*0.09,y:1.09,z:-1.51,sy:0.6,sz:0.3},8);
     g.cone(0.07, 0.34, PAL.yakHorn, 6, { x: side * 0.29, y: 1.56, z: -0.98, rz: -side * 0.7 });
     g.cone(0.045, 0.25, PAL.yakHorn, 6, { x: side * 0.4, y: 1.75, z: -0.98, rz: side * 0.35 });
     g.sphere(0.13, PAL.yak, { x: side * 0.35, y: 1.36, z: -0.95, sx: 1.2, sy: 0.4 }, 6);
     for (const z of [-0.63, 0.62]) {
       g.cylinder(0.075, 0.085, 0.7, 0x30241e, 7, { x: side * 0.31, y: 0.42, z });
-      g.box(0.18, 0.14, 0.24, 0x191817, { x: side * 0.31, y: 0.07, z: z - 0.03 });
+      g.sphere(0.1,0x191817,{x:side*0.31,y:0.08,z:z-0.03,sy:0.8,sz:1.25},10);
+      g.box(0.012,0.05,0.09,0x4b443c,{x:side*0.31,y:0.055,z:z-0.14});
     }
     for (let i = 0; i < 9; i++) g.cone(0.13, 0.48 + (i % 3) * 0.07, i % 2 ? PAL.yak : 0x30221d, 5,
       { x: side * 0.45, y: 0.58, z: -0.8 + i * 0.2, rz: Math.PI });

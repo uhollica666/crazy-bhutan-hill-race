@@ -1,5 +1,6 @@
+import { branch } from './organic';
 import { seatedDriver } from './people';
-import { BufferGeometry, Group, Mesh, MeshStandardMaterial, TorusGeometry } from 'three';
+import { BufferGeometry, Float32BufferAttribute, Group, Mesh, MeshStandardMaterial, MeshPhysicalMaterial, TorusGeometry } from 'three';
 import type { VehicleDef } from '../data/types';
 import { GeoBuilder, loft } from './geo';
 import type { Ring } from './geo';
@@ -23,7 +24,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   const body = new Group(), wheel = new Group();
   const geometries: BufferGeometry[] = [], materials: MeshStandardMaterial[] = [];
   const mat = (name: string, color: number, roughness: number, metalness = 0): MeshStandardMaterial => {
-    const m = new MeshStandardMaterial({ color, roughness, metalness, vertexColors: true });
+    const m = name === 'paint' ? new MeshPhysicalMaterial({color,roughness:0.24,metalness:0.3,clearcoat:1,clearcoatRoughness:0.16,vertexColors:true}) : new MeshStandardMaterial({ color, roughness, metalness, vertexColors: true });
     m.name = name; materials.push(m); return m;
   };
   const paint = mat('paint', d.livery.body, 0.28, 0.42);
@@ -32,8 +33,8 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   const metal = mat('alloy', 0xb6bdc5, 0.31, 0.85);
   const accent = mat('accent', d.livery.accent, 0.4, 0.25);
   const trim = mat('trim', d.livery.trim, 0.55, 0.12);
-  const glass = mat('glass', 0x536d7b, 0.16, 0.22);
-  glass.transparent = true; glass.opacity = 0.66; glass.depthWrite = false;
+  const glass = mat('glass', 0x263b47, 0.13, 0.12);
+  glass.transparent = true; glass.opacity = 0.84; glass.depthWrite = false;
   const cabin = mat('cabin', 0x363b42, 0.95);
   const head = mat('light_head', 0xffecc8, 0.22);
   head.emissive.setHex(0xffe2ac); head.emissiveIntensity = 0.35;
@@ -74,7 +75,8 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     for (let i = 0; i < zs.length - 1; i++) {
       const a = zs[i], b = zs[i + 1], ya = lower(a), yb = lower(b);
       // Exterior winding is opposite on each side.
-      const pts = [[side * w, ya, a], [side * w, belt, a], [side * w, belt, b], [side * w, yb, b]];
+      const widthAt = (z:number):number => w * (1 - 0.12 * Math.pow(Math.abs(z)/(l/2),8));
+      const pts = [[side * widthAt(a), ya, a], [side * widthAt(a), belt, a], [side * widthAt(b), belt, b], [side * widthAt(b), yb, b]];
       for (const k of side === 1 ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2]) p.push(...pts[k]);
       batch(paint).box(w * 0.32, 0.065, b - a + 0.008, white, { x: side * w * 0.83, y: belt - 0.025, z: (a + b) / 2 });
     }
@@ -88,8 +90,16 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     }
   }
   // Bonnet and rear shoulder taper into the glazed cabin rather than stacked boxes.
-  if (!bus) batch(paint).add(loft([[-l / 2 + 0.04, w * 0.9, belt - 0.05, belt + 0.06],
-    [front, w * 0.94, belt - 0.05, belt + 0.14]]), white);
+  if (!bus) batch(paint).add(loft([[-l / 2 + 0.04, w * 0.85, belt - 0.08, belt + 0.055],
+    [-l/2+0.25,w*0.91,belt-0.06,belt+0.12], [front-0.28,w*0.94,belt-0.05,belt+0.155],
+    [front,w*0.92,belt-0.05,belt+0.12]]), white);
+  // Front air dam, inset fascia and lower cooling apertures visibly break up the tall front panel.
+  batch(paint).add(loft([[-l/2-0.014,w*0.84,bottom+0.25,belt-0.08],[-l/2+0.2,w*0.91,bottom+0.2,belt]]),white);
+  batch(rubber).box(w*1.05,0.19,0.05,white,{y:bottom+0.34,z:-l/2-0.052});
+  for(const side of [-1,1]) {
+    batch(rubber).box(0.25,0.16,0.065,white,{x:side*w*0.66,y:bottom+0.34,z:-l/2-0.052});
+    batch(head).cylinder(0.055,0.055,0.016,white,12,{x:side*w*0.66,y:bottom+0.34,z:-l/2-0.093,rx:Math.PI/2});
+  }
   batch(glass).add(loft([[front, w * 0.94, belt + 0.07, belt + 0.1], [roofFront, topWidth, belt + 0.07, roof - 0.08],
     [roofBack, topWidth, belt + 0.07, roof - 0.08], [back, w * 0.94, belt + 0.07, belt + 0.12]]), white);
   batch(paint).add(loft([[roofFront - 0.05, topWidth - 0.02, roof - 0.09, roof],
@@ -98,9 +108,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   for (const side of [-1, 1]) {
     // Sloping A/C pillars, vertical window dividers and shallow stamped door seams.
     for (const [z0, z1] of [[front, roofFront], [back, roofBack]]) {
-      const dy = roof - belt, dz = z1 - z0;
-      batch(paint).box(0.11, Math.hypot(dy, dz), 0.09, white,
-        { x: side * (w + topWidth) * 0.49, y: (roof + belt) / 2, z: (z0 + z1) / 2, rx: Math.atan2(-dz, dy) });
+      branch(batch(paint),[side*w*0.94,belt+0.1,z0],[side*topWidth,roof-0.07,z1],bus?0.058:0.043,white);
     }
     const count = bus ? 6 : 3;
     for (let i = 1; i < count; i++) {
@@ -127,7 +135,11 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   for (let i = 0; i < (expedition ? 6 : 4); i++) batch(metal).box(w * 1.04, 0.018, 0.015, white,
     { y: lights.y - 0.09 + i * 0.04, z: -l / 2 - 0.039 });
   for (const side of [-1, 1]) {
-    batch(head).box(0.31, expedition ? 0.2 : 0.14, 0.05, white, { x: side * lights.hx, y: lights.y, z: -l / 2 - 0.017 });
+    const lampWidth=expedition?0.36:bus?0.31:0.38;
+    batch(rubber).box(lampWidth+0.04,0.19,0.075,white,{x:side*lights.hx,y:lights.y,z:-l/2-0.035});
+    batch(metal).box(lampWidth,0.16,0.016,white,{x:side*lights.hx,y:lights.y,z:-l/2-0.075});
+    for(const offset of [-0.065,0.065])batch(head).cylinder(0.055,0.055,0.02,white,low?8:16,{x:side*lights.hx+offset,y:lights.y,z:-l/2-0.09,rx:Math.PI/2});
+    batch(head).box(lampWidth,0.027,0.023,white,{x:side*lights.hx,y:lights.y-0.055,z:-l/2-0.092});
     batch(tail).box(bus || expedition ? 0.15 : 0.25, bus || expedition ? 0.3 : 0.17, 0.045, white,
       { x: side * lights.tailHx, y: lights.tailY, z: l / 2 + 0.018 });
     batch(reverse).box(0.12, 0.055, 0.048, white, { x: side * lights.tailHx, y: lights.tailY - 0.05, z: l / 2 + 0.025 });
@@ -202,20 +214,33 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   }
   add(lampFrame.build(), rubber, lamps); add(lenses.build(), head, lamps);
   for (const option of [stripe,summit,carrier,lamps]) { option.visible = false; body.add(option); }
+  // Panel details: towing eyes, rear hatch inset, badge, fuel flap and exhaust tip.
+  batch(rubber).box(w*1.3,0.075,0.03,white,{y:bottom+0.31,z:l/2+0.038});
+  batch(metal).sphere(0.055,white,{y:lights.y+0.02,z:-l/2-0.072,sy:0.65,sz:0.25},12);
+  for(const side of [-1,1]) {
+    batch(trim).box(0.07,0.04,0.12,white,{x:side*w*0.57,y:bottom+0.19,z:-l/2-0.1});
+    if(!low)batch(rubber).box(0.008,0.16,0.18,white,{x:side*(w+0.016),y:belt-0.29,z:back-0.36});
+  }
+  batch(metal).cylinder(0.038,0.038,0.24,white,10,{x:-w*0.57,y:bottom+0.02,z:l/2-0.08,rx:Math.PI/2});
   for (const [m, b] of batches) add(b.build(), m);
   const r = d.wheelRadius, ww = d.wheelWidth;
   const tire = new GeoBuilder(), rim = new GeoBuilder();
-  tire.add(new TorusGeometry(r - ww * 0.34, ww * 0.34, low ? 6 : 8, low ? 16 : 24), white, { ry: Math.PI / 2 });
+  tire.add(new TorusGeometry(r - ww * 0.34, ww * 0.34, low ? 6 : 8, low ? 20 : 40), white, { ry: Math.PI / 2 });
   tire.cylinder(r * 0.88, r * 0.88, ww * 0.78, white, low ? 16 : 24, { rz: Math.PI / 2 });
-  if (!low) for (let i = 0; i < (expedition ? 28 : 24); i++) {
-    const a = i * Math.PI * 2 / (expedition ? 28 : 24);
-    for (const side of [-1, 1]) tire.box(ww * 0.46, 0.022, r * 0.14, white,
+  if (!low) for (let i = 0; i < (expedition ? 40 : 36); i++) {
+    const a = i * Math.PI * 2 / (expedition ? 40 : 36);
+    for (const side of [-1, 1]) tire.box(ww * 0.46, 0.013, r * 0.11, white,
       { x: side * ww * 0.22, y: Math.cos(a) * (r - 0.009), z: Math.sin(a) * (r - 0.009), rx: a, ry: side * 0.25 });
   }
   for (const side of [-1, 1]) {
-    rim.cylinder(r * 0.56, r * 0.56, 0.022, white, 16, { x: side * ww * 0.44, rz: Math.PI / 2 });
-    for (let i = 0; i < (bus ? 8 : 5); i++) rim.box(0.026, r * 0.86, r * 0.075, 0x707984,
-      { x: side * ww * 0.49, rx: i * Math.PI / (bus ? 8 : 5) });
+    rim.add(new TorusGeometry(r*0.61,r*0.045,low?5:8,low?16:32),white,{x:side*ww*0.46,ry:Math.PI/2});
+    rim.cylinder(r*0.49,r*0.49,0.016,0x4a5055,20,{x:side*ww*0.32,rz:Math.PI/2});
+    const spokes=bus?8:expedition?6:5;
+    for (let i = 0; i < spokes; i++) {
+      const a=i*Math.PI*2/spokes;
+      rim.box(0.03,r*0.47,r*0.11,white,{x:side*ww*0.48,y:Math.cos(a)*r*0.33,z:Math.sin(a)*r*0.33,rx:a});
+      rim.cylinder(r*0.028,r*0.028,0.035,0x383b3d,8,{x:side*ww*0.515,y:Math.cos(a)*r*0.15,z:Math.sin(a)*r*0.15,rz:Math.PI/2});
+    }
     rim.cylinder(r * 0.2, r * 0.2, 0.028, 0x69727a, 12, { x: side * ww * 0.51, rz: Math.PI / 2 });
   }
   add(tire.build(), tyre, wheel); add(rim.build(), metal, wheel);

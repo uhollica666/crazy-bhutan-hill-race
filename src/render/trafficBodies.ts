@@ -184,7 +184,11 @@ export function signpostGeometry(): BufferGeometry {
   const g = new GeoBuilder();
   g.cylinder(0.05, 0.05, 2.6, 0x6b6b70, 5, { y: 1.3 });
   g.box(0.9, 0.9, 0.06, 0xf3c23a, { y: 2.6, ry: 0, rz: Math.PI / 4 });
-  g.box(0.5, 0.5, 0.08, 0x1a1a1c, { y: 2.6, rz: Math.PI / 4 });
+  g.box(0.82, 0.82, 0.07, 0xf0d15a, { y:2.6,z:0.045,rz:Math.PI/4 });
+    // Visible winding-road symbol and fastening bolts.
+    for(let i=0;i<5;i++)g.box(0.07,0.14,0.025,0x22282b,{x:Math.sin(i*1.8)*0.12,y:2.35+i*0.12,z:0.09,rz:Math.cos(i*1.8)*0.35});
+    for(const y of [2.23,2.97])g.sphere(0.018,0xb4b8b4,{y,z:0.095},6);
+    g.box(0.085,0.4,0.09,0xeeeece,{y:0.7});
   g.box(0.5, 0.35, 0.3, 0xe9e6dc, { x: 1.1, y: 0.18 });
   g.box(0.5, 0.1, 0.32, 0xd6322b, { x: 1.1, y: 0.4 });
   return g.build();

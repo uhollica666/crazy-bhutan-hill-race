@@ -113,10 +113,10 @@ export class GarageScene {
 
   /** The workshop: floor, back wall, beams, crates, tyre stacks, a bench and a string of prayer flags. */
   private build(): void {
-    const stone = this.mat(0x30364f);
+    const stone = this.mat(0x3c4140);
     const dark = this.mat(0x131622);
-    const wood = this.mat(0x39405a);
-    const woodDark = this.mat(0x252a3e);
+    const wood = this.mat(0x755640);
+    const woodDark = this.mat(0x403126);
     const maroon = this.mat(0xd12c88);
     const brass = this.mat(0xff8a2a);
 
@@ -135,7 +135,7 @@ export class GarageScene {
     // Back wall (a half ring) with a painted band, and timber posts.
     const ring = new CylinderGeometry(13, 13, 5.2, 36, 1, true, Math.PI * 0.55, Math.PI * 0.9);
     this.geos.push(ring);
-    const wallMat = new MeshLambertMaterial({ color: 0x363e5c, side: DoubleSide });
+    const wallMat = new MeshLambertMaterial({ color: 0x3f4543, side: DoubleSide });
     this.mats.push(wallMat);
     const back = new Mesh(ring, wallMat);
     back.position.y = 2.6;
@@ -300,7 +300,7 @@ export class GarageScene {
     this.idle = 0;
   }
 
-  view(view: 'front' | 'rear' | 'side'): void {
+  setView(view: 'front' | 'rear' | 'side'): void {
     this.tAz = view === 'front' ? 2.6 : view === 'rear' ? 0.55 : Math.PI / 2;
     this.tPol = 1.32; this.tDist = this.homeDist; this.idle = 0;
   }

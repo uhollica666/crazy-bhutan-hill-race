@@ -3,7 +3,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import type { PerspectiveCamera, Texture } from 'three';
 import { setVehicleEnvMap } from './assets';
 import type { QualityLevel } from '../storage/SaveStore';
-import { QUALITY } from './quality';
+import { QUALITY, resolveQuality } from './quality';
 import type { QualityProfile } from './quality';
 
 export function isWebGLAvailable(): boolean {
@@ -41,13 +41,15 @@ export class GameRenderer {
     private readonly host: HTMLElement,
     level: QualityLevel,
   ) {
-    this.level = level;
-    this.profile = QUALITY[level];
+    this.level = resolveQuality(level);
+    this.profile = QUALITY[this.level];
     this.renderer = new WebGLRenderer({
       antialias: this.profile.antialias,
       powerPreference: 'high-performance',
       alpha: false,
     });
+    this.level=resolveQuality(level,this.renderer.getContext());
+    this.profile=QUALITY[this.level];
     this.renderer.shadowMap.type = PCFShadowMap;
     // Filmic tone mapping keeps highlights from clipping to flat white and lets lighting do the colour work.
     this.renderer.outputColorSpace = SRGBColorSpace;
@@ -72,11 +74,9 @@ export class GameRenderer {
   }
 
   setQuality(level: QualityLevel): void {
-    this.level = level;
-    this.profile = QUALITY[level];
-    this.renderer.shadowMap.enabled = this.profile.shadows;
-    this.applyShadows();
-    this.applySize();
+    this.level = resolveQuality(level,this.renderer.getContext());
+    this.profile = QUALITY[this.level];
+    this.applyShadows();this.applySize();
   }
 
   private applyShadows(): void {
