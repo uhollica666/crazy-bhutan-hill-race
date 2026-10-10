@@ -49,6 +49,8 @@ export interface UIActions {
   /** Pit-stop service of the given kind (null = whichever is on offer); with a guest at the kerb it checks their ID instead. */
   requestService(kind: ServiceKind | null): void;
   openAbout(): void;
+  /** The voluntary-support screen (main menu, Settings and About all open the same one). */
+  openSupport(): void;
   /** Campaign-complete screen: go back to the mission map. */
   campaignContinue(): void;
   openFeedback(origin: 'menu' | 'settings' | 'results' | 'about'): void;
@@ -244,6 +246,7 @@ export class UI {
             <button class="btn" id="btn-menu-garage" type="button">${COIN}<span>Garage</span></button>
             <button class="btn ghost" id="btn-menu-settings" type="button">${ICONS.settings}<span>Settings</span></button>
             <button class="btn ghost" id="btn-menu-feedback" type="button"><span>Share feedback</span></button>
+            <button class="btn ghost" id="btn-menu-support" type="button"><span>Support the studio</span></button>
           </div>
         </div>
         <div class="menu-foot">
@@ -435,6 +438,7 @@ export class UI {
           <div class="tab-panel" id="pane-privacy" role="tabpanel" aria-labelledby="tab-privacy" hidden></div>
           <div class="stack" style="margin-top:18px">
             <button class="btn" id="btn-settings-feedback" type="button"><span>Share feedback</span></button>
+            <button class="btn" id="btn-settings-support" type="button"><span>Support Novarah</span></button>
             <button class="btn" id="btn-settings-about" type="button"><span>About &amp; credits</span></button>
             <button class="btn primary" id="btn-settings-back" data-back type="button">Back</button></div>
         </div>
@@ -511,6 +515,8 @@ export class UI {
     on('#btn-settings-back', () => this.closeSettings(), true);
     on('#btn-settings-feedback', () => this.actions.openFeedback('settings'));
     on('#btn-settings-about', () => this.actions.openAbout());
+    on('#btn-settings-support', () => this.actions.openSupport());
+    on('#btn-menu-support', () => this.actions.openSupport());
     on('#btn-reload', () => location.reload());
     on('#btn-camp-levels', () => {
       this.hideCampaign();
@@ -764,7 +770,7 @@ export class UI {
   private focusFirst(screen: HTMLElement, sel = 'button:not([disabled])'): void {
     requestAnimationFrame(() => {
       const overlays = this.root.querySelector(
-        '#screen-feedback:not([hidden]), #screen-about:not([hidden]), #screen-briefing:not([hidden])',
+        '#screen-feedback:not([hidden]), #screen-about:not([hidden]), #screen-support:not([hidden]), #screen-briefing:not([hidden])',
       );
       if (screen.hidden || overlays) return;
       (screen.querySelector<HTMLElement>(sel) ?? screen.querySelector<HTMLElement>('button'))?.focus({

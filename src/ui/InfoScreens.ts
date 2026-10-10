@@ -41,6 +41,7 @@ export interface InfoDeps {
 export class AboutScreen {
   readonly el: HTMLElement;
   private opener: (() => void) | null = null;
+  private supportOpener: (() => void) | null = null;
 
   constructor(
     private readonly d: InfoDeps,
@@ -83,6 +84,9 @@ export class AboutScreen {
             <li>Soundtrack: nine original tracks made for the game: Road to the Clouds, Mischievous Groove, Mountain Pass, Off-Road Blitz, Off-Road Fury, Mountain Road Fury, Máquina de Guerra, First Place Summit and Himalayan Sunset.</li>
             <li>The Novarah and Crazy Bhutan Hill Race logos are the property of Novarah.</li>
             <li>Vehicle designs are original and carry no manufacturer branding.</li></ul></section>
+        <section><h3>Support Novarah Interactives</h3>
+          <p>The game is free and always will be playable without a contribution. If you would like to help us make more Bhutan-inspired games, voluntary support is warmly welcome and unlocks nothing in the game.</p>
+          <button class="btn" type="button" id="about-support">How to support us</button></section>
         <section><h3>Your data</h3>
           <p>Progress and settings are saved only in this browser. No account is needed, no analytics or trackers run, and nothing is sent anywhere unless you choose to send feedback.${info.feedbackIsRemote ? '' : ' This build has no feedback server connected, so feedback stays on your device unless you export it yourself.'}</p></section>
       </div>
@@ -96,6 +100,11 @@ export class AboutScreen {
     };
     el.querySelector('#about-close')?.addEventListener('click', close);
     el.querySelector('#about-done')?.addEventListener('click', close);
+    el.querySelector('#about-support')?.addEventListener('click', () => {
+      d.click();
+      this.close(true);
+      this.supportOpener?.();
+    });
     el.querySelector('#about-feedback')?.addEventListener('click', () => {
       d.click();
       this.close(true);
@@ -107,6 +116,11 @@ export class AboutScreen {
         close();
       }
     });
+  }
+
+  /** Called when the player taps "How to support us" inside About. */
+  onSupport(fn: () => void): void {
+    this.supportOpener = fn;
   }
 
   /** Called when the player taps "Share feedback" inside About. */

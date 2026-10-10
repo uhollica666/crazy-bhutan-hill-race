@@ -2,138 +2,382 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#172636" />
-    <title>Crazy Bhutan Hill Race · Novarah Interactives</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0b0f" />
+    <title>Crazy Bhutan Hill Race · Drive the roof of the world</title>
     <meta
       name="description"
-      content="Play the remastered Crazy Bhutan Hill Race public beta. Eleven routes, four vehicles and a mountain adventure from Novarah Interactives."
+      content="Crazy Bhutan Hill Race: a remastered arcade driving adventure through the hairpins, fords and snow passes of a fictional Bhutan. Play free in your browser, or download for Windows and Android."
     />
-    <link rel="stylesheet" href="page.css" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Crazy Bhutan Hill Race" />
+    <meta property="og:description" content="Hairpins, prayer flags, yetis and one very long way to Gelephu. Play free in your browser or download for Windows and Android." />
+    <meta property="og:image" content="https://crazy-bhutan-hill-race.vercel.app/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="../favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png" />
+    <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+    <script>document.documentElement.classList.add('js')</script>
+    <link rel="preload" as="image" href="media/hero.webp" fetchpriority="high" />
+    <link rel="stylesheet" href="site.css" />
   </head>
   <body>
-    <header>
-      <a href="/" aria-label="Play Crazy Bhutan Hill Race"
-        ><img src="../brand/novarah-logo.webp" alt="Novarah Interactives" width="160" /></a
-      ><a href="#downloads">Get the beta</a>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="nav" id="top">
+      <a class="nav-brand" href="#top" aria-label="Crazy Bhutan Hill Race, back to top">
+        <img src="../icon-192.png" alt="" width="36" height="36" />
+        <span>CBHR</span>
+      </a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#roads">The roads</a>
+        <a href="#garage">Garage</a>
+        <a href="#wild">Weather &amp; wildlife</a>
+        <a href="#sound">Soundtrack</a>
+        <a href="#get">Get it</a>
+        <a href="#convoy">Convoy</a>
+        <a href="#support">Support</a>
+      </nav>
+      <a class="btn btn-fire nav-play" href="/">Play free</a>
     </header>
-    <main>
-      <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">Novarah Interactives · Public beta</p>
-          <img class="game-logo" src="../brand/cbhr-logo.webp" alt="Crazy Bhutan Hill Race" />
-          <h1>The mountains<br />are calling.</h1>
-          <p class="lede">Get your guests over the pass. Brave the storm. Make it home with a story.</p>
-          <a class="play" href="/">Play online</a>
-          <p class="small">Free to play in your browser. Keyboard, gamepad and touch controls.</p>
+
+    <main id="main">
+      <!-- ============================================================ HERO -->
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-bg" data-parallax>
+          <img src="media/hero.webp" alt="" width="1920" height="1080" fetchpriority="high" decoding="async" />
         </div>
-        <figure>
-          <img src="world.png" alt="The remastered game world with mountain roads and forests" />
-          <figcaption>Eleven routes through a fictional Bhutan. One unforgettable drive.</figcaption>
-        </figure>
-      </section>
-      <section class="roadbook">
-        <h2>Your journey starts here.</h2>
-        <div>
-          <p>
-            Learn the ropes at the Driver’s Academy, then take on ten campaign routes: city pickups, airport
-            runs, snowy climbs and the long journey to Gelephu.
+        <div class="hero-shade"></div>
+        <svg class="bunting" viewBox="0 0 1600 90" preserveAspectRatio="none" aria-hidden="true">
+          <path class="bunting-line" d="M-10 8 Q 400 70 800 22 T 1610 14" fill="none" />
+          <g class="flags"></g>
+        </svg>
+        <div class="hero-inner">
+          <p class="kicker"><span>Novarah Interactives presents</span><b>Remastered public beta</b></p>
+          <h1 id="hero-title">
+            <span class="h1-a">Drive the</span>
+            <span class="h1-b">roof of the world</span>
+          </h1>
+          <p class="lede">
+            Hairpins, prayer flags, fords and snow passes. Carry your guests across a fictional Bhutan,
+            one scary-beautiful road at a time.
           </p>
-          <p>
-            Four vehicles. Saved upgrades and garage cosmetics. Remastered coachwork, scenery, lighting and
-            creatures. The beta keeps your existing local progress.
+          <div class="cta">
+            <a class="btn btn-fire btn-xl" href="/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5l12 7.5-12 7.5z" /></svg>Play in your browser</a>
+            <a class="btn btn-steel btn-xl" href="#get">Windows &amp; Android</a>
+          </div>
+          <ul class="facts" aria-label="At a glance">
+            <li><b>11</b><span>routes<br />inc. the Academy</span></li>
+            <li><b>4</b><span>vehicles<br />to master</span></li>
+            <li><b>9</b><span>original<br />music tracks</span></li>
+            <li><b>Free</b><span>no ads,<br />no pay-to-win</span></li>
+          </ul>
+        </div>
+        <div class="gauge" aria-hidden="true">
+          <svg viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="92" class="g-rim" />
+            <circle cx="100" cy="100" r="80" class="g-face" />
+            <g class="g-ticks"></g>
+            <g class="g-needle"><line x1="100" y1="100" x2="100" y2="34" /><circle cx="100" cy="100" r="7" /></g>
+          </svg>
+          <b class="g-read">0</b>
+        </div>
+        <a class="scroll-cue" href="#roads" aria-label="Scroll to the roads"><i></i></a>
+      </section>
+
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker-track">
+          <span>Hairpins</span><span>Landslides</span><span>River fords</span><span>Snowline</span><span>Night runs</span><span>Yaks</span><span>Yetis</span><span>Ghosts</span><span>Brake fade</span><span>Prayer flags</span><span>Original soundtrack</span>
+          <span>Hairpins</span><span>Landslides</span><span>River fords</span><span>Snowline</span><span>Night runs</span><span>Yaks</span><span>Yetis</span><span>Ghosts</span><span>Brake fade</span><span>Prayer flags</span><span>Original soundtrack</span>
+        </div>
+      </div>
+
+      <!-- ============================================================ ROADS -->
+      <section class="section roads" id="roads" aria-labelledby="roads-title">
+        <div class="wrap">
+          <p class="eyebrow">The road book</p>
+          <h2 id="roads-title">Ten routes. One kingdom.<br /><em>Start at the Academy, finish at Gelephu.</em></h2>
+          <p class="section-lede">
+            Learn the ropes at Route 0, then take guests from a Thimphu hotel to an airport dash, up the
+            Dochula storm, through Trongsa&rsquo;s gorge, across a night forest and out onto the southern plains.
           </p>
         </div>
+        <div class="rail-wrap">
+          <button class="rail-btn rail-prev" type="button" aria-label="Previous routes" data-rail="-1"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg></button>
+          <ol class="rail" id="rail" tabindex="0" aria-label="The ten routes. Scroll sideways."></ol>
+          <button class="rail-btn rail-next" type="button" aria-label="Next routes" data-rail="1"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button>
+        </div>
       </section>
-      <section class="shots" aria-label="Remaster screenshots">
-        <figure>
-          <img src="vehicle.png" alt="Dragon Cruiser with remastered paint, lights and wheels" />
-          <figcaption>Build your ride in the garage.</figcaption>
-        </figure>
-        <figure>
-          <img src="creatures.png" alt="Bears, ghosts, zombies, yetis and yaks from the game" />
-          <figcaption>Expect company along the way.</figcaption>
-        </figure>
-      </section>
-      <section id="downloads">
-        <p class="eyebrow">Take the road with you</p>
-        <h2>Get the public beta.</h2>
-        <p id="version">Version 0.4.0-beta.1</p>
-        <div id="artifacts" class="platforms">
-          <article>
-            <h3>Web / PWA</h3>
-            <p>
-              Play now. Install from your browser’s app menu for a dedicated window. The game shell and
-              previously used assets work offline; music streams while online.
+
+      <!-- ============================================================ GARAGE -->
+      <section class="section garage" id="garage" aria-labelledby="garage-title">
+        <div class="wrap garage-grid">
+          <div class="garage-copy">
+            <p class="eyebrow">The garage</p>
+            <h2 id="garage-title">Four machines.<br /><em>Four ways to be brave.</em></h2>
+            <p class="section-lede">
+              Start in a willing little hatchback and earn your way to the Dragon Cruiser. Upgrade engines, tyres, brakes and tanks, then
+              repaint it your own way. Cosmetics are saved, and nothing is for sale.
             </p>
-            <a class="download" href="/">Play online</a>
+            <div class="tabs" role="tablist" aria-label="Vehicles" id="veh-tabs"></div>
+            <div class="veh-detail" id="veh-detail" aria-live="polite"></div>
+          </div>
+          <figure class="veh-stage" id="veh-stage">
+            <div class="veh-ring" aria-hidden="true"></div>
+            <img id="veh-img" src="media/veh-dzo-hatch.webp" alt="Dzo Hatch in the garage" width="1100" height="720" loading="lazy" decoding="async" />
+          </figure>
+        </div>
+      </section>
+
+      <!-- ============================================================ WILD -->
+      <section class="section wild" id="wild" aria-labelledby="wild-title">
+        <div class="wrap">
+          <p class="eyebrow">Weather &amp; wildlife</p>
+          <h2 id="wild-title">The mountain has moods.<br /><em>So do its residents.</em></h2>
+        </div>
+        <div class="bento wrap" id="bento"></div>
+        <p class="wrap fine">All images are screenshots of the game itself, rendered in a browser. Graphics settings range from Low to Max.</p>
+      </section>
+
+      <!-- ============================================================ SOUND -->
+      <section class="section sound" id="sound" aria-labelledby="sound-title">
+        <div class="wrap sound-grid">
+          <div>
+            <p class="eyebrow">The soundtrack</p>
+            <h2 id="sound-title">Nine original tracks.<br /><em>The mountain sings along.</em></h2>
+            <p class="section-lede">
+              Music leads, the engine growls underneath, and the wind and rivers stay politely in the background. Every sound goes quiet the
+              moment you tab away.
+            </p>
+          </div>
+          <ul class="tracks" aria-label="Soundtrack and where each track plays">
+            <li><i></i><b>Road to the Clouds</b><span>Main menu</span></li>
+            <li><i></i><b>Mountain Pass</b><span>Choosing a route</span></li>
+            <li><i></i><b>Mischievous Groove</b><span>The garage</span></li>
+            <li><i></i><b>Off-Road Blitz</b><span>On the road</span></li>
+            <li><i></i><b>Off-Road Fury</b><span>On the road</span></li>
+            <li><i></i><b>Mountain Road Fury</b><span>On the road</span></li>
+            <li><i></i><b>Máquina de Guerra</b><span>The extreme finales</span></li>
+            <li><i></i><b>First Place Summit</b><span>Victory</span></li>
+            <li><i></i><b>Himalayan Sunset</b><span>Credits</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ============================================================ GET -->
+      <section class="section get" id="get" aria-labelledby="get-title">
+        <div class="wrap">
+          <p class="eyebrow">Take the road with you</p>
+          <h2 id="get-title">Pick your platform.</h2>
+          <p class="section-lede" id="release-line">Checking the latest release...</p>
+        </div>
+        <div class="wrap platforms" id="platforms">
+          <article class="plat plat-web">
+            <svg class="plat-ico" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="18" /><path d="M6 24h36M24 6c-7 7-7 29 0 36M24 6c7 7 7 29 0 36" /></svg>
+            <h3>Play online</h3>
+            <p>No install. Keyboard, gamepad and touch. Add it to your home screen or desktop from the browser menu; the shell works offline, music streams while you are online.</p>
+            <a class="btn btn-fire" href="/">Play now</a>
+            <small>Chrome, Edge, Firefox and Safari. WebGL required.</small>
           </article>
-          <article>
+          <article class="plat" id="plat-windows">
+            <svg class="plat-ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M6 9l15-2v16H6zM24 6.6L42 4v19H24zM6 26h15v16L6 39zM24 26h18v19l-18-2.6z" /></svg>
             <h3>Windows</h3>
-            <p id="windows-status">Installers are being prepared. Downloads appear here when available.</p>
-            <div id="windows-links"></div>
+            <p data-note>Checking the latest release...</p>
+            <div class="dl" data-links></div>
+            <small>Windows 10 or 11, 64-bit. Unsigned beta: SmartScreen may ask you to confirm.</small>
           </article>
-          <article>
+          <article class="plat" id="plat-android">
+            <svg class="plat-ico" viewBox="0 0 48 48" aria-hidden="true"><path d="M10 18h28v18a3 3 0 0 1-3 3H13a3 3 0 0 1-3-3zM14 14a10 10 0 0 1 20 0zM15 6l3 4M33 6l-3 4M4 20v12M44 20v12M18 39v6M30 39v6" /></svg>
             <h3>Android</h3>
-            <p id="android-status">
-              The ARM64 release is being prepared. A download appears here when available.
-            </p>
-            <div id="android-links"></div>
+            <p data-note>Checking the latest release...</p>
+            <div class="dl" data-links></div>
+            <small>ARM64 phones and tablets. Allow installs from your browser once; keep Play Protect on.</small>
           </article>
         </div>
-        <p id="release-notes">
-          This beta combines the complete campaign with the graphical remaster, road-surface camera shake,
-          driver’s-eye and chase views, and a reversing camera window.
-        </p>
-        <a id="release-link" hidden>Release notes and checksums</a>
+
+        <div class="wrap two-col">
+          <div class="panel" id="changelog-panel">
+            <h3>What&rsquo;s new <span id="cl-version"></span></h3>
+            <ul class="changelog" id="changelog"></ul>
+            <a id="release-link" class="link" href="https://github.com/uhollica666/crazy-bhutan-hill-race/releases" hidden>Full release notes and checksums</a>
+          </div>
+          <div class="panel">
+            <h3>Controls</h3>
+            <div class="tabs tabs-small" role="tablist" aria-label="Control schemes" id="ctl-tabs">
+              <button role="tab" aria-selected="true" aria-controls="ctl-kb" id="t-kb">Keyboard</button>
+              <button role="tab" aria-selected="false" aria-controls="ctl-pad" id="t-pad" tabindex="-1">Gamepad</button>
+              <button role="tab" aria-selected="false" aria-controls="ctl-touch" id="t-touch" tabindex="-1">Touch</button>
+            </div>
+            <dl class="ctl" id="ctl-kb" role="tabpanel" aria-labelledby="t-kb">
+              <dt><kbd>W</kbd><kbd>S</kbd> / <kbd>&uarr;</kbd><kbd>&darr;</kbd></dt><dd>Accelerate, brake, reverse</dd>
+              <dt><kbd>A</kbd><kbd>D</kbd> / <kbd>&larr;</kbd><kbd>&rarr;</kbd></dt><dd>Steer</dd>
+              <dt><kbd>C</kbd></dt><dd>Chase or driver&rsquo;s-eye camera</dd>
+              <dt><kbd>F</kbd> <kbd>E</kbd> <kbd>R</kbd></dt><dd>4x4 &middot; pit stop / check ID &middot; recover</dd>
+              <dt><kbd>Esc</kbd></dt><dd>Pause</dd>
+            </dl>
+            <dl class="ctl" id="ctl-pad" role="tabpanel" aria-labelledby="t-pad" hidden>
+              <dt>Left stick</dt><dd>Steer</dd>
+              <dt>RT / LT</dt><dd>Gas and brake (reverse)</dd>
+              <dt>X</dt><dd>4x2 / 4x4</dd>
+              <dt>Bumpers</dt><dd>Pit stop, check ID</dd>
+              <dt>Back / Y / Start</dt><dd>Camera &middot; recover &middot; pause</dd>
+            </dl>
+            <dl class="ctl" id="ctl-touch" role="tabpanel" aria-labelledby="t-touch" hidden>
+              <dt>Wheel or slider</dt><dd>Steer with one thumb</dd>
+              <dt>GAS / BRAKE</dt><dd>The other thumb; brake reverses at a standstill</dd>
+              <dt>HUD buttons</dt><dd>Camera, 4x4, pit stop, check ID, recover</dd>
+              <dt>Landscape</dt><dd>Turn your phone sideways</dd>
+            </dl>
+            <h3 class="mt">Requirements</h3>
+            <p class="fine">
+              Any recent GPU or phone from the last few years. Graphics Auto picks Low, Medium or High and adapts resolution on the fly;
+              Max is for strong desktop GPUs.
+            </p>
+          </div>
+        </div>
       </section>
-      <section class="help">
-        <h2>Before you set off.</h2>
-        <details>
-          <summary>Installation and saves</summary>
-          <p>
-            Windows: choose EXE or MSI, run the installer, then launch Crazy Bhutan Hill Race. Installers may
-            need internet to install Microsoft WebView2. An unsigned beta may show Windows SmartScreen; verify
-            the source and checksum before proceeding. Android: download the APK, allow installation from your
-            chosen browser when Android asks, then open it. Keep Play Protect enabled. Browser, Windows and
-            Android local saves are separate; optional cloud accounts can transfer compatible progress.
+
+      <!-- ============================================================ CONVOY -->
+      <section class="section convoy" id="convoy" aria-labelledby="convoy-title">
+        <div class="wrap">
+          <p class="eyebrow">Join the convoy</p>
+          <h2 id="convoy-title">This beta is better with you in it.</h2>
+          <p class="section-lede">
+            Novarah Interactives is a small studio. Every rating, bug report and idea lands on the developer&rsquo;s desk and shapes what we
+            build next.
           </p>
-        </details>
-        <details>
-          <summary>Privacy</summary>
-          <p>
-            Local progress and settings stay on your device. Optional Firebase features use a guest or account
-            identity for private cloud saves, player-submitted leaderboard times and feedback. Statistics are
-            opt-in. Account email is managed by Firebase Authentication. Feedback is sent only when you submit
-            it; avoid personal information in messages. Cloud services need internet. You can play locally
-            without signing in.
-          </p>
-        </details>
-        <details>
-          <summary>Licenses and credits</summary>
-          <p>
-            Created by Novarah Interactives, a subdivision of Novarah Technologies. Branding and original game
-            art belong to their owners. The human base is by Quaternius; surface maps, forest atlas and
-            outdoor HDR are by Poly Haven contributors under CC0. Three.js and other software retain their
-            respective licenses. <a href="licenses.txt">Read the asset and software notices</a>.
-          </p>
-        </details>
-        <details>
-          <summary>Controls and feedback</summary>
-          <p>
-            Use W/S or arrows to accelerate and brake, A/D to steer, C to switch camera, and Escape to pause.
-            Touch controls appear on phones. For bugs and suggestions, open Feedback from the game menu,
-            Settings or About. Include the route, vehicle and what happened.
-          </p>
-          <a href="/">Open the game and send feedback</a>
-        </details>
-        <p class="small">
-          Beta software: please expect rough edges. Browser emulation does not establish native-device
-          performance.
-        </p>
+        </div>
+        <div class="wrap cards3">
+          <article class="card">
+            <h3>Tell us how it went</h3>
+            <p>Open <b>Feedback</b> from the game menu, Settings or About: a star rating, what you loved, what hurt. Optional device details and contact are always your choice.</p>
+            <a class="btn btn-steel" href="/">Open the game</a>
+          </article>
+          <article class="card">
+            <h3>Report a bug</h3>
+            <p>Include the route, the vehicle and what happened. A screenshot helps. Please keep personal details out of public reports.</p>
+            <a class="btn btn-steel" href="https://github.com/uhollica666/crazy-bhutan-hill-race/issues/new?labels=bug&amp;title=Bug%3A%20" rel="noopener" target="_blank">Report on GitHub</a>
+          </article>
+          <article class="card">
+            <h3>Suggest a feature</h3>
+            <p>New routes, vehicles, creatures, languages? Tell us what the next drive should have.</p>
+            <a class="btn btn-steel" href="https://github.com/uhollica666/crazy-bhutan-hill-race/issues/new?labels=enhancement&amp;title=Idea%3A%20" rel="noopener" target="_blank">Suggest on GitHub</a>
+          </article>
+        </div>
+
+        <div class="wrap team" id="team">
+          <div class="team-copy">
+            <h3>Want to help build the next game?</h3>
+            <p>
+              We are looking for people who would enjoy working on future Bhutan-inspired games. Tell us what you do. There is no
+              commitment, and nothing here gives anyone access to the game&rsquo;s source code.
+            </p>
+            <p class="fine">
+              A GitHub note is <b>public</b>: use a handle and a portfolio link, never private details. A private email route switches on
+              when the studio contact address is published.
+            </p>
+          </div>
+          <form class="team-form" id="team-form" novalidate>
+            <fieldset>
+              <legend>I could help as a&hellip;</legend>
+              <label><input type="checkbox" name="role" value="Game developer" /> Game developer</label>
+              <label><input type="checkbox" name="role" value="3D artist" /> 3D artist</label>
+              <label><input type="checkbox" name="role" value="Animator" /> Animator</label>
+              <label><input type="checkbox" name="role" value="Musician / sound" /> Musician or sound designer</label>
+              <label><input type="checkbox" name="role" value="Tester" /> Tester</label>
+              <label><input type="checkbox" name="role" value="Translator" /> Translator</label>
+              <label><input type="checkbox" name="role" value="Community" /> Community helper</label>
+            </fieldset>
+            <label class="field">A link to your work (optional)<input type="url" name="link" placeholder="https://" autocomplete="off" /></label>
+            <label class="field">Anything else? (optional, no personal details)<textarea name="note" rows="3" maxlength="400"></textarea></label>
+            <div class="team-actions">
+              <button class="btn btn-fire" type="submit" data-route="github">Send as a public GitHub note</button>
+              <button class="btn btn-steel" type="submit" data-route="email" id="team-email" hidden>Send by email</button>
+            </div>
+            <p class="fine" id="team-msg" role="status"></p>
+          </form>
+        </div>
+
+        <div class="wrap star">
+          <a class="star-link" href="https://github.com/uhollica666/crazy-bhutan-hill-race" rel="noopener" target="_blank">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6.2 6.8.8-5 4.7 1.3 6.7-6-3.3-6 3.3 1.3-6.7-5-4.7 6.8-.8z" /></svg>
+            Star the repository on GitHub
+          </a>
+          <p class="fine">A GitHub star is an endorsement of the code repository. It is not a rating of the game; use Feedback in the game for that.</p>
+        </div>
+      </section>
+
+      <!-- ============================================================ SUPPORT -->
+      <section class="section support" id="support" aria-labelledby="support-title">
+        <div class="wrap support-grid">
+          <div>
+            <p class="eyebrow">Support Novarah Interactives</p>
+            <h2 id="support-title">The game stays free.<br /><em>More games are a gift.</em></h2>
+            <p class="section-lede">
+              Crazy Bhutan Hill Race is free to play, with no ads, no unlocks for sale and no advantage for anyone who contributes. If it made
+              you smile and you would like to help us build more Bhutan-inspired games, voluntary support is warmly welcome, and entirely
+              optional.
+            </p>
+            <ul class="promises">
+              <li>Playing never depends on a contribution.</li>
+              <li>No gameplay advantages, ever.</li>
+              <li>We never collect card or bank details; payments happen on the provider&rsquo;s own page.</li>
+              <li>Contributions are gifts to a small studio, not tax-deductible donations.</li>
+            </ul>
+          </div>
+          <div class="support-box" id="support-box" aria-live="polite">
+            <p class="fine">Loading...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ FINE PRINT -->
+      <section class="section fine-print" id="about" aria-label="Credits, licenses and privacy">
+        <div class="wrap fp-grid">
+          <details>
+            <summary>Credits &amp; licenses</summary>
+            <p>
+              Created by Novarah Interactives, a subdivision of Novarah Technologies. Vehicles, scenery, music and branding are original to
+              the project. The human base is by Quaternius (CC0); surface maps, forest atlas and outdoor HDR are by Poly Haven contributors
+              (CC0). Three.js and other software retain their own licenses.
+              <a href="licenses.txt">Read the asset and software notices</a>.
+            </p>
+          </details>
+          <details>
+            <summary>Privacy</summary>
+            <p>
+              Progress and settings stay on your device. Optional online features use a guest or account identity for private cloud saves,
+              leaderboard times you choose to submit, and feedback. Statistics are opt-in. Feedback is sent only when you submit it, and the
+              contact address and device details are optional. Individual feedback is private to the developer. This website sets no
+              cookies and uses no trackers.
+            </p>
+          </details>
+          <details>
+            <summary>Installing &amp; saves</summary>
+            <p>
+              Windows installers may download Microsoft WebView2 if it is missing. Browser, Windows and Android saves are separate; an optional
+              cloud profile can carry compatible progress between them. Verify the SHA-256 shown beside each download if you like.
+            </p>
+          </details>
+          <details>
+            <summary>Beta software</summary>
+            <p>Expect rough edges and please tell us about them. Browser emulation does not establish how the game runs on every device.</p>
+          </details>
+        </div>
       </section>
     </main>
-    <footer><span>Novarah Interactives</span><span>Adventure, made with care.</span></footer>
-    <script src="page.js"></script>
+
+    <footer class="footer">
+      <div class="wrap foot">
+        <a href="/" class="foot-game"><img src="../brand/cbhr-logo.webp" alt="Crazy Bhutan Hill Race" width="120" height="120" loading="lazy" /></a>
+        <div>
+          <img src="../brand/novarah-logo.webp" alt="Novarah Interactives" width="150" height="43" loading="lazy" />
+          <p>Adventure, made with care. &copy; Novarah Interactives, a subdivision of Novarah Technologies.</p>
+        </div>
+        <nav aria-label="Footer"><a href="/">Play</a><a href="#get">Download</a><a href="#convoy">Feedback</a><a href="licenses.txt">Licenses</a></nav>
+      </div>
+    </footer>
+    <noscript><p class="noscript">Routes and downloads load with JavaScript. You can always find the latest builds on the <a href="https://github.com/uhollica666/crazy-bhutan-hill-race/releases">GitHub releases page</a>.</p></noscript>
+    <script src="site.js" type="module"></script>
   </body>
 </html>

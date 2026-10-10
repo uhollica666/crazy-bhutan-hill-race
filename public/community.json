@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "note": "Optional community settings read by the launch site. teamEmail is the PRIVATE address for Join-the-team notes; leave it null until the studio publishes one (the form then offers only the public GitHub route).",
+  "teamEmail": null
+}

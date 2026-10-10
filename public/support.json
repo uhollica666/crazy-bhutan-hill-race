@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "note": "Voluntary support channels for Novarah Interactives. A channel is shown as ACTIVE only when status is \"verified\", verifiedOn is set, and (for links) the https URL's host is in allowedHosts, or (for QR) qrImage points at a file under download/support/. Until the developer verifies a real destination, every channel stays inactive and no payment control is shown anywhere (site, game menu, About, Settings). Never put card or bank details in this file.",
+  "allowedHosts": ["patreon.com", "www.patreon.com", "ko-fi.com", "buymeacoffee.com", "www.buymeacoffee.com"],
+  "channels": [
+    {
+      "id": "bhutan-qr",
+      "region": "Bhutan",
+      "type": "qr",
+      "title": "Bhutan National QR",
+      "description": "Scan with your banking app (Bhutan).",
+      "recurring": false,
+      "oneTime": true,
+      "status": "pending",
+      "verifiedOn": null,
+      "qrImage": null
+    },
+    {
+      "id": "patreon",
+      "region": "International",
+      "type": "link",
+      "title": "Patreon",
+      "description": "Monthly support from anywhere, on Patreon's own page.",
+      "recurring": true,
+      "oneTime": false,
+      "status": "pending",
+      "verifiedOn": null,
+      "url": null
+    },
+    {
+      "id": "one-time",
+      "region": "International",
+      "type": "link",
+      "title": "One-time gift",
+      "description": "A single contribution through a merchant channel approved by a Bhutanese bank.",
+      "recurring": false,
+      "oneTime": true,
+      "status": "pending",
+      "verifiedOn": null,
+      "url": null
+    }
+  ]
+}

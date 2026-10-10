@@ -30,3 +30,4 @@ release-artifacts
 *.keystore
 key.properties
 .kotlin/
+reports/

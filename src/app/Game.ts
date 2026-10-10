@@ -3,6 +3,7 @@ import { PerspectiveCamera, Vector3 } from 'three';
 import { AudioEngine } from '../audio/AudioEngine';
 import { AudioFocus } from '../audio/focus';
 import { MusicManager } from '../audio/MusicManager';
+import { SupportScreen } from '../ui/SupportScreen';
 import { RaceRotation, fixedTrack, sceneFor } from '../audio/musicPlan';
 import type { MusicScene, TrackSlug } from '../audio/musicPlan';
 import { clamp } from '../core/math';
@@ -166,6 +167,7 @@ export class Game {
   readonly feedbackConfig: FeedbackConfig;
   readonly feedback: FeedbackScreen;
   readonly about: AboutScreen;
+  private readonly support: SupportScreen;
   readonly briefing: BriefingScreen;
   readonly analytics: NullAnalytics | MemoryAnalytics;
   /** Optional online layer: guest/account sign-in, cloud saves, leaderboards. The game never waits for it. */
@@ -401,6 +403,7 @@ export class Game {
         toggleCamera: () => this.toggleCamera(),
         requestService: (k) => this.requestService(k),
         openAbout: () => this.openAbout(),
+        openSupport: () => this.support.open(),
         openFeedback: (o) => this.openFeedback(o),
         openBoard: (id) => this.cloudUI.openBoard(id),
         click: (back) => this.audio.click(back),
@@ -414,6 +417,8 @@ export class Game {
       { version: APP_VERSION, base, feedbackIsRemote: !!this.feedbackConfig.endpoint || !!backend },
     );
     this.about.onFeedback(() => this.openFeedback('about'));
+    this.support = new SupportScreen({ host: opts.uiHost, base, click, onClose: () => this.afterOverlay(), openFeedback: () => this.openFeedback('about') });
+    this.about.onSupport(() => this.support.open());
     this.briefing = new BriefingScreen({ host: opts.uiHost, click, onClose: () => undefined });
     this.tutorialStore = new TutorialStore(storage as unknown as Storage | null);
     this.tutorialUI = new TutorialUI(opts.uiHost, {
@@ -1008,7 +1013,8 @@ export class Game {
 
   /** Escape closes the front-most overlay (feedback, then about, then the story card). Returns true if one was open. */
   private closeOverlay(): boolean {
-    if (this.feedback.isOpen) this.feedback.close();
+    if (this.support.isOpen) this.support.close();
+    else if (this.feedback.isOpen) this.feedback.close();
     else if (this.heatmap.isOpen) this.heatmap.close();
     else if (this.cloudUI.closeTop()) return true;
     else if (this.about.isOpen) this.about.close();

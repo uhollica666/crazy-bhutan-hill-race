@@ -27,7 +27,10 @@
     "build:e2e": "tsc --noEmit && vite build --mode e2e",
     "build:emulated": "tsc --noEmit && vite build --mode emulated --outDir dist-emulated",
     "preview:emulated": "vite preview --outDir dist-emulated --port 4174",
-    "test:e2e:cloud": "firebase emulators:exec --only auth,firestore --project demo-crazy-bhutan-hill-race \"playwright test --project=cloud\""
+    "test:e2e:cloud": "firebase emulators:exec --only auth,firestore --project demo-crazy-bhutan-hill-race \"playwright test --project=cloud\"",
+    "feedback:report": "node scripts/feedback-report.mjs",
+    "site:data": "bun scripts/site-data.ts",
+    "site:shots": "node scripts/site-shots.mjs screenshots/site candidates"
   },
   "dependencies": {
     "firebase": "^13.0.0",

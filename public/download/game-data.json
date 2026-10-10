@@ -1,0 +1,250 @@
+{
+ "generated": "bun scripts/site-data.ts",
+ "vehicles": [
+  {
+   "id": "dzo-hatch",
+   "name": "Dzo Hatch",
+   "blurb": "Your first wheels: a small, willing hatchback. Underpowered on hills, thrifty with fuel, hopeless in mud.",
+   "seats": 3,
+   "topSpeedKmh": 112,
+   "rangeKm": 4.9,
+   "fourByFour": false,
+   "offroad": 0.1,
+   "wading": 0.2
+  },
+  {
+   "id": "tourist-coaster",
+   "name": "Tourist Coaster",
+   "blurb": "Tourist minibus. Heavy and wide, with a lazy lean: brake early and flow through the bends.",
+   "seats": 10,
+   "topSpeedKmh": 108,
+   "rangeKm": 4.6,
+   "fourByFour": false,
+   "offroad": 0.2,
+   "wading": 0.35
+  },
+  {
+   "id": "druk-ranger",
+   "name": "Druk Ranger",
+   "blurb": "Capable SUV with selectable 4x2 / 4x4. Quick, grippy, and happy on a hairpin or a muddy hill.",
+   "seats": 5,
+   "topSpeedKmh": 137,
+   "rangeKm": 5.7,
+   "fourByFour": true,
+   "offroad": 0.6,
+   "wading": 0.5
+  },
+  {
+   "id": "dragon-cruiser",
+   "name": "Dragon Cruiser",
+   "blurb": "Flagship expedition 4x4. Torquey, tall, locked-in grip: it fords rivers and climbs almost anything.",
+   "seats": 6,
+   "topSpeedKmh": 148,
+   "rangeKm": 6.8,
+   "fourByFour": true,
+   "offroad": 0.95,
+   "wading": 0.8
+  }
+ ],
+ "routes": [
+  {
+   "n": 1,
+   "id": "pass-run",
+   "name": "Pass Run",
+   "subtitle": "Village to the prayer-flag pass",
+   "region": "Paro & Thimphu",
+   "difficulty": 2,
+   "party": 3,
+   "vehicles": [
+    "dzo-hatch",
+    "druk-ranger",
+    "tourist-coaster",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "clear/day",
+    "fog/day"
+   ],
+   "summary": "Your first real tourism run: collect a family from the village, pick up a hiker on the trail, swap guests at the viewpoint and deliver everyone to the summit plaza. A long, scenic climb with a fuel stop, a workshop..."
+  },
+  {
+   "n": 2,
+   "id": "thimphu-pickup",
+   "name": "Thimphu Town Pickup",
+   "subtitle": "City streets to Buddha Dordenma",
+   "region": "Paro & Thimphu",
+   "difficulty": 3,
+   "party": 3,
+   "vehicles": [
+    "dzo-hatch",
+    "tourist-coaster",
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "clear/day",
+    "rain/dusk",
+    "clear/night"
+   ],
+   "summary": "A guest-filled morning: collect a couple at Babesa, a late guest at the hotel, drop one at the Memorial Chorten, fetch the tour guide from the busy commercial streets, and bring everyone through the congestion and up..."
+  },
+  {
+   "n": 3,
+   "id": "airport-dash",
+   "name": "Airport Dash",
+   "subtitle": "Thimphu to the departure gate",
+   "region": "Paro & Thimphu",
+   "difficulty": 3,
+   "party": 4,
+   "vehicles": [
+    "tourist-coaster",
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "clear/day",
+    "rain/day",
+    "clear/dusk"
+   ],
+   "summary": "A tour group is dangerously late for their flight. Load them up at the hotel, pick up the last straggler, and drive the Thimphu to Paro highway: river, gorge, roadworks and all. A smooth ride keeps the passengers..."
+  },
+  {
+   "n": 4,
+   "id": "punakha-valley",
+   "name": "Punakha Valley Tour",
+   "subtitle": "Two rivers and a dzong",
+   "region": "Punakha Valley",
+   "difficulty": 4,
+   "party": 3,
+   "vehicles": [
+    "dzo-hatch",
+    "tourist-coaster",
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "clear/day",
+    "clear/dusk",
+    "rain/day"
+   ],
+   "summary": "The valley is at its greenest, and the guests want all of it: the rice terraces, the villages, the river road, a lunch they are sure is still cooking, and the dzong where two rivers meet. Rain, mud, a narrow bridge,..."
+  },
+  {
+   "n": 5,
+   "id": "dochula-storm",
+   "name": "Dochula Storm Descent",
+   "subtitle": "Down the pass before the storm peaks",
+   "region": "Punakha Valley",
+   "difficulty": 5,
+   "party": 3,
+   "vehicles": [
+    "dzo-hatch",
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "clear/day",
+    "heavyRain/day",
+    "fog/dusk"
+   ],
+   "summary": "The tourists lingered too long at the 108 chortens, and a mountain storm is now rolling over the pass. Cloud will swallow the road, fog will hide the trucks, rain will turn the hairpins to glass and a landslide waits..."
+  },
+  {
+   "n": 6,
+   "id": "trongsa-gorge",
+   "name": "Trongsa Gorge Run",
+   "subtitle": "The road with the drop",
+   "region": "Mountain Passes",
+   "difficulty": 5,
+   "party": 3,
+   "vehicles": [
+    "dzo-hatch",
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "cloudy/day",
+    "fog/day",
+    "clear/dusk"
+   ],
+   "summary": "A group of tourists needs to reach Trongsa through the roughest mountains in central Bhutan, on a road that is narrow, patched, and increasingly unpredictable. A cliff ledge, a gorge that cooks the brakes, a one-lane..."
+  },
+  {
+   "n": 7,
+   "id": "chelela-climb",
+   "name": "Chelela Hill Climb",
+   "subtitle": "Up to the snow and the high pass",
+   "region": "Mountain Passes",
+   "difficulty": 5,
+   "party": 4,
+   "vehicles": [
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "clear/day",
+    "snow/day",
+    "fog/dusk"
+   ],
+   "summary": "The tourists insist on seeing Chele La, the highest road pass in Bhutan, and the weather has other plans. Climb from the Paro foothills through forest and fourteen hairpins to the snowy viewpoint: frost, packed snow,..."
+  },
+  {
+   "n": 8,
+   "id": "bumthang-night",
+   "name": "Bumthang Night Expedition",
+   "subtitle": "Forest roads after dark",
+   "region": "Central & Eastern Bhutan",
+   "difficulty": 5,
+   "party": 4,
+   "vehicles": [
+    "tourist-coaster",
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "clear/dusk",
+    "fog/night",
+    "rain/night"
+   ],
+   "summary": "A group of tourists left it too late to leave Bumthang. Now the sun is going down on a long, lonely forest road: unlit bridges, fog in the settlements, animals in the headlights, and some things in the headlights..."
+  },
+  {
+   "n": 9,
+   "id": "remote-expedition",
+   "name": "Eastern Tshechu Expedition",
+   "subtitle": "Mud, rocks and rivers",
+   "region": "Central & Eastern Bhutan",
+   "difficulty": 5,
+   "party": 4,
+   "vehicles": [
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "cloudy/day",
+    "heavyRain/day",
+    "clear/day"
+   ],
+   "summary": "A documentary team, forty cases of gear and a tent that does not fit in the car have to reach a remote expedition camp. The tracks are mud, the highway is broken, the bridge is in the river, the mountain keeps..."
+  },
+  {
+   "n": 10,
+   "id": "gmc-plains",
+   "name": "GMC Plains Challenge",
+   "subtitle": "The long road to Gelephu",
+   "region": "Southern Plains",
+   "difficulty": 5,
+   "party": 5,
+   "vehicles": [
+    "druk-ranger",
+    "dragon-cruiser"
+   ],
+   "conditions": [
+    "clear/day",
+    "heavyRain/day",
+    "cloudy/dusk"
+   ],
+   "summary": "The final assignment: bring a manifest of guests from a southern mountain lodge to the Gelephu Mindfulness City arrival hall, over everything the kingdom can throw at a car: a brake-cooking descent, landslides, mud,..."
+  }
+ ]
+}

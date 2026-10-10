@@ -823,3 +823,53 @@
 .result-sub {
   color: #d3d7e4;
 }
+
+/* ---- voluntary support screen (menu, Settings and About open the same one) */
+.support-panel {
+  max-height: min(86vh, 760px);
+  overflow: auto;
+}
+.support-body {
+  display: grid;
+  gap: 14px;
+}
+.support-lede {
+  margin: 0;
+  color: var(--cream);
+}
+.support-promises {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 6px;
+  font-size: 0.95em;
+}
+.support-channels {
+  display: grid;
+  gap: 10px;
+}
+.support-opt {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.support-opt.pending {
+  opacity: 0.7;
+}
+.support-opt .tag {
+  justify-self: start;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.7em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.1);
+}
+.support-opt img {
+  background: #fff;
+  padding: 8px;
+  border-radius: 10px;
+}
