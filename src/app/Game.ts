@@ -282,6 +282,8 @@ export class Game {
     overrun: false,
   };
   private acc = 0;
+  /** Debug-only fast-forward factor for browser tests (always 1 in normal play). */
+  private timeScale = 1;
   private time = 0;
   private last = 0;
   private fpsEma = 60;
@@ -1910,7 +1912,7 @@ export class Game {
     let alpha = 1;
     if (state === 'playing') {
       const p0 = performance.now();
-      this.stepPhysics(dt);
+      this.stepPhysics(dt * this.timeScale);
       this.physicsMs += (performance.now() - p0 - this.physicsMs) * 0.1;
       alpha = this.rt.session.isActive ? this.acc / PHYSICS_STEP : 1;
     } else if (state === 'menu') {
@@ -2012,12 +2014,18 @@ export class Game {
 
     this.acc += dt;
     let steps = 0;
-    while (this.acc >= PHYSICS_STEP && steps < MAX_STEPS_PER_FRAME) {
+    const maxSteps = MAX_STEPS_PER_FRAME * Math.ceil(this.timeScale);
+    while (this.acc >= PHYSICS_STEP && steps < maxSteps) {
+      // Fast-forwarded (debug) runs let the bot react every step, as it does in the headless simulations.
+      if (this.timeScale > 1 && this.ai && phase !== 'countdown') {
+        if (this.ai instanceof MissionDriver) this.ai.update(cmd);
+        else this.ai.update(rt.body, cmd);
+      }
       rt.step(PHYSICS_STEP, cmd);
       this.acc -= PHYSICS_STEP;
       steps++;
     }
-    if (steps === MAX_STEPS_PER_FRAME) this.acc = 0;
+    if (steps === maxSteps) this.acc = 0;
     this.lastSteps = steps;
     this.issueCooldown = Math.max(0, this.issueCooldown - dt);
   }
@@ -2446,6 +2454,10 @@ export class Game {
       autodrive: (on: boolean) => {
         this.autodriveOn = on;
         this.ai = on && this.inRun ? new MissionDriver(this.rt) : null;
+      },
+      /** Test-only: runs the simulation faster than real time (1..8) so long missions finish within a browser test's time. */
+      timescale: (n: number) => {
+        this.timeScale = clamp(Math.round(n), 1, 8);
       },
       /** Test-only helper: sets the fuel level (0..1). */
       setFuel: (f: number) => {

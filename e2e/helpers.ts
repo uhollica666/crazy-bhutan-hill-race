@@ -46,6 +46,7 @@ export interface GameState {
 type Api = {
   state(): unknown;
   autodrive(on: boolean): void;
+  timescale(n: number): void;
   warp(s: number): void;
   course(): unknown;
   setFuel(f: number): void;
@@ -180,6 +181,9 @@ export async function startMission(page: Page, levelId: string, vehicleId?: stri
 }
 
 export const drive = (page: Page, on = true): Promise<void> => page.evaluate((v) => (window as unknown as { __cbhr: Api }).__cbhr.autodrive(v), on);
+
+/** Runs the simulation faster than real time (1..8): long missions finish inside a test's time on a software-rendered browser. */
+export const timescale = (page: Page, n: number): Promise<void> => page.evaluate((v) => (window as unknown as { __cbhr: Api }).__cbhr.timescale(v), n);
 
 export const warp = (page: Page, s: number): Promise<void> => page.evaluate((v) => (window as unknown as { __cbhr: Api }).__cbhr.warp(v), s);
 

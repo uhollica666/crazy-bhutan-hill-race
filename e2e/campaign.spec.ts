@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { drive, makeSave, openGame, seedSave, startMission, state, storedSave } from './helpers';
+import { drive, timescale, makeSave, openGame, seedSave, startMission, state, storedSave } from './helpers';
 
 const ALL_LEVELS = [
   'pass-run',
@@ -39,12 +39,16 @@ for (const [level, vehicle] of [
     await startMission(page, level, vehicle);
     const before = (await storedSave(page)).progress.levels[level]?.completions ?? 0;
     await drive(page);
+    // Software-rendered Chrome runs at ~10 fps; a 20-minute mission would not finish in test time at 1x.
+    await timescale(page, 6);
     await expect(page.locator('#screen-finish')).toBeVisible({ timeout: 720_000 });
     await expect(page.locator('#finish-stamp')).toHaveText('Mission complete');
     await expect(page.locator('#finish-story')).not.toBeEmpty();
     const s = await state(page);
     expect(s.phase).toBe('finished');
-    expect(s.onboard).toBe(s.party);
+    // Guests dropped off on the way are no longer aboard: the rest ride to the finish.
+    expect(s.onboard).toBeGreaterThan(0);
+    expect(s.onboard).toBeLessThanOrEqual(s.party);
     expect((await storedSave(page)).progress.levels[level].completions).toBe(before + 1);
     const credits = s.credits;
     await page.waitForTimeout(500);
