@@ -23,23 +23,6 @@ function dress(kinds: LandmarkDef['kind'][], count: number, from = 0.04, to = 0.
 }
 
 export const EXTENSIONS: Record<string, Stretch> = {
-  'bumthang-night': {
-    at: 0.72,
-    path: [
-      { turn: -40, radius: 90 }, { straight: 120 }, { turn: 80, radius: 90 }, { straight: 120 }, { turn: -40, radius: 90 },
-      { turn: -40, radius: 90 }, { straight: 120 }, { turn: 80, radius: 90 }, { straight: 120 }, { turn: -40, radius: 90 },
-      { turn: -40, radius: 90 }, { straight: 120 }, { turn: 80, radius: 90 }, { straight: 120 }, { turn: -40, radius: 90 },
-    ],
-    note: 'The forest road now runs on past a village temple before the final climb.',
-    timeLimit: 385,
-    medals: { gold: 190, silver: 240, bronze: 300 },
-    stops: [{ id: 'pump-2', kind: 'service', t: 0.5, label: 'Temple-village pump', side: 1, services: ['refuel', 'repair'], optional: true }],
-    checkpoints: [
-      { t: 0.3, label: 'Village temple' },
-      { t: 0.7, label: 'Pine hollow' },
-    ],
-    landmarks: [...dress(['house', 'chorten', 'lungta', 'prayerWheelHouse', 'flagSpan'], 9, 0.04, 0.96, 20)],
-  },
   'remote-expedition': {
     at: 0.28,
     path: [

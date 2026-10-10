@@ -124,7 +124,7 @@ export const remoteExpedition: LevelDef = {
   timeLimit: 180,
   medals: { gold: 95, silver: 120, bronze: 155 },
   comfortMedals: { gold: 85, silver: 70, bronze: 50 },
-  unlock: { levelId: 'chelela-climb', requirement: 'finish' },
+  unlock: { levelId: 'bumthang-night', requirement: 'finish' },
   look: {
     skyTop: 0x66747f,
     skyMid: 0xa4b8c8,

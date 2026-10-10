@@ -16,6 +16,7 @@ import {
   Quaternion,
   Scene,
   ShaderMaterial,
+  SphereGeometry,
   LineSegments,
   Sprite,
   SpriteMaterial,
@@ -42,6 +43,8 @@ import { busGeometry, bicycleGeometry, deliveryGeometry, kioskGeometry, minibusG
 import type { TrafficKind } from '../data/types';
 import { tractorGeometry } from './valleyBodies';
 import { ploughGeometry } from './snowBodies';
+import { bearGeometry, figureGeometry, logGeometry, zombieGeometry } from './nightBodies';
+import { TRAFFIC_KINDS } from '../gameplay/Traffic';
 import type { HazardState } from '../gameplay/Hazards';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
@@ -139,6 +142,7 @@ export class MissionView {
   private readonly beamMat = new MeshBasicMaterial({ color: 0xf6c452, transparent: true, opacity: 0.18, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
   private readonly beamMatBlue = new MeshBasicMaterial({ color: 0x59b8e8, transparent: true, opacity: 0.16, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
   private readonly m4 = new Matrix4();
+  private readonly col = new Color();
   private readonly q = new Quaternion();
   private readonly pos = new Vector3();
   private readonly scl = new Vector3(1, 1, 1);
@@ -146,7 +150,10 @@ export class MissionView {
   // Hazards.
   private rocks: InstancedMesh | null = null;
   private drifts: InstancedMesh | null = null;
-  private readonly creatures: { h: HazardState; mesh: Mesh; bubble: Sprite; ghost: boolean }[] = [];
+  private readonly creatures: { h: HazardState; mesh: Mesh; bubble: Sprite; ghost: boolean; scale: number }[] = [];
+  private logs: InstancedMesh | null = null;
+  private glow: InstancedMesh | null = null;
+  private night = false;
   private readonly herds: { h: HazardState; mesh: InstancedMesh }[] = [];
   private lorries: { mesh: Mesh; tri: Mesh }[] = [];
   private readonly signs: { group: Group; dispose: () => void }[] = [];
@@ -274,11 +281,19 @@ export class MissionView {
         h.def.kind === 'landslide'
           ? h.def.drift
             ? 'SNOWDRIFT AHEAD'
-            : 'ROCKFALL AREA'
+            : h.def.log
+              ? 'FALLEN TREES'
+              : 'ROCKFALL AREA'
           : h.def.kind === 'creature'
             ? h.def.variant === 'ghost'
               ? 'SPIRIT CROSSING'
-              : 'YETI CROSSING'
+              : h.def.variant === 'zombie'
+                ? 'SOMETHING ON THE ROAD'
+                : h.def.variant === 'figure'
+                  ? 'STRANGE LIGHT AHEAD'
+                  : h.def.variant === 'bear'
+                    ? 'BEAR CROSSING'
+                    : 'YETI CROSSING'
             : h.def.kind === 'herd'
               ? 'ANIMALS ON ROAD'
               : 'BROKEN DOWN VEHICLE';
@@ -305,22 +320,41 @@ export class MissionView {
         this.group.add(this.drifts);
         this.disposables.push(dgeo, this.drifts.material as MeshLambertMaterial);
       }
+      if (hz.hazards.some((h) => h.def.kind === 'landslide' && h.def.log)) {
+        const lgeo = logGeometry();
+        this.logs = new InstancedMesh(lgeo, new MeshLambertMaterial({ vertexColors: true }), 32);
+        this.logs.count = 0;
+        this.logs.frustumCulled = false;
+        this.group.add(this.logs);
+        this.disposables.push(lgeo, this.logs.material as MeshLambertMaterial);
+      }
     }
     const creatureHazards = hz.hazards.filter((h) => h.def.kind === 'creature');
     if (creatureHazards.length) {
-      const geo = yetiGeometry();
-      const yetiMat = new MeshLambertMaterial({ vertexColors: true });
-      // The lantern spirit: the same friendly silhouette, pale and softly glowing (it is not frightening).
-      const ghostMat = new MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.55, emissive: 0x9fd8ff, emissiveIntensity: 0.55, depthWrite: false });
-      this.disposables.push(geo, yetiMat, ghostMat);
+      const geos = new Map<string, BufferGeometry>();
+      const geoFor = (v: string): BufferGeometry => {
+        let g = geos.get(v);
+        if (!g) {
+          g = v === 'zombie' ? zombieGeometry() : v === 'figure' ? figureGeometry() : v === 'bear' ? bearGeometry() : yetiGeometry();
+          geos.set(v, g);
+          this.disposables.push(g);
+        }
+        return g;
+      };
+      const solidMat = new MeshLambertMaterial({ vertexColors: true });
+      // Spirits are pale and softly glowing, never frightening: the same shapes, translucent.
+      const spiritMat = new MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.55, emissive: 0x9fd8ff, emissiveIntensity: 0.55, depthWrite: false });
+      this.disposables.push(solidMat, spiritMat);
       for (const h of creatureHazards) {
-        const ghost = h.def.variant === 'ghost';
-        const mesh = new Mesh(geo, ghost ? ghostMat : yetiMat);
+        const v = h.def.variant ?? 'yeti';
+        const spirit = v === 'ghost' || v === 'figure';
+        const mesh = new Mesh(geoFor(v === 'ghost' ? 'yeti' : v), spirit ? spiritMat : solidMat);
         mesh.visible = false;
-        const bubble = labelSprite(ghost ? 'Whooo~' : 'Hello!', ghost ? '#3b4a7a' : '#2e7d9a');
+        const text = v === 'ghost' ? 'Whooo~' : v === 'zombie' ? 'Uhhhh...' : v === 'figure' ? 'Psst...' : v === 'bear' ? 'Grr?' : 'Hello!';
+        const bubble = labelSprite(text, spirit ? '#3b4a7a' : v === 'zombie' ? '#4a6a3a' : '#2e7d9a');
         bubble.visible = false;
         this.group.add(mesh, bubble);
-        this.creatures.push({ h, mesh, bubble, ghost });
+        this.creatures.push({ h, mesh, bubble, ghost: v === 'ghost', scale: v === 'bear' ? 0.9 : v === 'figure' ? 0.7 : 0.62 });
       }
     }
     const herdHazards = hz.hazards.filter((h) => h.def.kind === 'herd');
@@ -378,6 +412,16 @@ export class MissionView {
         this.kindMeshes.set(kind, mesh);
         this.disposables.push(geo, mat);
       }
+      // Vehicle lamps for the night: pale headlights that glare as an oncoming car nears, red tail lights on cars ahead.
+      const glowGeo = new SphereGeometry(0.2, 8, 6);
+      const glowMat = new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: AdditiveBlending, depthWrite: false, fog: false });
+      this.glow = new InstancedMesh(glowGeo, glowMat, 44);
+      this.glow.count = 0;
+      this.glow.frustumCulled = false;
+      this.glow.renderOrder = 6;
+      for (let i = 0; i < 44; i++) this.glow.setColorAt(i, new Color(0xfff0c0));
+      this.group.add(this.glow);
+      this.disposables.push(glowGeo, glowMat);
     }
     if (rt.course.level.roadside) {
       this.roadside = new RoadsideView(this.scene, rt.course, this.density);
@@ -448,19 +492,27 @@ export class MissionView {
       if (this.rocks) {
         let n = 0;
         let nd = 0;
+        let nl = 0;
         for (const h of hz.hazards) {
           const drift = !!h.def.drift && !!this.drifts;
+          const log = !!h.def.log && !!this.logs;
           for (const b of h.boulders) {
-            if ((drift ? nd : n) >= 32) break;
+            if ((log ? nl : drift ? nd : n) >= 32) break;
             const gy = this.ground(b.x, b.z);
-            this.v3(b.x, gy + b.r * (drift ? 0.38 : 0.55) + b.y, b.z);
-            this.q.setFromAxisAngle(UP, (b.x + b.z) * 0.37);
-            if (drift) this.scl.set(b.r * 1.2, b.r * 0.75, b.r * 1.2);
+            this.v3(b.x, gy + b.r * (log ? 0.2 : drift ? 0.38 : 0.55) + b.y, b.z);
+            this.q.setFromAxisAngle(UP, log ? (b.x * 0.9 + b.z * 0.5) % 3.14 : (b.x + b.z) * 0.37);
+            if (log) this.scl.setScalar(b.r * 0.9);
+            else if (drift) this.scl.set(b.r * 1.2, b.r * 0.75, b.r * 1.2);
             else this.scl.setScalar(b.r);
             this.m4.compose(this.pos, this.q, this.scl);
-            if (drift) this.drifts!.setMatrixAt(nd++, this.m4);
+            if (log) this.logs!.setMatrixAt(nl++, this.m4);
+            else if (drift) this.drifts!.setMatrixAt(nd++, this.m4);
             else this.rocks.setMatrixAt(n++, this.m4);
           }
+        }
+        if (this.logs) {
+          this.logs.count = nl;
+          this.logs.instanceMatrix.needsUpdate = true;
         }
         this.scl.setScalar(1);
         this.rocks.count = n;
@@ -478,7 +530,7 @@ export class MissionView {
           const bob = cr.ghost ? 0.5 + Math.sin(time * 2.2) * 0.25 : Math.abs(Math.sin(time * 5)) * 0.06;
           cr.mesh.position.set(c.x, this.ground(c.x, c.z) + bob, c.z);
           cr.mesh.rotation.y = c.heading + Math.PI;
-          cr.mesh.scale.setScalar(0.62);
+          cr.mesh.scale.setScalar(cr.scale);
           cr.bubble.position.set(c.x, cr.mesh.position.y + 3.6, c.z);
         }
       }
@@ -504,6 +556,8 @@ export class MissionView {
     if (this.kindMeshes.size && rt.traffic) {
       const cars = rt.traffic.cars;
       const used = new Map<TrafficKind, number>();
+      let gi = 0;
+      const bp = rt.body.position;
       for (const c of cars) {
         const mesh = this.kindMeshes.get(c.kind);
         if (!mesh) continue;
@@ -516,6 +570,37 @@ export class MissionView {
         mesh.setMatrixAt(n, this.m4);
         const palette = paletteFor(c.kind);
         mesh.setColorAt(n, palette[c.colorIndex % palette.length]);
+        if (this.glow && this.night && gi < 43) {
+          const dist = Math.hypot(c.x - bp.x, c.z - bp.z);
+          if (dist < 170) {
+            const spec = TRAFFIC_KINDS[c.kind];
+            const fx = -Math.sin(c.heading);
+            const fz = -Math.cos(c.heading);
+            const rx = Math.cos(c.heading);
+            const rz = -Math.sin(c.heading);
+            const front = c.dir === -1;
+            const sgn = front ? 1 : -1;
+            const half = spec.len / 2;
+            const lamp = front ? 0xfff0c0 : 0xff3322;
+            const glare = front ? 0.9 + 3.4 * Math.min(1, Math.max(0, 1 - dist / 75)) : 0.7;
+            const gy = this.ground(c.x, c.z) + (c.kind === 'bus' || c.kind === 'truck' ? 1.1 : c.kind === 'moto' || c.kind === 'scooter' || c.kind === 'bike' ? 0.7 : 0.85);
+            for (const side of c.kind === 'moto' || c.kind === 'scooter' || c.kind === 'bike' ? [0] : [-0.6, 0.6]) {
+              this.pos.set(c.x + fx * half * sgn + rx * side, gy, c.z + fz * half * sgn + rz * side);
+              this.q.identity();
+              this.scl.setScalar(glare);
+              this.m4.compose(this.pos, this.q, this.scl);
+              this.glow.setMatrixAt(gi, this.m4);
+              this.glow.setColorAt(gi, this.col.setHex(lamp));
+              gi++;
+            }
+            this.scl.setScalar(1);
+          }
+        }
+      }
+      if (this.glow) {
+        this.glow.count = this.night ? gi : 0;
+        this.glow.instanceMatrix.needsUpdate = true;
+        if (this.glow.instanceColor) this.glow.instanceColor.needsUpdate = true;
       }
       for (const [kind, mesh] of this.kindMeshes) {
         mesh.count = used.get(kind) ?? 0;
@@ -529,6 +614,11 @@ export class MissionView {
       this.rival.group.position.set(st.x, this.ground(st.x, st.z) + 1.35, st.z);
       this.rival.group.rotation.y = st.heading;
     }
+  }
+
+  /** Lamps on the other traffic are lit when the headlights are on (night, fog, heavy rain). */
+  setNight(on: boolean): void {
+    this.night = on;
   }
 
   private v3(x: number, y: number, z: number): void {

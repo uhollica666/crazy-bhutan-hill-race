@@ -90,7 +90,7 @@ export const gmcPlains: LevelDef = {
   medals: { gold: 76, silver: 90, bronze: 112 },
   pace: { 'tourist-coaster': 1.12, 'dzo-hatch': 1.1, 'dragon-cruiser': 0.88 },
   comfortMedals: { gold: 85, silver: 70, bronze: 50 },
-  unlock: { levelId: 'bumthang-night', requirement: 'finish' },
+  unlock: { levelId: 'remote-expedition', requirement: 'finish' },
   shoulder: 'asphalt',
   look: {
     skyTop: 0x4f86b8,

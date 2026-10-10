@@ -37,7 +37,7 @@ export interface HazardState {
   /** landslide */
   boulders: Boulder[];
   /** creature (yeti) */
-  creature: { x: number; z: number; heading: number; lateral: number; pause: number; obstacle: number; shrug: number } | null;
+  creature: { x: number; z: number; heading: number; lateral: number; pause: number; obstacle: number; shrug: number; along: number; timer: number; scared: boolean } | null;
   /** herd: animals crossing the road one after another (never more than HERD_MAX). */
   herd: HerdAnimal[] | null;
   /** brokenTruck */
@@ -51,6 +51,8 @@ type HazardEvents = {
   appear: HazardState;
   cross: HazardState;
   gone: HazardState;
+  /** A creature or apparition has startled the passengers (a ghost passed through, a shambler reached the car, a figure vanished). */
+  scare: HazardState;
 };
 
 /** Metres the gap beside a blockage must keep free, so even the Coaster can always get through. */
@@ -127,7 +129,7 @@ export class HazardSystem {
   }
 
   /** Fixed-step update. */
-  update(dt: number, playerS: number, playerSpeed: number): void {
+  update(dt: number, playerS: number, playerSpeed: number, playerLateral = 0): void {
     const ob = this.course.obstacles;
     const road = this.course.road;
     for (const h of this.hazards) {
@@ -159,7 +161,7 @@ export class HazardSystem {
           break;
         }
         case 'creature': {
-          this.updateCreature(h, dt, playerS, playerSpeed);
+          this.updateCreature(h, dt, playerS, playerSpeed, playerLateral);
           break;
         }
         case 'herd': {
@@ -208,11 +210,13 @@ export class HazardSystem {
     if (!silent) this.events.emit('land', { hazard: h, boulder: b });
   }
 
-  private updateCreature(h: HazardState, dt: number, playerS: number, playerSpeed: number): void {
+  private updateCreature(h: HazardState, dt: number, playerS: number, playerSpeed: number, playerLateral: number): void {
     const road = this.course.road;
     const ob = this.course.obstacles;
     const side = h.side;
     const far = road.wallAtS(h.s) + 2.6;
+    const mode = h.def.behavior ?? 'cross';
+    const ghost = h.def.variant === 'ghost';
     if (h.phase === 'dormant' && playerS >= h.s - 120 && playerS <= h.s + 2) {
       const f = this.frame(h.s, -side * far);
       h.creature = {
@@ -221,8 +225,16 @@ export class HazardSystem {
         heading: Math.atan2(side * -f.tz, side * f.tx),
         lateral: -side * far,
         pause: 0,
-        obstacle: ob.add(f.x, f.z, 1.1, { push: 0.9, restitution: 0.35, tag: 'creature' }),
+        // A ghost is soft (the car slows but is not damaged), and a roadside apparition has nothing solid to hit.
+        obstacle: ob.add(f.x, f.z, mode === 'vanish' ? 0.05 : ghost ? 1.0 : 1.1, {
+          push: ghost ? 0.2 : 0.9,
+          restitution: ghost ? 0.02 : 0.35,
+          tag: ghost || mode === 'vanish' ? 'gate' : 'creature',
+        }),
         shrug: 0,
+        along: 0,
+        timer: 0,
+        scared: false,
       };
       h.phase = 'waiting';
       this.events.emit('appear', h);
@@ -230,25 +242,62 @@ export class HazardSystem {
     const c = h.creature;
     if (!c) return;
     c.shrug = Math.max(0, c.shrug - dt);
+    const sNow = h.s + c.along;
+    const scare = (): void => {
+      if (c.scared) return;
+      c.scared = true;
+      c.shrug = 1.5;
+      this.events.emit('scare', h);
+    };
 
-    if (h.phase === 'waiting') {
-      // Cross only when the road is clear: the player is stopped, far away, or already past.
+    if (mode === 'vanish') {
+      // A figure standing at the roadside: gone, with a shiver, when the car gets close.
+      if (h.phase === 'waiting' && h.s - playerS < 22 && h.s - playerS > -4) {
+        scare();
+        h.phase = 'done';
+        this.events.emit('gone', h);
+      }
+    } else if (h.phase === 'waiting') {
+      // Cross only when the road is clear: the player is stopped, far away, or already past. Eager ones (reactive, lingering, chasing) set off as the car nears.
       const ahead = h.s - playerS;
       const arrival = ahead / Math.max(playerSpeed, 1);
-      const safe = h.def.reactive
-        ? ahead < 75
-        : ahead < -8 || (playerSpeed < 2.5 && ahead > 14) || (arrival > 6.5 && ahead > 22);
+      const eager = h.def.reactive || mode === 'chase' || mode === 'linger';
+      const safe = eager ? ahead < 85 : ahead < -8 || (playerSpeed < 2.5 && ahead > 14) || (arrival > 6.5 && ahead > 22);
       if (safe) {
         h.phase = 'crossing';
         this.events.emit('cross', h);
       }
     }
-    if (h.phase === 'crossing') {
+
+    if (h.phase === 'crossing' && mode === 'chase') {
+      // A shambler: it heads for the road and follows a slow or stopped car, a few steps behind, until the car drives off or it gets close.
+      c.timer += dt;
+      const hw = road.halfWidthAtS(sNow);
+      if (Math.abs(sNow - playerS) < 80 && playerSpeed < 7) {
+        c.along += clamp(playerS - h.s - 3.2 - c.along, -2.6 * dt, 2.6 * dt);
+        c.lateral += clamp(clamp(playerLateral, -hw, hw) - c.lateral, -1.7 * dt, 1.7 * dt);
+      } else {
+        c.lateral += clamp(-side * far - c.lateral, -1.2 * dt, 1.2 * dt);
+        if (playerSpeed > 8 && playerS - sNow > 18) c.pause += dt;
+      }
+      if (Math.abs(sNow - playerS) < 2.6 && Math.abs(c.lateral - playerLateral) < 1.9) scare();
+      if (c.scared || c.pause > 3 || c.timer > 45) {
+        h.phase = 'done';
+        this.events.emit('gone', h);
+      }
+      const f = this.frame(h.s + c.along, c.lateral);
+      const dx = f.x - c.x;
+      const dz = f.z - c.z;
+      if (dx * dx + dz * dz > 1e-5) c.heading = Math.atan2(dx, dz);
+      ob.move(c.obstacle, f.x, f.z, dx / Math.max(dt, 1e-3), dz / Math.max(dt, 1e-3));
+      c.x = f.x;
+      c.z = f.z;
+    } else if (h.phase === 'crossing') {
       const target = side * far;
       const lat = c.lateral;
       const centre = Math.abs(lat) < 0.8;
-      if (centre && c.pause < 1.6) {
-        c.pause += dt; // stops in the middle of the road to wave at the car
+      if (centre && c.pause < (mode === 'linger' ? 4.5 : 1.6)) {
+        c.pause += dt; // stops in the middle of the road: to wave at the car, or (a ghost) to hang there for a while
       } else {
         const dir = Math.sign(target - lat);
         const ahead2 = h.s - playerS;
@@ -261,6 +310,8 @@ export class HazardSystem {
           this.events.emit('gone', h);
         }
       }
+      // Driving through a ghost, or past it, gives the passengers a fright.
+      if (ghost && Math.abs(playerS - h.s) < 3 && Math.abs(playerLateral - c.lateral) < 1.8) scare();
       const f = this.frame(h.s, c.lateral);
       c.x = f.x;
       c.z = f.z;

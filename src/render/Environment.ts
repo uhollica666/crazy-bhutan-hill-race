@@ -95,6 +95,7 @@ export class Environment {
     this.mistStrength = course.level.atmosphere.summitMist;
     this.mistStart = course.level.atmosphere.mistStart;
     this.visibility = course.level.atmosphere.visibility;
+    this.nightVis = course.level.atmosphere.nightVisibility ?? 1;
 
     this.baseSun = look.sun ?? 3.1;
     this.baseHemi = look.hemi ?? 1.7;
@@ -215,7 +216,7 @@ export class Environment {
     (this.ridges.material as MeshBasicMaterial).color.setScalar(
       Math.max(0.1, t.hemi * (1 - w.gloom * 0.3)) ** 0.8,
     );
-    this.weatherVis = w.visibility;
+    this.weatherVis = w.visibility * (time === 'night' ? this.nightVis : 1);
     this.lightsOn = t.headlights || w.visibility < 0.35;
     if (baseFogFar !== undefined) this.baseFogFar = baseFogFar * this.visibility * this.weatherVis;
     else this.baseFogFar = (this.baseFogFar / Math.max(0.01, this.prevWeatherVis)) * this.weatherVis;
@@ -238,6 +239,7 @@ export class Environment {
   }
 
   private visLag = 1;
+  private readonly nightVis: number = 1;
   private sunHeight = 1;
   private prevWeatherVis = 1;
 

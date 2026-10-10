@@ -169,6 +169,30 @@ export const EN: StoryBook = {
         'Fuel runs out faster on slopes and snow: use every pump.',
       ],
     },
+    'bumthang-night': {
+      headline: 'Do Not Stop For The Lantern',
+      stamp: 'Night run',
+      quick: { problem: 'They left Bumthang far too late, and the forest road is not empty.', goal: 'Drive the night road: collect, drop and rescue guests, and reach the mountain resort before midnight.', challenge: 'Darkness, fog, narrow bridges, fallen trees and things in the headlights.' },
+      ending: { done: 'The resort lamps came up out of the fog, the guests cheered, and nobody mentioned the figure with the lantern.', failed: 'The forest got the better of the night. Try a steadier hand, and a closer look at the road.' },
+      text: [
+        'The honeymooners were told it was a short drive. The sun, which is the only reason the road looks friendly, was already going down when they left.',
+        'The road runs through forest, remote villages, two narrow bridges, a midnight forest, a foggy settlement and a stretch where the huts have been abandoned for a reason. Your headlights light forty metres of it. What is beyond them is fog, trees and opinions.',
+        'Pick up a lost hiker, rescue a film crew whose car "stopped by itself", and watch the road: there are ghosts that hang in it, shamblers that follow slow cars, a lantern figure that is not there when you arrive, bears, yetis, fallen trees and one very unlit truck. It is all cartoon-friendly, and all real enough to hit.',
+      ],
+      passengers: ['honeymooners', 'night-hikers', 'film-crew'],
+      objectives: [
+        'Pick up the guests at the town hotel and the lost hiker in the forest.',
+        'Drop the hiker at his village, rescue the film crew on the forest road, and drop one guest at the foggy guesthouse.',
+        'Drive through the checkpoints, in order, through the dark.',
+        'Stop at the mountain resort so the guests can get out.',
+      ],
+      watchOut: [
+        'Your headlights show about forty metres. Slow down: what you cannot see can still be in the road.',
+        'Wait for the green signal at the bridges. Oncoming headlights dazzle: slow down and keep left.',
+        'Do not stop for shamblers: drive on and they lose interest. Ghosts hang in the road, so slow down and go round or through.',
+        'Fuel is low at the start. Use every pump: the road is long and the forest is empty.',
+      ],
+    },
     'remote-expedition': {
       headline: 'Forty Cases of Camera Gear',
       stamp: 'Expedition',

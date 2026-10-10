@@ -9,7 +9,9 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  Object3D as Object3DClass,
   Quaternion,
+  SpotLight,
   Vector3,
 } from 'three';
 import type { BufferGeometry, MeshStandardMaterial, Object3D } from 'three';
@@ -195,6 +197,7 @@ export class VehicleModel {
   private readonly up = new Vector3(0, 1, 0);
   private readonly n = new Vector3();
   private brakeGlow = 0;
+  private headLight!: SpotLight;
   private readonly beam: Mesh;
 
   constructor(
@@ -274,6 +277,13 @@ export class VehicleModel {
     this.beam.visible = false;
     this.beam.renderOrder = 5;
     this.shell.add(this.beam);
+    // One real spotlight (no shadows) so the road, the verges and whatever stands on them are actually lit at night, about 45 m ahead.
+    this.headLight = new SpotLight(0xfff0cc, 0, 58, 0.52, 0.65, 2);
+    this.headLight.position.set(0, LIGHT_LAYOUT[def.visual].y + 0.1, -(def.size.length / 2));
+    const aim = new Object3DClass();
+    aim.position.set(0, -1.2, -32);
+    this.shell.add(this.headLight, aim);
+    this.headLight.target = aim;
     this.geos.push(beamGeo);
     this.mats.push(beamMat);
 
@@ -315,6 +325,7 @@ export class VehicleModel {
   /** Switches the headlight beam (dusk, night, fog, heavy rain). */
   setHeadlights(on: boolean): void {
     this.beam.visible = on;
+    this.headLight.intensity = on ? 900 : 0;
     for (const m of this.headMats) m.emissiveIntensity = on ? 2.6 : 0.5;
   }
 

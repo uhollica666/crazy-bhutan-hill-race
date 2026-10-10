@@ -46,7 +46,7 @@ type RuntimeEvents = {
   serviceStart: { stop: StopRuntime; kind: ServiceKind };
   serviceDone: { stop: StopRuntime; kind: ServiceKind };
   issue: StatusIssue;
-  hazard: { type: 'warn' | 'land' | 'appear' | 'cross' | 'gone'; hazard: HazardState };
+  hazard: { type: 'warn' | 'land' | 'appear' | 'cross' | 'gone' | 'scare'; hazard: HazardState };
   touched: HazardState;
   thunder: { flash: number };
   recovered: undefined;
@@ -137,7 +137,7 @@ export class MissionRuntime {
     this.weather.events.on('thunder', (t) => e.emit('thunder', t));
     const h = this.hazards?.events;
     if (h) {
-      for (const type of ['warn', 'appear', 'cross', 'gone'] as const)
+      for (const type of ['warn', 'appear', 'cross', 'gone', 'scare'] as const)
         h.on(type, (hazard) => e.emit('hazard', { type, hazard }));
       h.on('land', ({ hazard }) => e.emit('hazard', { type: 'land', hazard }));
     }
@@ -213,9 +213,10 @@ export class MissionRuntime {
   }
 
   /** A weather front moves in: the road soaks and the rain builds gradually (the sky and fog follow in the renderer). */
-  transitionWeather(weather: ConditionsDef['weather']): void {
-    this.conditions = { ...this.conditions, weather };
+  transitionWeather(weather: ConditionsDef['weather'], time?: ConditionsDef['time']): void {
+    this.conditions = { ...this.conditions, weather, time: time ?? this.conditions.time };
     this.weather.transitionTo(weather);
+    if (time) this.weather.time = time;
   }
 
   /** Changes weather and time of day during a run (the training route does this lesson by lesson). */
@@ -311,7 +312,7 @@ export class MissionRuntime {
 
     // World events.
     if (session.phase === 'running') {
-      this.hazards?.update(dt, this.s, speed);
+      this.hazards?.update(dt, this.s, speed, this.lateral);
       this.rival?.update(session.time, dt);
       if (this.rival?.state.finished && this.rivalFinish === null)
         this.rivalFinish = this.rival.def.finishTime;

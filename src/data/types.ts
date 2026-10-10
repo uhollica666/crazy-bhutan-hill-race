@@ -211,7 +211,12 @@ export interface HazardDef {
   seed: number;
   label: string;
   /** creature: the friendly yeti (default) or a pale lantern ghost seen in the dark. */
-  variant?: 'yeti' | 'ghost';
+  variant?: 'yeti' | 'ghost' | 'zombie' | 'figure' | 'bear';
+  /**
+   * creature: cross (default: walk across, pausing in the road), linger (a ghost that hangs in the road for a while), chase (a shambler
+   * that follows a slow or stopped car and gives up when it drives off) or vanish (a figure at the roadside that is gone when you arrive).
+   */
+  behavior?: 'cross' | 'linger' | 'chase' | 'vanish';
   /** Creatures and herds that react to the car: they set off as it approaches and hurry if it comes in fast. */
   reactive?: boolean;
   /** herd: how many animals cross together (default 4). */
@@ -220,6 +225,8 @@ export interface HazardDef {
   side?: -1 | 1;
   /** landslide: a snowdrift (white mounds, same collision and gap rules) instead of fallen rocks. */
   drift?: boolean;
+  /** landslide: fallen trees across the road (same collision and gap rules) instead of rocks. */
+  log?: boolean;
 }
 
 /** A shallow puddle lying on the road: tyres splash and lose some grip, but it never stalls a car. */
@@ -348,7 +355,8 @@ export type LandmarkKind =
   | 'chortenRing'
   | 'shelter'
   | 'lodge'
-  | 'flagPoles';
+  | 'flagPoles'
+  | 'ruin';
 
 export interface LandmarkDef {
   kind: LandmarkKind;
@@ -493,7 +501,7 @@ export interface LevelDef {
   /** Black-and-white checkered flags are raised at the drop-off during the celebration. */
   celebrateFlags?: boolean;
   /** Weather that drifts through during the run (only with the default conditions): fractions of the stretch. */
-  weatherZones?: { from: number; to: number; weather: WeatherKind }[];
+  weatherZones?: { from: number; to: number; weather: WeatherKind; /** The light changes here too (dusk becomes night). */ time?: TimeOfDay }[];
   /** Side streets and zebra crossings on the main road. */
   junctions?: JunctionDef[];
   /** Rivers beside and under the road (see RiverDef). */
@@ -565,6 +573,8 @@ export interface LevelDef {
   atmosphere: {
     /** Fog tightens and whitens toward this strength at the end of the route (0..1). */
     summitMist: number;
+    /** Multiplier on the view distance at night (the headlights, not the sky, light the road). Default 1. */
+    nightVisibility?: number;
     /** Fraction of the route where the mist starts building. */
     mistStart: number;
     /** Base fog distance multiplier (<1 = hazier). */

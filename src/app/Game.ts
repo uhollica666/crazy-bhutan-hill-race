@@ -648,6 +648,7 @@ export class Game {
       trafficScale: this.quality().trafficScale,
     });
     this.view = new MissionView(this.renderer.scene, this.rt, clamp(this.quality().trafficScale, 0.3, 1));
+    this.view.setNight(this.world?.env.lightsOn ?? false);
     this.wireRuntime(this.rt);
     this.acc = 0;
     this.effects.reset();
@@ -692,6 +693,7 @@ export class Game {
     const c = this.academy || (this.inRun && this.level.weatherZones && this.weatherZone >= 0) ? this.rt.conditions : this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
     this.world.setConditions(c.weather, c.time, smooth);
     this.model?.setHeadlights(this.world.env.lightsOn);
+    this.view?.setNight(this.world.env.lightsOn);
     this.model?.setReflection(this.world.env.brightness);
     const q = this.quality();
     const snowing = this.level.weather === 'snow' || WEATHER[c.weather].snow;
@@ -801,6 +803,13 @@ export class Game {
       if (type === 'warn') ui.flash('Look out!', hazard.def.label);
       else if (type === 'land') audio.rockfall();
       else if (type === 'appear') audio.yeti();
+      else if (type === 'scare') {
+        // A ghost passed through, a shambler reached the car, a figure vanished: the passengers are startled (and a little cross).
+        if (rt.session.comfort) rt.session.comfort.value = Math.max(0, rt.session.comfort.value - 7);
+        const v = hazard.def.variant;
+        ui.flash(v === 'ghost' ? 'A cold shiver...' : v === 'zombie' ? 'It reached the car!' : 'Nobody there... was there?', rt.stops.onboard > 0 ? 'The passengers are rattled' : 'Keep driving');
+        audio.warning();
+      }
     });
     e.on('thunder', ({ flash }) => {
       this.flashLevel = Math.max(this.flashLevel, flash);
@@ -1939,6 +1948,7 @@ export class Game {
     }
     const lights = this.world?.env.lightsOn ?? false;
     this.model?.setHeadlights(lights);
+    this.view?.setNight(lights);
   }
 
   private currentRpm(): number {
@@ -2144,10 +2154,11 @@ export class Game {
         this.weatherZone = idx;
         const base = level.conditions[0];
         const next = idx >= 0 ? zones[idx].weather : base.weather;
-        // A front moves in: the road soaks, the rain builds and the fog thickens over a few seconds.
-        rt.transitionWeather(next);
+        const prev = rt.conditions.weather;
+        // A front moves in: the road soaks, the rain builds and the fog thickens over a few seconds (and dusk may turn to night).
+        rt.transitionWeather(next, idx >= 0 ? zones[idx].time ?? base.time : base.time);
         this.applyConditions(true);
-        if (idx >= 0 || next !== 'clear') {
+        if ((idx >= 0 || next !== 'clear') && next !== prev) {
           const note = ZONE_NOTICE[next];
           if (note) this.ui.flash(next === 'rain' && level.mission.kind === 'tour' ? 'Sudden rain!' : note[0], note[1]);
           // The first snow: remind a vehicle with selectable drive that four-wheel drive is worth having on the steep, slippery climbs.
