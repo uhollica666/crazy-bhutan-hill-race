@@ -32,7 +32,7 @@ export const dzoHatch: VehicleDef = {
   wheelWidth: 0.2,
   suspension: { rest: 0.48, travel: 0.26, stiffness: 30000, damping: 4200, antiRoll: 9000 },
   engine: {
-    force: 5600,
+    force: 6800,
     reverseForce: 3200,
     topSpeed: 31,
     reverseSpeed: 8,

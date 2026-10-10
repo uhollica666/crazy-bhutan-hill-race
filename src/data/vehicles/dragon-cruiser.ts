@@ -32,7 +32,7 @@ export const dragonCruiser: VehicleDef = {
   wheelWidth: 0.3,
   suspension: { rest: 0.66, travel: 0.38, stiffness: 70000, damping: 9200, antiRoll: 12000 },
   engine: {
-    force: 17500,
+    force: 20500,
     reverseForce: 8000,
     topSpeed: 41,
     reverseSpeed: 11,

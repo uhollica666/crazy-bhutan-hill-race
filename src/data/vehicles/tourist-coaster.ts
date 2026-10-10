@@ -32,7 +32,7 @@ export const touristCoaster: VehicleDef = {
   wheelWidth: 0.3,
   suspension: { rest: 0.6, travel: 0.38, stiffness: 120000, damping: 13000, antiRoll: 4000 },
   engine: {
-    force: 21000,
+    force: 25000,
     reverseForce: 8000,
     topSpeed: 30,
     reverseSpeed: 8,

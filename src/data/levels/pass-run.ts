@@ -257,9 +257,9 @@ export const passRun: LevelDef = {
     slope: TERRAIN_SLOPE,
     hillHeight: 20,
     detailHeight: 7,
-    valleyZ: -50,
+    valleyZ: 150,
     valleyDepth: 36,
-    waterLevel: -40,
+    waterLevel: -26,
   },
   road: { width: 8.8, shoulder: 0.7, startOffset: START_OFFSET, finishOffset: FINISH_OFFSET, points: road.points, widthProfile },
   checkpoints: [

@@ -32,7 +32,7 @@ export const drukRanger: VehicleDef = {
   wheelWidth: 0.28,
   suspension: { rest: 0.55, travel: 0.3, stiffness: 43000, damping: 5800, antiRoll: 16000 },
   engine: {
-    force: 9500,
+    force: 11300,
     reverseForce: 5000,
     topSpeed: 38,
     reverseSpeed: 10,
