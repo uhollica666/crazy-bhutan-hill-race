@@ -70,7 +70,7 @@ export class GarageScene {
 
   constructor(shadows: boolean) {
     this.scene.background = new Color(0x0b0d14);
-    const hemi = new HemisphereLight(0xdfe6ff, 0x2c3350, 1.4);
+    const hemi = new HemisphereLight(0xe4e8ed, 0x454238, 1.25);
     const amb = new AmbientLight(0xcfd8ff, 0.2);
     this.key = new DirectionalLight(0xf2f5ff, 2.1);
     this.key.position.set(-4.5, 7, -5);
@@ -84,7 +84,7 @@ export class GarageScene {
     sc.near = 1;
     sc.far = 24;
     this.key.shadow.bias = -0.0006;
-    const rim = new DirectionalLight(0x87b6db, 1.3);
+    const rim = new DirectionalLight(0xd6e0e5, 1.5);
     rim.position.set(5, 3.5, 6);
     this.lantern = new PointLight(0xffb45a, 14, 12, 1.6);
     this.lantern.position.set(-3.6, 2.4, -2.2);

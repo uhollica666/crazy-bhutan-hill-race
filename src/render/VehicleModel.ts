@@ -16,10 +16,12 @@ import {
   SpotLight,
   Vector3,
 } from 'three';
-import type { BufferGeometry, MeshStandardMaterial, Object3D } from 'three';
+import type { BufferGeometry, MeshStandardMaterial, MeshPhysicalMaterial, Object3D } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { vehicleEnvironment } from './assets';
 import { createCoachwork } from './coachwork';
+import { loadedCoachwork } from './loadedCoachwork';
+import { detailMaterial } from './actorMaterials';
 import type { VehicleAsset } from './assets';
 import type { VehicleDef } from '../data/types';
 import type { VehicleBody } from '../physics/VehicleBody';
@@ -65,7 +67,7 @@ export class VehicleModel {
   private readonly lods: LOD[] = [];
   private readonly headMats: MeshStandardMaterial[] = [];
   private readonly tailMats: MeshStandardMaterial[] = [];
-  /** This revision uses detailed original procedural coachwork on every asset-loading path. */
+  /** Whether the optimized hero asset is ready; the authored fallback remains playable while it loads. */
   readonly detailed: boolean;
   private readonly geos: BufferGeometry[] = [];
   private readonly mats: { dispose(): void }[] = [];
@@ -82,20 +84,34 @@ export class VehicleModel {
   private lastSyncTime = 0;
   private readonly tyreClean = new Color(0x252729);
   private readonly tyreMud = new Color(0x66503a);
+  private paintRoughness = 0.24;
+  private compression = 0;
+  private wetness = 0;
+  setWetness(value: number): void { this.wetness = Math.max(0,Math.min(1,value)); }
 
   applyCosmetics(c: Cosmetics): void {
+    this.paintRoughness = c.finish === 'matte' ? 0.82 : 0.24;
     const paints: Record<string, number> = {pearl:0xe6e5dd,red:0x9e2638,green:0x254b40,blue:0x285b88};
     for (const owned of this.mats) {
       const m = owned as MeshStandardMaterial;
       if (m.name === 'paint') m.color.setHex(paints[c.paint] ?? this.def.livery.body);
+      if (m.name === 'paint') {
+        const physical = m as MeshPhysicalMaterial;
+        physical.roughness = this.paintRoughness;
+        physical.metalness = c.finish === 'matte' ? 0.08 : 0.38;
+        physical.clearcoat = c.finish === 'matte' ? 0.05 : 1;
+      }
       if (m.name === 'trim') m.color.setHex(c.trim === 'dark' ? 0x20262c : c.trim === 'bronze' ? 0x91704b : this.def.livery.trim);
-      if (m.name === 'alloy') m.color.setHex(c.wheels === 'black' ? 0x424a52 : c.wheels === 'bronze' ? 0xa88350 : 0xb6bdc5);
+      if (m.name === 'wheel_alloy') m.color.setHex(c.wheels === 'black' ? 0x424a52 : c.wheels === 'bronze' ? 0xa88350 : 0xb6bdc5);
     }
-    this.shell.traverse(o => {
+    this.root.traverse(o => {
       if (o.name === 'cosmetic_stripe') o.visible = c.skin === 'stripe';
       if (o.name === 'cosmetic_summit') o.visible = c.skin === 'summit';
       if (o.name === 'cosmetic_carrier') o.visible = c.equipment === 'carrier';
       if (o.name === 'cosmetic_lamps') o.visible = c.equipment === 'lamps';
+      if (o.name === 'cosmetic_trail') o.visible = c.bumper === 'trail';
+      if (o.name === 'cosmetic_basket') o.visible = c.rack === 'basket';
+      if (o.name.startsWith('rim_')) o.visible = o.name === `rim_${c.rim || 'touring'}`;
     });
   }
 
@@ -114,10 +130,9 @@ export class VehicleModel {
     private readonly def: VehicleDef,
     asset: VehicleAsset | null = null,
   ) {
-    // The old GLB argument remains API-compatible; this remake owns the visible coachwork.
-    void asset;
-    this.detailed = true;
-    const high = createCoachwork(def), low = createCoachwork(def, true);
+    this.detailed = !!asset;
+    const high = asset ? loadedCoachwork(def,asset,false) : createCoachwork(def);
+    const low = asset ? loadedCoachwork(def,asset,true) : createCoachwork(def,true);
     const bodyLOD = new LOD(); bodyLOD.addLevel(high.body, 0); bodyLOD.addLevel(low.body, 38, 0.12);
     this.lods.push(bodyLOD);
     this.shell.add(bodyLOD); this.root.add(this.shell);
@@ -127,12 +142,12 @@ export class VehicleModel {
       this.headMats.push(art.head); this.tailMats.push(art.tail); this.reverseMats.push(art.reverse);
       art.indicators.forEach((m, i) => this.indicatorMats[i].push(m));
       for (const m of art.materials) {
+        if(m.name==='upholstery')detailMaterial(m,'cloth');
         if (vehicleEnvironment() && !m.name.startsWith('light') && m.name !== 'rubber' && m.name !== 'tyre' && m.name !== 'road_dirt' && m.name !== 'scuff' && m.name !== 'cabin') {
           m.envMap = vehicleEnvironment(); m.envMapIntensity = 0.5;
         }
       }
     }
-    this.applyCosmetics(readCosmetics(def.id));
     for (const axle of def.axles) for (const side of [-1, 1]) {
       const pivot = new Group(), roll = new LOD();
       roll.addLevel(high.wheel.clone(true), 0); roll.addLevel(low.wheel.clone(true), 30, 0.12);
@@ -141,6 +156,7 @@ export class VehicleModel {
       pivot.position.set(side * axle.halfTrack, axle.y - def.suspension.rest, axle.z);
       this.root.add(pivot); this.pivots.push(pivot); this.rolls.push(roll);
     }
+    this.applyCosmetics(readCosmetics(def.id));
 
     // Headlight beams: TWO additive cones, one from each lamp, angled slightly outward so they overlap into a
     // brighter pool ahead and part toward the verges. Both are merged into one geometry: a single transparent draw
@@ -165,7 +181,7 @@ export class VehicleModel {
     }
     const beamGeo = mergeGeometries(cones, false) as BufferGeometry;
     cones.forEach((c) => c.dispose());
-    const beamMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: AdditiveBlending, fog: false, side: DoubleSide });
+    const beamMat = new MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.055, depthWrite: false, blending: AdditiveBlending, fog: false, side: DoubleSide, toneMapped: false });
     this.beam = new Mesh(beamGeo, beamMat);
     this.beam.position.y = LIGHT_LAYOUT[def.visual].y;
     this.beam.visible = false;
@@ -211,7 +227,7 @@ export class VehicleModel {
   setReflection(k: number): void {
     for (const m of this.mats) {
       const std = m as MeshStandardMaterial;
-      if (std.isMeshStandardMaterial && std.envMap) std.envMapIntensity = 0.85 * k;
+      if (std.isMeshStandardMaterial && std.envMap) { std.envMap = vehicleEnvironment(); std.envMapIntensity = 0.85 * k; }
     }
   }
 
@@ -249,7 +265,11 @@ export class VehicleModel {
 
     // Engine shudder (diesel coach shakes more than the petrol 4x4) fading out at speed.
     const vib = (0.0035 + rpm * 0.006) * (this.def.audio.rumble + 0.4);
-    this.shell.position.y = Math.sin(time * (46 + rpm * 60)) * vib;
+    const dt = Math.max(0, Math.min(0.1, time - this.lastSyncTime));
+    const compression = body.wheels.reduce((sum, w) => sum + (w.inContact ? this.def.suspension.rest - w.suspLength : 0), 0) / body.wheels.length;
+    this.compression += (compression - this.compression) * (1 - Math.exp(-dt * 9));
+    // Small sprung-shell settle supplements the existing physics-owned chassis attitude.
+    this.shell.position.y = Math.sin(time * (46 + rpm * 60)) * vib + Math.max(-0.035, Math.min(0.035, this.compression * 0.12));
     this.shell.rotation.z = Math.sin(time * (37 + rpm * 50) + 1.3) * vib * 0.5;
 
     body.wheels.forEach((w, i) => {
@@ -258,7 +278,6 @@ export class VehicleModel {
       this.rolls[i].rotation.x = -w.spin;
     });
 
-    const dt = Math.max(0, Math.min(0.1, time - this.lastSyncTime));
     this.lastSyncTime = time;
     const dirty = body.wheels.some(w => w.inContact && (w.surface.id === 'mud' || w.surface.id === 'dirt'));
     const washed = body.wheels.some(w => w.inContact && w.surface.id === 'water');
@@ -270,7 +289,10 @@ export class VehicleModel {
       if (!m.isMeshStandardMaterial) continue;
       if (m.name === 'road_dirt') m.opacity = this.grime * 0.9;
       if (m.name === 'tyre') m.color.copy(this.tyreClean).lerp(this.tyreMud, this.grime * 0.6);
-      if (m.name === 'paint') m.roughness = 0.28 + (1 - this.condition / 100) * 0.2;
+      if (m.name === 'paint') {
+        m.roughness = Math.max(0.12,Math.min(1, this.paintRoughness + (1 - this.condition / 100) * 0.16 + this.grime * 0.1) * (1-this.wetness*0.45));
+        (m as MeshPhysicalMaterial).clearcoatRoughness = 0.12-this.wetness*0.075;
+      }
     }
 
     // Brake lights glow while braking (smoothed so quick taps are still visible).

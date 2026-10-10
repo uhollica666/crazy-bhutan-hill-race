@@ -1,0 +1,46 @@
+[
+  {
+    "id": "dzo-hatch",
+    "sourceBytes": 8635256,
+    "runtimeBytes": 603788,
+    "groups": [
+      "body_high",
+      "body_low",
+      "wheel_high",
+      "wheel_low"
+    ]
+  },
+  {
+    "id": "tourist-coaster",
+    "sourceBytes": 10286556,
+    "runtimeBytes": 698452,
+    "groups": [
+      "body_high",
+      "body_low",
+      "wheel_high",
+      "wheel_low"
+    ]
+  },
+  {
+    "id": "druk-ranger",
+    "sourceBytes": 8654316,
+    "runtimeBytes": 605468,
+    "groups": [
+      "body_high",
+      "body_low",
+      "wheel_high",
+      "wheel_low"
+    ]
+  },
+  {
+    "id": "dragon-cruiser",
+    "sourceBytes": 9056852,
+    "runtimeBytes": 626744,
+    "groups": [
+      "body_high",
+      "body_low",
+      "wheel_high",
+      "wheel_low"
+    ]
+  }
+]

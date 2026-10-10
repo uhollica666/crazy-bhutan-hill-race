@@ -181,6 +181,7 @@ export function buildTerrainMesh(course: Course): Group {
     map: makeTerrainDetail(), bumpMap: grain, bumpScale: 0.055, roughnessMap: grain });
   const group = new Group();
   group.name = 'terrain';
+  material.userData.remasterSurface = 'terrain';
   const TILE = 64; // cells per side (even, so the Low preset's every-second-node triangulation lines up)
   for (let tj = 0; tj < t.nz - 1; tj += TILE) {
     for (let ti = 0; ti < t.nx - 1; ti += TILE) {
@@ -565,13 +566,15 @@ export function buildRoadMeshes(course: Course): Group {
     const mats = kinds.map((k) => {
       const relief = surfaceRelief(k ?? 'asphalt');
       const wet = k === 'wet' || k === 'mud' || k === 'slush' || k === 'ice';
-      return new MeshStandardMaterial({
+      const material = new MeshStandardMaterial({
         map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : k === 'worn' ? makeRoadTexture('worn') : k === 'frost' ? makeRoadTexture('frost') : k === 'snow' || k === 'packed' || k === 'slush' ? makeSnowTexture(k) : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
         bumpMap: relief, roughnessMap: relief,
         bumpScale: k === 'rocky' ? 0.085 : k === 'gravel' ? 0.055 : k === 'ice' ? 0.006 : 0.018,
         roughness: wet ? 0.48 : 1, metalness: 0,
         polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
       });
+      material.userData.remasterSurface = k ?? 'asphalt';
+      return material;
     });
     const mesh = new Mesh(geo, mats);
     mesh.receiveShadow = true;

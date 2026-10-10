@@ -1,0 +1,8 @@
+
+ RUN  v5.0.3 D:/Projects/personal_projects/crazy-bhutan-hill-race-update-2
+
+
+ Test Files  2 passed (2)
+      Tests  10 passed (10)
+   Start at  15:12:39
+   Duration  575ms (tests 38%, transform 32%, import 28%, worker 2%)

@@ -33,7 +33,9 @@ function serviceWorker(): Plugin {
           .filter((f) => !f.startsWith('audio/music/'));
         for (const f of publicFiles) hash.update(readFileSync(join('public', f)));
         // index.html is listed explicitly: it is the offline navigation fallback ("shell") in sw.js.
-        const precache = ['./', 'index.html', ...files, ...publicFiles];
+        // Remaster assets are optional, cached on use by the existing fetch handler. Low/offline fallback
+        // must not require downloading every hero and texture during service-worker installation.
+        const precache = ['./', 'index.html', ...files, ...publicFiles.filter(f=>!f.startsWith('remaster/'))];
         const source = readFileSync('src/pwa/sw.template.js', 'utf8')
           .replace("const VERSION = '__BUILD_ID__';", `const VERSION = '${hash.digest('hex').slice(0, 12)}';`)
           .replace(

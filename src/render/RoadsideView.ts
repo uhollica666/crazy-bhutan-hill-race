@@ -1,5 +1,7 @@
 import { actorGround } from './grounding';
 import { humanBase, crowdMaterial } from './people';
+import { animateCrowd } from './crowdAnimation';
+import { actorMaterial } from './actorMaterials';
 import {
   BoxGeometry,
   BufferGeometry,
@@ -119,6 +121,8 @@ export class RoadsideView {
   private readonly disposables: { dispose(): void }[] = [];
   private readonly walkerMesh: InstancedMesh | null = null;
   private readonly walkers: Walker[] = [];
+  private walkerAnimation: ReturnType<typeof animateCrowd> | null = null;
+  private pedestrianAnimation: ReturnType<typeof animateCrowd> | null = null;
   private readonly pedMesh: InstancedMesh | null = null;
   private readonly parkedMeshes: InstancedMesh[] = [];
   private readonly yakMesh: InstancedMesh | null = null;
@@ -228,6 +232,9 @@ export class RoadsideView {
       const mat = crowdMaterial();
       this.walkerMesh = new InstancedMesh(geo, mat, Math.min(MAX_WALKERS, this.walkers.length));
       this.walkerMesh.frustumCulled = false;
+      this.walkerMesh.castShadow = true;
+      this.walkerAnimation=animateCrowd(this.walkerMesh);
+      this.disposables.push(this.walkerAnimation);
       this.walkers.forEach((w, i) => {
         if (i < MAX_WALKERS) this.walkerMesh!.setColorAt(i, this.col.setHex(w.color).lerp(new Color(SKIN_TINTS[i % SKIN_TINTS.length]), 0.25));
       });
@@ -243,6 +250,9 @@ export class RoadsideView {
       const mat = crowdMaterial();
       this.pedMesh = new InstancedMesh(geo, mat, Math.min(MAX_PEDS, nCrossPeds));
       this.pedMesh.frustumCulled = false;
+      this.pedMesh.castShadow = true;
+      this.pedestrianAnimation=animateCrowd(this.pedMesh);
+      this.disposables.push(this.pedestrianAnimation);
       for (let i = 0; i < Math.min(MAX_PEDS, nCrossPeds); i++) this.pedMesh.setColorAt(i, this.col.setHex(COATS[(i * 3 + 1) % COATS.length]));
       scene.add(this.pedMesh);
       this.disposables.push(geo, mat, this.pedMesh);
@@ -265,15 +275,21 @@ export class RoadsideView {
       uniform.box(0.038,0.06,0.018,0xe9bc59,{x:0.075,y:1.3,z:-0.145});
       for(const side of [-1,1]) uniform.box(0.1,0.02,0.08,0x25354c,{x:side*0.18,y:1.44});
       const geo=uniform.build();
-      const mat = new MeshLambertMaterial({ vertexColors: true });
+      const mat = actorMaterial('cloth');
       const body = new Mesh(geo, mat);
       body.scale.setScalar(1.05);
       group.add(body);
-      const armGeo = new BoxGeometry(0.1, 0.12, 0.8);
-      const armMat = new MeshLambertMaterial({ color: 0xf6f6f2 });
+      const sleeve=new GeoBuilder();
+      sleeve.cylinder(.065,.074,.3,0xe8e9df,16,{z:-.15,rx:Math.PI/2});
+      sleeve.sphere(.063,0xe1e2d8,{z:-.31},16);
+      sleeve.cylinder(.047,.061,.26,0xe8e9df,16,{z:-.45,rx:Math.PI/2});
+      sleeve.sphere(.048,0xbc916f,{z:-.615,sx:.78,sy:.72,sz:1.4},16);
+      for(let finger=0;finger<4;finger++)sleeve.cylinder(.008,.01,.06,0xbc916f,8,{x:(finger-1.5)*.017,z:-.67,rx:Math.PI/2});
+      const armGeo = sleeve.build();
+      const armMat = actorMaterial('cloth');
       const arm = new Group();
       const armMesh = new Mesh(armGeo, armMat);
-      armMesh.position.set(0, 0, -0.4);
+      armMesh.position.set(0, 0, 0);
       arm.add(armMesh);
       arm.position.set(0.28, 1.5, 0);
       group.add(arm);
@@ -667,11 +683,13 @@ export class RoadsideView {
         this.q.setFromAxisAngle(UP, face);
         this.m4.compose(this.pos.set(x, actorGround(this.course,x,z,face)+bob, z), this.q, this.scl.setScalar(w.scale));
         mesh.setMatrixAt(i, this.m4);
+        this.walkerAnimation?.set(i,w.phase,w.idle?0:0.34*Math.min(1,Math.abs(Math.cos(time*w.speed+w.phase))*w.speed*w.span));
       }
       this.scl.setScalar(1);
       mesh.instanceMatrix.needsUpdate = true;
     }
 
+    this.walkerAnimation?.update(time);
     // Grazing animals drift away from the road when the car comes within about 25 m, and wander back once it has passed.
     if (this.yakMesh && this.grazers.length) {
       for (let i = 0; i < this.grazers.length; i++) {
@@ -707,11 +725,13 @@ export class RoadsideView {
           this.q.setFromAxisAngle(UP, Math.atan2(-dx, -dz));
           const bob = p.state === 'cross' ? Math.abs(Math.sin(time * 7 + i)) * 0.07 : 0;
           this.m4.compose(this.pos.set(x, actorGround(this.course,x,z,Math.atan2(-dx,-dz))+bob, z), this.q, this.scl);
+          this.pedestrianAnimation?.set(i,i*1.71,p.state==='cross'?0.4:0);
           this.pedMesh.setMatrixAt(i++, this.m4);
         }
       }
       this.pedMesh.count = i;
       this.pedMesh.instanceMatrix.needsUpdate = true;
+      this.pedestrianAnimation?.update(time);
     }
 
     // Officers: arm out (still) while the main road is stopped, a sweeping beckon while it flows.

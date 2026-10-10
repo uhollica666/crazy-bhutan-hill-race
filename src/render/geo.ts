@@ -90,7 +90,14 @@ export class GeoBuilder {
   }
 
   rock(color: number, p: Place = {}): this {
-    return this.add(new IcosahedronGeometry(1, 0), color, p);
+    const geometry=new IcosahedronGeometry(1,1),positions=geometry.getAttribute('position');
+    for(let i=0;i<positions.count;i++) {
+      const x=positions.getX(i),y=positions.getY(i),z=positions.getZ(i);
+      const stratum=1+0.14*Math.sin(x*8+z*5)+0.09*Math.cos(y*12-z*3);
+      positions.setXYZ(i,x*stratum, y*(0.91+0.12*Math.sin(x*6+z*4)),z*stratum);
+    }
+    geometry.computeVertexNormals();
+    return this.add(geometry, color, p);
   }
 
   /** Adds a quad lying in the XY plane, centred at the origin. */

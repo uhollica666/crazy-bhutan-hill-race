@@ -1,0 +1,100 @@
+{
+  "errors": [],
+  "samples": [
+    {
+      "quality": "low",
+      "stats": {
+        "calls": 45,
+        "triangles": 45090,
+        "geometries": 105,
+        "textures": 9
+      },
+      "materials": 6,
+      "bones": 11
+    },
+    {
+      "quality": "medium",
+      "stats": {
+        "calls": 86,
+        "triangles": 141536,
+        "geometries": 105,
+        "textures": 12
+      },
+      "materials": 6,
+      "bones": 11
+    },
+    {
+      "quality": "high",
+      "stats": {
+        "calls": 173,
+        "triangles": 280428,
+        "geometries": 106,
+        "textures": 19
+      },
+      "materials": 6,
+      "bones": 11
+    }
+  ],
+  "geometry": [
+    {
+      "id": "dzo-hatch",
+      "trianglesAllLodsAndOptions": 62700
+    },
+    {
+      "id": "tourist-coaster",
+      "trianglesAllLodsAndOptions": 72924
+    },
+    {
+      "id": "druk-ranger",
+      "trianglesAllLodsAndOptions": 64700
+    },
+    {
+      "id": "dragon-cruiser",
+      "trianglesAllLodsAndOptions": 66476
+    }
+  ],
+  "signals": [
+    {
+      "detailed": true,
+      "intensities": {
+        "light_head": 2.6,
+        "light_tail": 1.43,
+        "light_reverse": 1.8,
+        "indicator_left": 0,
+        "indicator_right": 2.4
+      }
+    },
+    {
+      "detailed": true,
+      "intensities": {
+        "light_head": 2.6,
+        "light_tail": 1.43,
+        "light_reverse": 1.8,
+        "indicator_left": 0,
+        "indicator_right": 2.4
+      }
+    },
+    {
+      "detailed": true,
+      "intensities": {
+        "light_head": 2.6,
+        "light_tail": 1.43,
+        "light_reverse": 1.8,
+        "indicator_left": 0,
+        "indicator_right": 2.4
+      }
+    },
+    {
+      "detailed": true,
+      "intensities": {
+        "light_head": 2.6,
+        "light_tail": 1.43,
+        "light_reverse": 1.8,
+        "indicator_left": 0,
+        "indicator_right": 2.4
+      }
+    }
+  ],
+  "lowRequests": [],
+  "note": "Software WebGL asset preview only; no campaign, collision or target-device performance verification."
+}

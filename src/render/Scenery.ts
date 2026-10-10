@@ -1,4 +1,5 @@
 import { stupaGeometry } from './architecture';
+import { createPineMaterial } from './premiumPine';
 import {
   BufferGeometry,
   Color,
@@ -113,6 +114,7 @@ export class Scenery {
   private readonly disposables: { dispose(): void }[] = [];
   private lowGeometry = false;
   private readonly uniforms = { uTime: { value: 0 }, uAmp: { value: 1 } };
+  private readonly pineArt = createPineMaterial();
 
   constructor(
     private readonly course: Course,
@@ -120,6 +122,7 @@ export class Scenery {
     wind: boolean,
   ) {
     this.group.name = 'scenery';
+    this.disposables.push(this.pineArt);
     this.build();
     this.setQuality(density, wind);
   }
@@ -127,15 +130,17 @@ export class Scenery {
   setQuality(density: number, wind: boolean, streetLights=0): void {
     this.lightBudget=streetLights;this.lastLightUpdate=-1;
     this.lowGeometry = density <= 0.45;
+    this.pineArt.setEnabled(!this.lowGeometry);
     for (const inst of this.instances) {
       if (inst.densityScaled) inst.mesh.count = Math.floor(inst.total * density);
-      if (inst.lowGeo && inst.highGeo) inst.mesh.geometry = this.lowGeometry ? inst.lowGeo : inst.highGeo;
+      if (inst.lowGeo && inst.highGeo) inst.mesh.geometry = this.lowGeometry || (inst.mesh.material===this.pineArt.material&&!this.pineArt.ready) ? inst.lowGeo : inst.highGeo;
     }
     this.uniforms.uAmp.value = wind ? 1 : 0;
   }
 
   update(time: number, camera?: Vector3): void {
     this.uniforms.uTime.value = time;
+    this.pineArt.update(time);
     if(camera&&(this.lastLightUpdate<0||time-this.lastLightUpdate>0.5)){
       this.lastLightUpdate=time;
       const nearest=this.lampsOn?this.lampPositions.filter(p=>p.distanceToSquared(camera)<10000).sort((a,b)=>a.distanceToSquared(camera)-b.distanceToSquared(camera)):[];
@@ -145,7 +150,7 @@ export class Scenery {
       if (!inst.lowGeo || !inst.highGeo) continue;
       const sphere = inst.mesh.boundingSphere;
       const distant = sphere ? camera.distanceTo(sphere.center) - sphere.radius > 150 : false;
-      inst.mesh.geometry = this.lowGeometry || distant ? inst.lowGeo : inst.highGeo;
+      inst.mesh.geometry = this.lowGeometry || distant || (inst.mesh.material===this.pineArt.material&&!this.pineArt.ready) ? inst.lowGeo : inst.highGeo;
     }
   }
 
@@ -201,6 +206,7 @@ export class Scenery {
       mesh.computeBoundingSphere();
       mesh.frustumCulled = true;
       mesh.castShadow = true; mesh.receiveShadow = true;
+      if(material===this.pineArt.material)mesh.customDepthMaterial=this.pineArt.depth;
       this.group.add(mesh);
       this.disposables.push(mesh);
       this.instances.push({ mesh, total: list.length, densityScaled, highGeo: lowGeo ? geo : undefined, lowGeo });
@@ -333,7 +339,7 @@ export class Scenery {
       }
       split(list, avail.length).forEach((part, i) => this.registerInstanced(kit.geo(avail[i]) as BufferGeometry, part, material, densityScaled, tint, rng));
     };
-    split(pines, 2).forEach((list, i) => this.registerInstanced(mountainPine(i), list, material, true, 0.14, rng, mountainPine(i, true)));
+    split(pines, 2).forEach((list, i) => this.registerInstanced(mountainPine(i), list, this.pineArt.material, true, 0.14, rng, mountainPine(i, true)));
     this.registerInstanced(slenderCypress(), cypresses, material, true, 0.12, rng);
     this.registerInstanced(
       broadleafGeometry(level.look.leaf ?? 0x7fae4a),

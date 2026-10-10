@@ -1,0 +1,4 @@
+$ tsc --noEmit
+src/data/levels/bumthang-night.ts(293,3): error TS2322: Type '8' is not assignable to type '2 | 5 | 3 | 1 | 4'.
+src/data/levels/gmc-plains.ts(448,3): error TS2322: Type '10' is not assignable to type '2 | 5 | 3 | 1 | 4'.
+src/data/levels/remote-expedition.ts(356,3): error TS2322: Type '9' is not assignable to type '2 | 5 | 3 | 1 | 4'.

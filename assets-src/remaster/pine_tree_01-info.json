@@ -1,0 +1,71 @@
+{
+  "date_published": 1687478400,
+  "name": "Pine Tree 01",
+  "type": 2,
+  "staging": null,
+  "authors": {
+    "Rob Tuytel": "photography",
+    "Rico Cilliers": "modeling"
+  },
+  "info": null,
+  "sponsors": [
+    "11109006"
+  ],
+  "categories": [
+    "nature",
+    "plants",
+    "trees",
+    "collection: pine_forest"
+  ],
+  "geonodes": true,
+  "tags": [
+    "pine",
+    "tree",
+    "needles",
+    "branches",
+    "woodland",
+    "coniferous",
+    "plants",
+    "geometry nodes",
+    "foliage",
+    "natural",
+    "trunk",
+    "bark",
+    "environment",
+    "vegetation",
+    "evergreen",
+    "forest"
+  ],
+  "max_resolution": [
+    8192,
+    8192
+  ],
+  "polycount": 17427094,
+  "texel_density": 5861.203711242229,
+  "dimensions": [
+    26719.930171966553,
+    1300.55171251297,
+    17577.758572995663
+  ],
+  "files_hash": "98997b7406016d998742bd962473c5d63e14da21",
+  "lods": true,
+  "description": "Free 8K model of a tall, slender pine with layered branch clusters, dense needle foliage, and a realistic textured trunk and bark.",
+  "category_id": "889de586-d203-511a-b417-fac77b27a029",
+  "category": "Nature/Trees/Coniferous Trees",
+  "collections": [
+    "pine_forest"
+  ],
+  "attributes": {
+    "condition": [
+      "clean"
+    ],
+    "lods": true,
+    "geonodes": true,
+    "material": [
+      "wood"
+    ]
+  },
+  "img_version": "5a9763f6",
+  "download_count": 39503,
+  "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/pine_tree_01.png?width=256&height=256&format=webp&v=5a9763f6"
+}

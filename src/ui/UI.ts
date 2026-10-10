@@ -816,7 +816,7 @@ export class UI {
         <span class="mission-kind">${esc(c.missionLabel)}</span>
         <h3>${esc(c.name)}</h3>
         <p>${esc(c.subtitle)}</p>
-        <span class="dots" title="Difficulty ${c.difficulty} of 5">${dots(c.difficulty)}</span>
+        <span class="dots" title="Route difficulty ${c.difficulty}">${dots(c.difficulty)}</span>
         <span class="tags">${c.challenge ? c.challenge.split(' · ').map((t) => `<i>${esc(t)}</i>`).join('') : ''}</span>
         ${state}
         <span class="card-veh">Best with: ${esc(c.recommended)}</span>

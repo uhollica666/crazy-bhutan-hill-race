@@ -1,0 +1,22 @@
+[
+  {
+    "asset": "pine_tree_01",
+    "channel": "twig_diff",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/pine_tree_01/pine_tree_01_twig_diff_1k.jpg",
+    "source": "assets-src/remaster/pine_tree_01-twig_diff.jpg",
+    "md5": "b6e5f4e8c228c275e5ff75cb165c2e1f",
+    "bytes": 510932,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "pine_tree_01",
+    "channel": "twig_alpha",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/pine_tree_01/pine_tree_01_twig_alpha_1k.jpg",
+    "source": "assets-src/remaster/pine_tree_01-twig_alpha.jpg",
+    "md5": "e9a69633f4c1d9b8a460c3f05fc8d75e",
+    "bytes": 195206,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  }
+]

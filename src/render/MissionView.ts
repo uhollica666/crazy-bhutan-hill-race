@@ -1,4 +1,7 @@
 import { actorGround } from './grounding';
+import { createHumanoidRig } from './humanoidRig';
+import { actorMaterial } from './actorMaterials';
+import { createQuadrupedRig } from './quadrupedRig';
 import { createCreatureArt } from './creatureArt';
 import type { CreatureArt } from './creatureArt';
 import {
@@ -139,6 +142,9 @@ export class MissionView {
   readonly group = new Group();
   private readonly disposables: { dispose(): void }[] = [];
   private readonly stopVisuals: StopVisual[] = [];
+  private readonly peopleRigs = new Map<InstancedMesh, ReturnType<typeof createHumanoidRig>[]>();
+  private detailedActors = true;
+  setActorDetail(enabled:boolean):void { this.detailedActors=enabled; }
   private readonly zoneMat = new MeshBasicMaterial({ color: 0xf6c452, transparent: true, opacity: 0.28, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
   private readonly zoneMatBlue = new MeshBasicMaterial({ color: 0x59b8e8, transparent: true, opacity: 0.26, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
   private readonly beamMat = new MeshBasicMaterial({ color: 0xf6c452, transparent: true, opacity: 0.18, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
@@ -156,7 +162,7 @@ export class MissionView {
   private logs: InstancedMesh | null = null;
   private glow: InstancedMesh | null = null;
   private night = false;
-  private readonly herds: { h: HazardState; mesh: InstancedMesh }[] = [];
+  private readonly herds: { h: HazardState; mesh: InstancedMesh; rigs: ReturnType<typeof createQuadrupedRig>[]; previous: {x:number;z:number}[] }[] = [];
   private lorries: { mesh: Mesh; tri: Mesh }[] = [];
   private readonly signs: { group: Group; dispose: () => void }[] = [];
 
@@ -236,6 +242,16 @@ export class MissionView {
         }
         people.instanceMatrix.needsUpdate = true;
         people.frustumCulled = false;
+        if (this.density > 0.5) {
+          const material = actorMaterial('cloth');
+          const variants=[geo,...[0x526777,0x7d614f,0x52694d].map((coat,i)=>touristGeometry(coat,[0xb68765,0xd5ac88,0x8b6249][i],[0x282725,0x584335,0x2c2422][i],i===1?0x857355:null,0x4f535b))];
+          this.disposables.push(...variants.slice(1));
+          const rigs = Array.from({length:Math.min(party,12)},(_,i)=>createHumanoidRig(variants[i%variants.length],material,i*0.71));
+          // Only replace the batch when every member has a rig; retain the existing population contract.
+          if(rigs.length === party) { this.peopleRigs.set(people,rigs); for(const rig of rigs){rig.mesh.visible=false;this.group.add(rig.mesh);this.disposables.push(rig);} }
+          else rigs.forEach(rig=>rig.dispose());
+          this.disposables.push(material);
+        }
         const lugGeo = luggageGeometry();
         const luggage = new Mesh(lugGeo, new MeshLambertMaterial({ vertexColors: true }));
         luggage.position.set(cx - side * rx * 1.4, this.ground(cx, cz), cz - side * rz * 1.4);
@@ -345,20 +361,22 @@ export class MissionView {
         const bubble = labelSprite(text, spirit ? '#3b4a7a' : v === 'zombie' ? '#4a6a3a' : '#2e7d9a');
         bubble.visible = false;
         this.group.add(mesh, bubble);
-        this.creatures.push({ h, mesh, art, bubble, ghost: v === 'ghost', scale: v === 'zombie' ? 1.75 : v === 'bear' ? 0.9 : v === 'figure' ? 0.7 : 0.62 });
+        this.creatures.push({ h, mesh, art, bubble, ghost: v === 'ghost', scale: v === 'zombie' ? 1 : v === 'bear' ? 0.9 : v === 'figure' ? 0.7 : spirit ? 0.62 : 0.82 });
       }
     }
     const herdHazards = hz.hazards.filter((h) => h.def.kind === 'herd');
     if (herdHazards.length) {
       const geo = yakGeometry();
-      const mat = new MeshLambertMaterial({ vertexColors: true });
+      const mat = actorMaterial('fur');
       this.disposables.push(geo, mat);
       for (const h of herdHazards) {
         const mesh = new InstancedMesh(geo, mat, 6);
         mesh.count = 0;
         mesh.frustumCulled = false;
         this.group.add(mesh);
-        this.herds.push({ h, mesh });
+        const rigs=this.density>.5?Array.from({length:6},()=>createQuadrupedRig(geo,mat,'yak')):[];
+        rigs.forEach(rig=>{rig.mesh.visible=false;this.group.add(rig.mesh);this.disposables.push(rig);});
+        this.herds.push({ h, mesh,rigs,previous:[] });
       }
     }
     for (const h of hz.hazards) {
@@ -456,18 +474,27 @@ export class MissionView {
       if (v.people) {
         // Pickup groups wait until boarded; a dropped-off group appears on the verge once it has got out.
         const shown = st.def.kind === 'dropoff' ? done : !done;
-        v.people.visible = shown;
+        const rigs = this.peopleRigs.get(v.people);
+        const close = this.detailedActors && !!rigs && Math.hypot(v.px-rt.body.position.x,v.pz-rt.body.position.z)<42;
+        v.people.visible = shown && !close;
+        rigs?.forEach(rig=>rig.mesh.visible=shown&&close);
         if (shown) {
           const n = v.people.count;
           for (let i = 0; i < n; i++) {
             // Little hop of impatience while waiting; wave when the car is close.
-            const bob = Math.abs(Math.sin(time * 3 + i * 1.7)) * 0.08;
+          const bob = close ? 0 : Math.abs(Math.sin(time * 3 + i * 1.7)) * 0.025;
             const x=v.px+Math.cos(v.heading)*(i-(n-1)/2)*0.85;
             const z=v.pz-Math.sin(v.heading)*(i-(n-1)/2)*0.85;
             this.v3(x,actorGround(this.rt.course,x,z,v.heading)+bob,z);
             this.q.setFromAxisAngle(UP, v.heading);
             this.m4.compose(this.pos, this.q, this.scl);
             v.people.setMatrixAt(i, this.m4);
+            if(close && rigs) {
+              this.m4.decompose(rigs[i].mesh.position,rigs[i].mesh.quaternion,rigs[i].mesh.scale);
+              rigs[i].mesh.scale.multiplyScalar(1+((i%3)-1)*.035);
+              const nearby = Math.hypot(x-rt.body.position.x,z-rt.body.position.z)<14;
+              rigs[i].update(this.lastDt,nearby?'react':'idle');
+            }
           }
           v.people.instanceMatrix.needsUpdate = true;
         }
@@ -520,9 +547,9 @@ export class MissionView {
         cr.mesh.visible = !!c;
         cr.bubble.visible = !!c && ((cr.h.phase === 'crossing' && Math.abs(c.lateral) < 3) || c.shrug > 0);
         if (c) {
-          cr.art.update(time, c.shrug);
-          const bob = cr.ghost ? 0.5 + Math.sin(time * 2.2) * 0.25 : Math.abs(Math.sin(time * 5)) * 0.06;
+          const bob = cr.ghost ? 0.5 + Math.sin(time * 2.2) * 0.25 : 0;
           cr.mesh.position.set(c.x, actorGround(this.rt.course,c.x,c.z,c.heading,0.32,0.27) + bob, c.z);
+          cr.art.update(time, c.shrug);
           cr.mesh.rotation.y = c.heading + Math.PI;
           cr.mesh.scale.setScalar(cr.scale);
           cr.bubble.position.set(c.x, cr.mesh.position.y + 3.6, c.z);
@@ -531,14 +558,19 @@ export class MissionView {
       for (const hd of this.herds) {
         const herd = hd.h.herd;
         const n = herd ? Math.min(6, herd.length) : 0;
+        const close=this.detailedActors&&hd.rigs.length>0&&herd?.some(a=>Math.hypot(a.x-rt.body.position.x,a.z-rt.body.position.z)<55);
+        hd.mesh.visible=!close;hd.rigs.forEach((rig,i)=>rig.mesh.visible=!!close&&i<n);
         for (let i = 0; i < n; i++) {
           const a = herd![i];
-          const sway = a.frozen || a.across ? 0 : Math.sin(time * 4 + i * 1.9) * 0.05;
+          const sway = close ? 0 : a.frozen || a.across ? 0 : Math.sin(time * 4 + i * 1.9) * 0.025;
           this.v3(a.x, actorGround(this.rt.course,a.x,a.z,a.heading,0.35,0.72) + sway, a.z);
           this.q.setFromAxisAngle(UP, a.heading + Math.PI);
           this.scl.setScalar(1.05 + (i % 3) * 0.06);
           this.m4.compose(this.pos, this.q, this.scl);
           hd.mesh.setMatrixAt(i, this.m4);
+          const previous=hd.previous[i],speed=previous&&this.lastDt>0?Math.hypot(a.x-previous.x,a.z-previous.z)/this.lastDt:0;
+          if(close){this.m4.decompose(hd.rigs[i].mesh.position,hd.rigs[i].mesh.quaternion,hd.rigs[i].mesh.scale);hd.rigs[i].update(time+i*.39,this.lastDt,a.frozen||a.across?0:speed,0);}
+          hd.previous[i]={x:a.x,z:a.z};
         }
         this.scl.setScalar(1);
         hd.mesh.count = n;

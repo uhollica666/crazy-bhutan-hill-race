@@ -48,3 +48,7 @@ and `novarah-symbol@2x.png` are not required by the app and were not restored.
 - `surfaceRelief.ts` data textures and all audio changes: project-generated; no external recordings or paid services.
 
 Legacy vehicle GLBs are retained for authoring but the new vehicle rendering path does not download them. All original branding credits and ownership terms remain applicable.
+
+## Stage 8A future remaster
+
+The isolated remaster adds Poly Haven CC0 PBR surfaces, an HDR reflection environment and a needle atlas, plus original baked hero vehicles and skeletal animation. Individual authors, sources, licenses and modifications are recorded in [docs/ASSET_LICENSES.md](docs/ASSET_LICENSES.md). Previous branding and asset ownership terms remain applicable.
