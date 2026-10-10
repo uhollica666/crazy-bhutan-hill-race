@@ -34,6 +34,16 @@ export function tractorGeometry(): BufferGeometry {
   for (const sx of [-0.93, 0.93]) g.box(0.08, 0.5, 2.2, 0x7a4a2a, { x: sx, y: 1.05, z: 1.45 });
   g.box(1.8, 0.7, 2.0, 0xc9b25a, { y: 1.2, z: 1.45 });
   for (const sx of [-1, 1]) g.cylinder(0.45, 0.45, 0.25, TYRE, 8, { x: sx * 0.95, y: 0.45, z: 1.7, rz: Math.PI / 2 });
+  for (const side of [-1, 1]) {
+    g.cylinder(0.45, 0.45, 0.03, 0xc8c1a8, 12, { x: side * 1.06, y: 0.78, z: -0.1, rz: Math.PI / 2 });
+    for (let i = 0; i < 16; i++) {
+      const a = i * Math.PI / 8;
+      g.box(0.42, 0.06, 0.1, 0x31342e, { x: side * 0.85, y: 0.78 + Math.cos(a) * 0.77, z: -0.1 + Math.sin(a) * 0.77, rx: a, ry: side * 0.25 });
+    }
+  }
+  g.box(0.75, 0.14, 0.4, 0x2c3032, { y: 1.15, z: -0.1 });
+  g.box(0.7, 0.55, 0.13, 0x2c3032, { y: 1.48, z: 0.08, rx: -0.08 });
+  for (let i = 0; i < 5; i++) g.box(0.73, 0.035, 0.025, 0x333b38, { y: 0.82 + i * 0.11, z: -2.02 });
   return g.build();
 }
 

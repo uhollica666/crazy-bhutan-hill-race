@@ -1,3 +1,5 @@
+import { readCosmetics } from './cosmetics';
+import type { Cosmetics } from './cosmetics';
 import {
   AdditiveBlending,
   CanvasTexture,
@@ -67,7 +69,6 @@ export class VehicleModel {
   readonly detailed: boolean;
   private readonly geos: BufferGeometry[] = [];
   private readonly mats: { dispose(): void }[] = [];
-  private readonly tailMat = new MeshBasicMaterial({ color: 0x5a1416 });
   private readonly ground = createGroundSample();
   private readonly pos = new Vector3();
   private readonly quat = new Quaternion();
@@ -81,6 +82,22 @@ export class VehicleModel {
   private lastSyncTime = 0;
   private readonly tyreClean = new Color(0x252729);
   private readonly tyreMud = new Color(0x66503a);
+
+  applyCosmetics(c: Cosmetics): void {
+    const paints: Record<string, number> = {pearl:0xe6e5dd,red:0x9e2638,green:0x254b40,blue:0x285b88};
+    for (const owned of this.mats) {
+      const m = owned as MeshStandardMaterial;
+      if (m.name === 'paint') m.color.setHex(paints[c.paint] ?? this.def.livery.body);
+      if (m.name === 'trim') m.color.setHex(c.trim === 'dark' ? 0x20262c : c.trim === 'bronze' ? 0x91704b : this.def.livery.trim);
+      if (m.name === 'alloy') m.color.setHex(c.wheels === 'black' ? 0x424a52 : c.wheels === 'bronze' ? 0xa88350 : 0xb6bdc5);
+    }
+    this.shell.traverse(o => {
+      if (o.name === 'cosmetic_stripe') o.visible = c.skin === 'stripe';
+      if (o.name === 'cosmetic_summit') o.visible = c.skin === 'summit';
+      if (o.name === 'cosmetic_carrier') o.visible = c.equipment === 'carrier';
+      if (o.name === 'cosmetic_lamps') o.visible = c.equipment === 'lamps';
+    });
+  }
 
   setCondition(health: number): void { this.condition = Math.min(100, Math.max(0, health)); }
   private readonly reverseMats: MeshStandardMaterial[] = [];
@@ -115,7 +132,7 @@ export class VehicleModel {
         }
       }
     }
-    this.mats.push(this.tailMat);
+    this.applyCosmetics(readCosmetics(def.id));
     for (const axle of def.axles) for (const side of [-1, 1]) {
       const pivot = new Group(), roll = new LOD();
       roll.addLevel(high.wheel.clone(true), 0); roll.addLevel(low.wheel.clone(true), 30, 0.12);
@@ -263,11 +280,7 @@ export class VehicleModel {
     for (const m of this.reverseMats) m.emissiveIntensity = body.speed < -0.25 ? 1.8 : 0;
     for (let side = 0; side < 2; side++) for (const m of this.indicatorMats[side])
       m.emissiveIntensity = this.indicator === (side === 0 ? -1 : 1) && Math.sin(time * Math.PI * 3) > 0 ? 2.4 : 0;
-    this.tailMat.color.setRGB(
-      0.35 + this.brakeGlow * 0.65,
-      0.08 + this.brakeGlow * 0.1,
-      0.08 + this.brakeGlow * 0.08,
-    );
+
 
     if (this.blob.visible) {
       world.ground(this.pos.x, this.pos.z, this.ground);

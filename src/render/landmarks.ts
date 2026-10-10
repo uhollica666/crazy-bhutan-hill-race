@@ -14,12 +14,16 @@ const shade = (hex: number, k: number): number => {
 
 /** Broadleaf tree: three lobes of foliage (willow / poplar / maple feel via the level's leaf colour). */
 export function broadleafGeometry(leaf: number): BufferGeometry {
-  return new GeoBuilder()
-    .cylinder(0.2, 0.32, 3.4, PAL.bark, 6, { y: 1.7 })
-    .rock(leaf, { x: 0, y: 4.6, z: 0, sx: 2.3, sy: 2.0, sz: 2.3 })
-    .rock(shade(leaf, 1.12), { x: 1.3, y: 3.8, z: 0.8, sx: 1.7, sy: 1.5, sz: 1.7 })
-    .rock(shade(leaf, 0.9), { x: -1.2, y: 3.9, z: -0.8, sx: 1.8, sy: 1.5, sz: 1.8 })
-    .build();
+  const g = new GeoBuilder();
+  g.cylinder(0.16, 0.3, 3.8, PAL.bark, 7, { y: 1.9 });
+  for (let i = 0; i < 7; i++) {
+    const a = i * Math.PI * 2 / 7, y = 3.2 + i % 3 * 0.42;
+    const x = Math.cos(a) * 1.15, z = Math.sin(a) * 1.15;
+    g.cylinder(0.05, 0.09, 1.7, PAL.bark, 6, { x: x * 0.5, y: y - 0.3, z: z * 0.5, rz: 0.9, ry: -a });
+    g.sphere(1.35, shade(leaf, 0.85 + i % 3 * 0.12), { x, y: y + 0.6, z, sy: 0.95 }, 7);
+  }
+  g.sphere(1.65, leaf, { y: 4.6, sy: 0.9 }, 8);
+  return g.build();
 }
 
 /** Low flowering shrub (rhododendron). */
@@ -33,7 +37,10 @@ export function shrubGeometry(blossom: number): BufferGeometry {
     [0.7, 0.9, -0.6],
     [-0.8, 0.85, -0.6],
   ];
-  for (const [x, y, z] of spots) g.rock(blossom, { x, y, z, sx: 0.34, sy: 0.3, sz: 0.34 });
+  for (const [x, y, z] of spots) {
+    g.sphere(0.24, 0x31513a, { x, y: y - 0.15, z, sx: 1.5, sy: 0.7 }, 6);
+    for (let i = 0; i < 3; i++) g.sphere(0.09, blossom, { x: x + (i - 1) * 0.11, y, z: z + i % 2 * 0.09 }, 5);
+  }
   return g.build();
 }
 

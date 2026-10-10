@@ -1,3 +1,4 @@
+import { humanBase, crowdMaterial } from './people';
 import {
   BoxGeometry,
   BufferGeometry,
@@ -223,7 +224,7 @@ export class RoadsideView {
     }
     if (this.walkers.length) {
       const geo = walkerGeometry();
-      const mat = new MeshLambertMaterial({ vertexColors: true });
+      const mat = crowdMaterial();
       this.walkerMesh = new InstancedMesh(geo, mat, Math.min(MAX_WALKERS, this.walkers.length));
       this.walkerMesh.frustumCulled = false;
       this.walkers.forEach((w, i) => {
@@ -238,7 +239,7 @@ export class RoadsideView {
     const nCrossPeds = (level.traffic?.controls ?? []).filter((c) => c.kind === 'crossing').reduce((n, c) => n + Math.max(1, Math.min(4, c.peds ?? 3)), 0);
     if (nCrossPeds > 0) {
       const geo = walkerGeometry();
-      const mat = new MeshLambertMaterial({ vertexColors: true });
+      const mat = crowdMaterial();
       this.pedMesh = new InstancedMesh(geo, mat, Math.min(MAX_PEDS, nCrossPeds));
       this.pedMesh.frustumCulled = false;
       for (let i = 0; i < Math.min(MAX_PEDS, nCrossPeds); i++) this.pedMesh.setColorAt(i, this.col.setHex(COATS[(i * 3 + 1) % COATS.length]));
@@ -255,8 +256,15 @@ export class RoadsideView {
       const x = this.pose.x - this.pose.tz * lat;
       const z = this.pose.z + this.pose.tx * lat;
       const group = new Group();
-      const geo = walkerGeometry();
-      const mat = new MeshLambertMaterial({ vertexColors: true, color: 0xc9d6f2 });
+      const uniform=new GeoBuilder();
+      uniform.add(humanBase(0xe8e9df,0xbc916f,0x2e2825,true),0xffffff,{},true);
+      uniform.cylinder(0.13,0.14,0.07,0x25354c,12,{y:1.8});
+      uniform.box(0.26,0.025,0.13,0x25354c,{y:1.76,z:-0.11});
+      uniform.box(0.28,0.04,0.2,0x263245,{y:0.94});
+      uniform.box(0.038,0.06,0.018,0xe9bc59,{x:0.075,y:1.3,z:-0.145});
+      for(const side of [-1,1]) uniform.box(0.1,0.02,0.08,0x25354c,{x:side*0.18,y:1.44});
+      const geo=uniform.build();
+      const mat = new MeshLambertMaterial({ vertexColors: true });
       const body = new Mesh(geo, mat);
       body.scale.setScalar(1.05);
       group.add(body);

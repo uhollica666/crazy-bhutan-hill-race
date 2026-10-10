@@ -1,3 +1,4 @@
+import { seatedDriver } from './people';
 import { BufferGeometry, Group, Mesh, MeshStandardMaterial, TorusGeometry } from 'three';
 import type { VehicleDef } from '../data/types';
 import { GeoBuilder, loft } from './geo';
@@ -168,6 +169,39 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     batch(rubber).cylinder(d.wheelRadius, d.wheelRadius, 0.2, white, 20, { y: belt + 0.04, z: l / 2 + 0.11, rx: Math.PI / 2 });
     batch(metal).cylinder(d.wheelRadius * 0.57, d.wheelRadius * 0.57, 0.215, white, 16, { y: belt + 0.04, z: l / 2 + 0.11, rx: Math.PI / 2 });
   }
+  if (!low) {
+    const occupant = mat('occupant', 0xffffff, 0.95);
+    const driver = new GeoBuilder();
+    const scale = Math.min(0.84, (roof - belt - 0.12) / 0.98);
+    driver.add(seatedDriver(), white, {x:w*0.46,y:belt-0.02,z:roofFront+0.38,sx:scale,sy:scale,sz:scale}, true);
+    add(driver.build(), occupant);
+    const steering = new TorusGeometry(0.15,0.018,6,16);
+    batch(rubber).add(steering,white,{x:w*0.46,y:belt+0.17,z:roofFront+0.15,rx:-0.45});
+  }
+  // Optional cosmetic meshes are shared by both LODs; no physics attachments.
+  const stripe = new Group(); stripe.name = 'cosmetic_stripe';
+  const summit = new Group(); summit.name = 'cosmetic_summit';
+  for (const side of [-1, 1]) {
+    const stripeGeo = new GeoBuilder().box(0.015, 0.095, l * 0.72, white, {x: side * (w + 0.027), y: belt - 0.16}).build();
+    add(stripeGeo, accent, stripe);
+    const graphic = new GeoBuilder();
+    for (let i=0;i<5;i++) graphic.box(0.016, 0.16 + i * 0.025, 0.11, white, {x: side * (w + 0.03), y: belt - 0.18, z: 0.15 + i * 0.18, rx: -0.45});
+    add(graphic.build(), accent, summit);
+  }
+  const carrier = new Group(); carrier.name = 'cosmetic_carrier';
+  const cargo = new GeoBuilder();
+  cargo.box(w * 1.35, 0.24, Math.min(1.3,l * 0.35), white, {y: roof + 0.26, z: 0.35});
+  for (const x of [-w * 0.48,w * 0.48]) cargo.box(0.06, 0.26, 1.3, white, {x,y:roof + 0.27,z:0.35});
+  add(cargo.build(), rubber, carrier);
+  const lamps = new Group(); lamps.name = 'cosmetic_lamps';
+  const lampFrame = new GeoBuilder(), lenses = new GeoBuilder();
+  lampFrame.box(w * 1.35, 0.06, 0.09, white, {y:roof + 0.14,z:roofFront + 0.12});
+  for (const x of [-w * 0.48,-w * 0.16,w * 0.16,w * 0.48]) {
+    lampFrame.cylinder(0.105,0.105,0.1,white,12,{x,y:roof+0.24,z:roofFront+0.12,rx:Math.PI/2});
+    lenses.cylinder(0.086,0.086,0.014,white,12,{x,y:roof+0.24,z:roofFront+0.06,rx:Math.PI/2});
+  }
+  add(lampFrame.build(), rubber, lamps); add(lenses.build(), head, lamps);
+  for (const option of [stripe,summit,carrier,lamps]) { option.visible = false; body.add(option); }
   for (const [m, b] of batches) add(b.build(), m);
   const r = d.wheelRadius, ww = d.wheelWidth;
   const tire = new GeoBuilder(), rim = new GeoBuilder();

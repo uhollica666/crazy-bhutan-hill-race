@@ -1,3 +1,4 @@
+import { saveCosmetic } from '../render/cosmetics';
 import { Vector3 } from 'three';
 import { AudioEngine } from '../audio/AudioEngine';
 import { clamp } from '../core/math';
@@ -356,11 +357,16 @@ export class Game {
         buyVehicle: (id) => this.buyVehicle(id),
         buyUpgrade: (v, u) => this.buyUpgrade(v, u as UpgradeId),
         setConditions: (i) => this.setConditions(i),
+        cosmetic: (field, value) => {
+          const c = saveCosmetic(this.previewId, field, value);
+          this.model?.applyCosmetics(c); this.garage?.applyCosmetics(c);
+        },
         garageView: (c) => {
           if (c.orbit) this.garage?.orbit(c.orbit[0], c.orbit[1]);
           if (c.zoom) this.garage?.zoom(c.zoom);
           if (c.turn) this.garage?.turn(c.turn);
           if (c.reset) this.garage?.resetView();
+          if (c.view) this.garage?.view(c.view);
         },
         readBriefing: () => this.readBriefing(),
         toggleDrive: () => this.toggleDrive(),
@@ -801,7 +807,7 @@ export class Game {
       if (type === 'warn') this.incident('hazard', 'medium');
       if (type === 'warn') ui.flash('Look out!', hazard.def.label);
       else if (type === 'land') audio.rockfall();
-      else if (type === 'appear') audio.yeti();
+      else if (type === 'appear') { if (hazard.def.variant === 'ghost') audio.ghost(); else audio.yeti(); }
     });
     e.on('thunder', ({ flash }) => {
       this.flashLevel = Math.max(this.flashLevel, flash);

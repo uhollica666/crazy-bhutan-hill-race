@@ -1,3 +1,5 @@
+import { COSMETIC_OPTIONS, readCosmetics } from '../render/cosmetics';
+import type { CosmeticKey } from '../render/cosmetics';
 import type { LevelDef, Medal, ServiceKind } from '../data/types';
 import type { RaceResult } from '../gameplay/RaceSession';
 import { formatTime } from '../gameplay/RaceSession';
@@ -38,7 +40,8 @@ export interface UIActions {
   buyUpgrade(vehicleId: string, upgradeId: string): void;
   setConditions(index: number): void;
   /** Garage orbit camera: drag (pixels), zoom (fraction), turn (radians) or reset. */
-  garageView(cmd: { orbit?: [number, number]; zoom?: number; turn?: number; reset?: boolean }): void;
+  cosmetic(field: CosmeticKey, value: string): void;
+  garageView(cmd: { orbit?: [number, number]; zoom?: number; turn?: number; reset?: boolean; view?: 'front' | 'rear' | 'side' }): void;
   readBriefing(): void;
   toggleDrive(): void;
   requestService(kind: ServiceKind): void;
@@ -266,6 +269,9 @@ export class UI {
           <button class="icon-btn" id="gv-right" type="button" aria-label="Turn right">${ICONS.right}</button>
           <button class="icon-btn" id="gv-in" type="button" aria-label="Zoom in">+</button>
           <button class="icon-btn" id="gv-out" type="button" aria-label="Zoom out">&minus;</button>
+          <button class="icon-btn" id="gv-front" type="button" aria-label="Front three quarter view">F</button>
+          <button class="icon-btn" id="gv-rear" type="button" aria-label="Rear three quarter view">R</button>
+          <button class="icon-btn" id="gv-side" type="button" aria-label="Side view">S</button>
           <button class="icon-btn" id="gv-reset" type="button" aria-label="Reset view">${ICONS.recover}</button>
         </div>
         <div class="garage-panel">
@@ -279,7 +285,7 @@ export class UI {
             <div class="veh-name"><h3 id="veh-name"></h3><div class="veh-dots" id="veh-dots" aria-hidden="true"></div></div>
             <button class="icon-btn" id="btn-veh-next" type="button" aria-label="Next vehicle">${ICONS.right}</button>
           </div>
-          <p class="veh-blurb" id="veh-blurb"></p>
+          <p class="veh-blurb" id="veh-blurb"></p><details class="cosmetic-panel" open><summary>Personalize your vehicle</summary><div id="veh-cosmetics"></div><small>Cosmetics only · saved on this device</small></details>
           <div class="stats" id="veh-stats"></div>
           <div class="veh-facts" id="veh-facts"></div>
           <div class="veh-status" id="veh-status" aria-live="polite"></div>
@@ -600,7 +606,14 @@ export class UI {
     on('#gv-right', () => this.actions.garageView({ turn: 0.35 }));
     on('#gv-in', () => this.actions.garageView({ zoom: -0.12 }));
     on('#gv-out', () => this.actions.garageView({ zoom: 0.12 }));
+    on('#gv-front', () => this.actions.garageView({view:'front'}));
+    on('#gv-rear', () => this.actions.garageView({view:'rear'}));
+    on('#gv-side', () => this.actions.garageView({view:'side'}));
     on('#gv-reset', () => this.actions.garageView({ reset: true }));
+    this.screens.garage.addEventListener('change', e => {
+      const select = e.target as HTMLSelectElement;
+      if (select.dataset.cosmetic) this.actions.cosmetic(select.dataset.cosmetic as CosmeticKey, select.value);
+    });
     // Garage buy buttons: delegated, because the garage is re-rendered on every change.
     this.screens.garage.addEventListener('click', (e) => {
       const t = (e.target as HTMLElement).closest<HTMLElement>('[data-buy-vehicle],[data-buy-upgrade]');
@@ -902,6 +915,9 @@ export class UI {
     q(this.root, '#garage-wallet').innerHTML = `${COIN}${m.credits.toLocaleString('en-US')}`;
     q(this.root, '#veh-name').textContent = v.name;
     q(this.root, '#veh-blurb').textContent = v.blurb;
+    const cosmetics = readCosmetics(v.id);
+    q(this.root, '#veh-cosmetics').innerHTML = (Object.keys(COSMETIC_OPTIONS) as CosmeticKey[]).map(k =>
+      `<label>${k === 'equipment' ? 'Accessories' : k}<select data-cosmetic="${k}" aria-label="${k}">${COSMETIC_OPTIONS[k].map(([value,label]) => `<option value="${value}" ${cosmetics[k] === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`).join('');
     q(this.root, '#veh-dots').innerHTML = m.vehicles
       .map((x, i) => `<span class="${i === m.index ? 'on' : ''}${x.state === 'locked' ? ' lk' : ''}"></span>`)
       .join('');

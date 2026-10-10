@@ -40,7 +40,7 @@ export interface Place {
 export class GeoBuilder {
   private readonly parts: BufferGeometry[] = [];
 
-  add(source: BufferGeometry, color: number, p: Place = {}): this {
+  add(source: BufferGeometry, color: number, p: Place = {}, preserveColors = false): this {
     const geo = source.index ? source.toNonIndexed() : source.clone();
     source.dispose();
     geo.deleteAttribute('uv');
@@ -50,7 +50,7 @@ export class GeoBuilder {
     _s.set(p.sx ?? 1, p.sy ?? 1, p.sz ?? 1);
     _m.compose(_p, _q, _s);
     geo.applyMatrix4(_m);
-    geo.computeVertexNormals();
+    if (!preserveColors) geo.computeVertexNormals();
     _c.setHex(color);
     const n = geo.getAttribute('position').count;
     const col = new Float32Array(n * 3);
@@ -59,7 +59,7 @@ export class GeoBuilder {
       col[i * 3 + 1] = _c.g;
       col[i * 3 + 2] = _c.b;
     }
-    geo.setAttribute('color', new Float32BufferAttribute(col, 3));
+    if (!preserveColors || !geo.getAttribute('color')) geo.setAttribute('color', new Float32BufferAttribute(col, 3));
     this.parts.push(geo);
     return this;
   }

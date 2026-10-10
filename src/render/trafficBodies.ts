@@ -260,11 +260,17 @@ export function scooterGeometry(): BufferGeometry {
 /** A small city bird (a dove or crow): body, head and two swept wings. */
 export function birdGeometry(): BufferGeometry {
   const g = new GeoBuilder();
-  g.sphere(0.16, 0xdadada, { sz: 1.5 }, 5);
-  g.sphere(0.1, 0xdadada, { y: 0.08, z: -0.24 }, 5);
-  g.box(0.5, 0.03, 0.2, 0x8f8f94, { x: -0.3, y: 0.03, rz: 0.25 });
-  g.box(0.5, 0.03, 0.2, 0x8f8f94, { x: 0.3, y: 0.03, rz: -0.25 });
-  g.box(0.1, 0.03, 0.2, 0x6b6b70, { z: 0.3 });
+  const plumage=0xb9c8ce, dark=0x485a68;
+  g.sphere(0.16,plumage,{sz:1.55,sy:0.8},10);
+  g.sphere(0.1,dark,{y:0.08,z:-0.24},10);
+  g.cone(0.036,0.13,0xc6a86c,7,{y:0.08,z:-0.36,rx:-Math.PI/2});
+  for(const side of [-1,1]) {
+    g.sphere(0.018,0x171f23,{x:side*0.074,y:0.11,z:-0.28},6);
+    for(let i=0;i<6;i++) g.sphere(0.085,i%2?dark:plumage,{x:side*(0.17+i*0.074),y:0.03-i*0.012,z:0.02+i*0.012,sx:1.2,sy:0.16,sz:1.5},8);
+    g.cylinder(0.012,0.012,0.12,0x917753,6,{x:side*0.07,y:-0.16,z:0.035});
+    g.box(0.065,0.012,0.07,0x917753,{x:side*0.07,y:-0.22,z:0.01});
+  }
+  for(let i=-1;i<=1;i++)g.sphere(0.07,dark,{x:i*0.045,z:0.3,sy:0.15,sz:2.1},8);
   return g.build();
 }
 
@@ -301,6 +307,9 @@ export function cliffGeometry(): BufferGeometry {
   }
   for (let i = 0; i < 12; i++) g.rock(tones[(i * 2) % tones.length], { x: -17 + i * 3.1, y: 3 + ((i * 5) % 7) * 2.5, z: 0.4 - (i % 3) * 0.8, sx: 2.4, sy: 2.2, sz: 1.6 });
   g.box(36, 1.2, 4, 0x6e8a4a, { y: 0.6, z: 1.5 });
+  for (let layer = 0; layer < 5; layer++) for (let i = 0; i < 6; i++)
+    g.rock(layer % 2 ? 0x77766c : 0x918c7e, { x: -15 + i * 6.0 + layer % 2, y: 2 + layer * 2.3,
+      z: -0.2 - layer * 0.2, sx: 3.1, sy: 0.4, sz: 0.48, ry: 0.13 * (i % 3 - 1) });
   return g.build();
 }
 
@@ -315,6 +324,14 @@ export function bridgeGeometry(): BufferGeometry {
   }
   for (const x of [-18, 18]) for (const z of [-5.6, 5.6]) g.box(0.9, 2.2, 0.9, 0xb9b2a4, { x, y: 1.1, z });
   for (const x of [-8, 8]) g.box(3, 10, 11.4, 0x8f897e, { x, y: -4.4 });
+  for (const z of [-5.3, 5.3]) {
+    g.box(35.8, 0.55, 0.16, 0x5e686d, { y: -0.55, z });
+    for (let i = -15; i <= 15; i += 3) {
+      g.box(0.1, 0.95, 0.2, 0x969d9b, { x: i, y: 0.55, z: z + Math.sign(z) * 0.3 });
+      g.box(0.22, 0.12, 0.04, i % 2 ? 0xc3b992 : 0xad4236, { x: i, y: 0.8, z: z + Math.sign(z) * 0.43 });
+    }
+  }
+  for (const x of [-12, 0, 12]) g.box(0.18, 0.38, 10.8, 0x6c7375, { x, y: -0.5 });
   return g.build();
 }
 

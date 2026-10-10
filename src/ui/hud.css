@@ -637,3 +637,10 @@
   .hud .vital.low .vbar i { animation: none; }
   .hud .gauge .needle { transition: none; }
 }
+
+.cosmetic-panel { margin: 12px 0; padding: 10px 12px; border: 1px solid #8b714947; border-radius: 10px; background: #101820b8; }
+.cosmetic-panel summary { cursor: pointer; color: #f2d6a3; font-weight: 650; }
+#veh-cosmetics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+#veh-cosmetics label { display: grid; gap: 4px; text-transform: capitalize; font-size: 11px; color: #ced5dc; }
+#veh-cosmetics select { min-width: 0; width: 100%; padding: 7px; background: #26313d; color: #fff; border: 1px solid #677380; border-radius: 5px; }
+.cosmetic-panel small { color: #a9b4bf; }

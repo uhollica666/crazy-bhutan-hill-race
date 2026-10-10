@@ -1,3 +1,5 @@
+import { createCreatureArt } from './creatureArt';
+import type { CreatureArt } from './creatureArt';
 import {
   AdditiveBlending,
   BufferGeometry,
@@ -33,7 +35,6 @@ import {
   stationGeometry,
   touristGeometry,
   trafficCarGeometry,
-  yetiGeometry,
 } from './vehicleBodies';
 import { createStaticVehicle } from './VehicleModel';
 import { yakGeometry } from './Scenery';
@@ -146,7 +147,7 @@ export class MissionView {
   // Hazards.
   private rocks: InstancedMesh | null = null;
   private drifts: InstancedMesh | null = null;
-  private readonly creatures: { h: HazardState; mesh: Mesh; bubble: Sprite; ghost: boolean }[] = [];
+  private readonly creatures: { h: HazardState; mesh: Group; art: CreatureArt; bubble: Sprite; ghost: boolean }[] = [];
   private readonly herds: { h: HazardState; mesh: InstancedMesh }[] = [];
   private lorries: { mesh: Mesh; tri: Mesh }[] = [];
   private readonly signs: { group: Group; dispose: () => void }[] = [];
@@ -308,19 +309,16 @@ export class MissionView {
     }
     const creatureHazards = hz.hazards.filter((h) => h.def.kind === 'creature');
     if (creatureHazards.length) {
-      const geo = yetiGeometry();
-      const yetiMat = new MeshLambertMaterial({ vertexColors: true });
-      // The lantern spirit: the same friendly silhouette, pale and softly glowing (it is not frightening).
-      const ghostMat = new MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.55, emissive: 0x9fd8ff, emissiveIntensity: 0.55, depthWrite: false });
-      this.disposables.push(geo, yetiMat, ghostMat);
       for (const h of creatureHazards) {
         const ghost = h.def.variant === 'ghost';
-        const mesh = new Mesh(geo, ghost ? ghostMat : yetiMat);
+        const art = createCreatureArt(ghost ? 'ghost' : 'yeti');
+        const mesh = art.group;
+        this.disposables.push(art);
         mesh.visible = false;
         const bubble = labelSprite(ghost ? 'Whooo~' : 'Hello!', ghost ? '#3b4a7a' : '#2e7d9a');
         bubble.visible = false;
         this.group.add(mesh, bubble);
-        this.creatures.push({ h, mesh, bubble, ghost });
+        this.creatures.push({ h, mesh, art, bubble, ghost });
       }
     }
     const herdHazards = hz.hazards.filter((h) => h.def.kind === 'herd');
@@ -475,6 +473,7 @@ export class MissionView {
         cr.mesh.visible = !!c;
         cr.bubble.visible = !!c && ((cr.h.phase === 'crossing' && Math.abs(c.lateral) < 3) || c.shrug > 0);
         if (c) {
+          cr.art.update(time, c.shrug);
           const bob = cr.ghost ? 0.5 + Math.sin(time * 2.2) * 0.25 : Math.abs(Math.sin(time * 5)) * 0.06;
           cr.mesh.position.set(c.x, this.ground(c.x, c.z) + bob, c.z);
           cr.mesh.rotation.y = c.heading + Math.PI;

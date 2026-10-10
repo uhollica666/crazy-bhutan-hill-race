@@ -1,3 +1,4 @@
+import { humanBase } from './people';
 import type { BufferGeometry } from 'three';
 import { GeoBuilder, loft } from './geo';
 
@@ -47,23 +48,12 @@ export function touringTraffic(kind: 'car' | 'suv' | 'bus' | 'minibus'): BufferG
 
 /** Adult silhouette with clothed limbs, neck, cuffs, hands and shoes. */
 export function personGeometry(coat: number, skin: number, hair: number, hat: number | null = null, pack: number | null = null): BufferGeometry {
-  const g = new GeoBuilder(), trousers = 0x303948;
-  for (const side of [-1, 1]) {
-    g.box(0.14, 0.1, 0.25, 0x242525, { x: side * 0.105, y: 0.05, z: -0.045 });
-    g.cylinder(0.065, 0.075, 0.39, trousers, 7, { x: side * 0.105, y: 0.29 });
-    g.cylinder(0.09, 0.075, 0.4, trousers, 7, { x: side * 0.105, y: 0.68, rz: side * 0.04 });
-    g.sphere(0.08, coat, { x: side * 0.245, y: 1.3 }, 7);
-    g.cylinder(0.068, 0.065, 0.3, coat, 7, { x: side * 0.27, y: 1.15, rz: side * 0.13 });
-    g.cylinder(0.06, 0.046, 0.26, coat, 7, { x: side * 0.3, y: 0.9, rz: side * 0.08 });
-    g.sphere(0.055, skin, { x: side * 0.31, y: 0.73, sy: 1.25 }, 6);
-  }
-  g.add(loft([[-0.13, 0.17, 0.85, 1.33], [0.13, 0.17, 0.85, 1.33]]), coat);
-  g.sphere(0.2, coat, { y: 1.26, sx: 1.18, sy: 0.6, sz: 0.65 }, 8);
-  g.box(0.32, 0.04, 0.27, 0x63513d, { y: 0.89 });
-  g.cylinder(0.06, 0.06, 0.12, skin, 7, { y: 1.43 });
-  g.sphere(0.14, skin, { y: 1.6, sy: 1.2, sz: 0.93 }, 9);
-  g.sphere(0.145, hair, { y: 1.67, sy: 0.75 }, 8);
-  g.sphere(0.025, skin, { y: 1.6, z: -0.13, sz: 1.3 }, 6);
+  const g = new GeoBuilder();
+  g.add(humanBase(coat, skin, hair), 0xffffff, {}, true);
+  // Eyes, collar and a jacket fastening give readable faces at pickup distance.
+  for (const x of [-0.045,0.045]) g.sphere(0.016,0x242829,{x,y:1.63,z:-0.107},6);
+  for (const side of [-1,1]) g.box(0.055,0.09,0.016,0xe8ddd0,{x:side*0.035,y:1.42,z:-0.13,rz:side*0.3});
+  g.box(0.014,0.37,0.014,0x8b9395,{y:1.21,z:-0.145});
   if (hat !== null) {
     g.cylinder(0.22, 0.22, 0.025, hat, 12, { y: 1.74 });
     g.cylinder(0.12, 0.15, 0.13, hat, 10, { y: 1.8 });
