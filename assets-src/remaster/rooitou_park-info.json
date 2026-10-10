@@ -1,0 +1,54 @@
+{
+  "evs_cap": 23,
+  "type": 0,
+  "whitebalance": 5400,
+  "tags": [
+    "sun",
+    "grass",
+    "field",
+    "park"
+  ],
+  "date_published": 1567720800,
+  "name": "Rooitou Park",
+  "old_id": 408,
+  "categories": [
+    "outdoor",
+    "skies",
+    "nature",
+    "sunrise-sunset",
+    "clear",
+    "high contrast",
+    "natural light"
+  ],
+  "date_taken": 1551287160,
+  "coords": [
+    -26.12451098,
+    27.93955538
+  ],
+  "authors": {
+    "Greg Zaal": "All"
+  },
+  "sponsors": [
+    "18031080",
+    "11167855"
+  ],
+  "files_hash": "111d98ac0c8f212223338fa355edececa6166b02",
+  "max_resolution": [
+    16384,
+    8192
+  ],
+  "description": "Free 16K unclipped HDRI: Rooitou Park at near-sunset, clear sky and bright sun, high-contrast warm light, long shadows and vibrant green grass.",
+  "category_id": "b2c961af-7afa-5824-a379-c143e3aedf4d",
+  "category": "Parks & Gardens/Parks/Open Parkland",
+  "attributes": {
+    "time_of_day": "sunset",
+    "weather": "clear",
+    "light_type": "natural",
+    "contrast": "high",
+    "environment": "outdoor",
+    "sky_view": "open"
+  },
+  "img_version": "29c33b38",
+  "download_count": 352206,
+  "thumbnail_url": "https://cdn.polyhaven.com/asset_img/thumbs/rooitou_park.png?width=256&height=256&format=webp&v=29c33b38"
+}

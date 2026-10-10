@@ -1,0 +1,69 @@
+{
+  "tonemapped": {
+    "size": 6921351,
+    "md5": "287654bfe32961ec41adb2aee85e01c8",
+    "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/rooitou_park.jpg"
+  },
+  "hdri": {
+    "8k": {
+      "hdr": {
+        "size": 105536644,
+        "md5": "8f921dd813ce821e9f18b1614aadd7ca",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/8k/rooitou_park_8k.hdr"
+      },
+      "exr": {
+        "size": 87720427,
+        "md5": "3211ad1783912f3db55caf585dc38fe9",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/8k/rooitou_park_8k.exr"
+      }
+    },
+    "16k": {
+      "hdr": {
+        "size": 393739991,
+        "md5": "9d6c7781ab9ad52d7036b6bfa5997c0c",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/16k%2B/rooitou_park_16k.hdr"
+      },
+      "exr": {
+        "size": 327000796,
+        "md5": "0fdf8dd6579bf0b3736fb5186846cc34",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/16k%2B/rooitou_park_16k.exr"
+      }
+    },
+    "4k": {
+      "hdr": {
+        "size": 26755875,
+        "md5": "c87be0dfb19047eeb45deb6a5c3d26eb",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/rooitou_park_4k.hdr"
+      },
+      "exr": {
+        "size": 22109971,
+        "md5": "4b7e0dc7cfb99eee98795be1ac510cd9",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/4k/rooitou_park_4k.exr"
+      }
+    },
+    "2k": {
+      "hdr": {
+        "size": 6555692,
+        "md5": "56cbcf65f66a7168bb643fb1ca807a83",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/rooitou_park_2k.hdr"
+      },
+      "exr": {
+        "size": 5499910,
+        "md5": "e4eb26f8fe10cf74f041075b3c59baeb",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/2k/rooitou_park_2k.exr"
+      }
+    },
+    "1k": {
+      "hdr": {
+        "size": 1588504,
+        "md5": "1e78936ef17cc1dabaebd4e0bc776e47",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/rooitou_park_1k.hdr"
+      },
+      "exr": {
+        "size": 1382437,
+        "md5": "c9dfb38d4d5b70240abb94c3ba0df654",
+        "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/1k/rooitou_park_1k.exr"
+      }
+    }
+  }
+}

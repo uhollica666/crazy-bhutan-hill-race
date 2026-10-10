@@ -24,7 +24,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   const body = new Group(), wheel = new Group();
   const geometries: BufferGeometry[] = [], materials: MeshStandardMaterial[] = [];
   const mat = (name: string, color: number, roughness: number, metalness = 0): MeshStandardMaterial => {
-    const m = name === 'paint' ? new MeshPhysicalMaterial({color,roughness:0.24,metalness:0.3,clearcoat:1,clearcoatRoughness:0.16,vertexColors:true}) : new MeshStandardMaterial({ color, roughness, metalness, vertexColors: true });
+    const m = name === 'paint' ? new MeshPhysicalMaterial({color,roughness:0.24,metalness:0.38,clearcoat:1,clearcoatRoughness:0.12,vertexColors:true}) : name === 'glass' ? new MeshPhysicalMaterial({color:0x92abb8,roughness:0.08,metalness:0,ior:1.5,clearcoat:1,vertexColors:true}) : new MeshStandardMaterial({ color, roughness, metalness, vertexColors: true });
     m.name = name; materials.push(m); return m;
   };
   const paint = mat('paint', d.livery.body, 0.28, 0.42);
@@ -34,7 +34,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   const accent = mat('accent', d.livery.accent, 0.4, 0.25);
   const trim = mat('trim', d.livery.trim, 0.55, 0.12);
   const glass = mat('glass', 0x263b47, 0.13, 0.12);
-  glass.transparent = true; glass.opacity = 0.84; glass.depthWrite = false;
+  glass.transparent = true; glass.opacity = 0.38; glass.depthWrite = false;
   const cabin = mat('cabin', 0x363b42, 0.95);
   const head = mat('light_head', 0xffecc8, 0.22);
   head.emissive.setHex(0xffe2ac); head.emissiveIntensity = 0.35;
@@ -42,7 +42,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   tail.emissive.setHex(0xe52628); tail.emissiveIntensity = 0.4;
   const reverse = mat('light_reverse', 0xcdd8da, 0.3);
   reverse.emissive.setHex(0xd6ecff); reverse.emissiveIntensity = 0;
-  const indicators = [-1, 1].map(() => { const m = mat('indicator', 0xdb8a21, 0.3); m.emissive.setHex(0xff990c); return m; });
+  const indicators = [-1, 1].map((side) => { const m = mat(side<0?'indicator_left':'indicator_right', 0xdb8a21, 0.3); m.emissive.setHex(0xff990c); return m; });
   const batches = new Map<MeshStandardMaterial, GeoBuilder>();
   const batch = (m: MeshStandardMaterial): GeoBuilder => {
     let b = batches.get(m); if (!b) { b = new GeoBuilder(); batches.set(m, b); } return b;
@@ -84,9 +84,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     batch(paint).add(panel, white);
     for (const axle of d.axles) {
       const r = d.wheelRadius + 0.14, cy = axle.y - d.suspension.rest;
-      for (let i = 0; i < 12; i++) { const a = (i + 0.5) * Math.PI / 12;
-        batch(rubber).box(0.085, 0.07, r * Math.PI / 12 + 0.025, white,
-          { x: side * (w + 0.012), y: cy + Math.sin(a) * r, z: axle.z + Math.cos(a) * r, rx: a - Math.PI / 2 }); }
+      batch(rubber).add(new TorusGeometry(r,0.028,low?4:8,low?12:40,Math.PI),white,{x:side*(w+0.012),y:cy,z:axle.z,ry:Math.PI/2});
     }
   }
   // Bonnet and rear shoulder taper into the glazed cabin rather than stacked boxes.
@@ -182,6 +180,42 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     batch(metal).cylinder(d.wheelRadius * 0.57, d.wheelRadius * 0.57, 0.215, white, 16, { y: belt + 0.04, z: l / 2 + 0.11, rx: Math.PI / 2 });
   }
   if (!low) {
+    // Authored hero assemblies: visible chassis, axle casings, drive shaft, differential and cooling stack.
+    const chassis = mat('chassis', 0x343b41, 0.58, 0.62);
+    const upholstery = mat('upholstery', bus ? 0x556572 : expedition ? 0x584a3c : 0x3d4149, 0.93);
+    const disc = mat('brake_disc', 0x798087, 0.44, 0.86);
+    for (const side of [-1, 1]) {
+      batch(chassis).box(0.085,0.12,l*0.79,white,{x:side*w*0.48,y:bottom-0.015});
+      // Sculpted sill and belt crease catch a narrow highlight along the body.
+      const sillFront=d.axles[0].z+d.wheelRadius+0.18, sillBack=d.axles[d.axles.length-1].z-d.wheelRadius-0.18;
+      if(sillBack>sillFront) batch(paint).add(loft([[sillFront,0.018,bottom+0.12,bottom+0.19],[(sillFront+sillBack)/2,0.03,bottom+0.11,bottom+0.2],[sillBack,0.018,bottom+0.12,bottom+0.19]]),white,{x:side*w});
+      batch(rubber).box(0.018,0.018,roofBack-roofFront,white,{x:side*topWidth,y:roof-0.1,z:(roofBack+roofFront)/2});
+      // Headlamp optical cups, fine lens bars and bumper parking sensors.
+      for (let i=0;i<7;i++) batch(glass).box(0.012,0.135,0.012,white,{x:side*lights.hx-0.075+i*0.025,y:lights.y,z:-l/2-0.109});
+      batch(rubber).cylinder(0.017,0.017,0.006,white,12,{x:side*w*0.46,y:bottom+0.16,z:-l/2-0.012,rx:Math.PI/2});
+      // Rear hatch gasket, latch and heated rear-window strips.
+      batch(metal).box(0.24,0.025,0.016,white,{y:belt+0.12,z:l/2+0.032});
+      for(let i=0;i<5;i++) batch(trim).box(topWidth*1.55,0.004,0.008,white,{y:belt+0.24+i*0.09,z:back+0.02});
+      for(const axle of d.axles) {
+        batch(chassis).cylinder(0.065,0.065,axle.halfTrack*2,white,16,{y:axle.y-d.suspension.rest+0.06,z:axle.z,rz:Math.PI/2});
+        batch(chassis).sphere(0.16,white,{y:axle.y-d.suspension.rest+0.06,z:axle.z,sx:1.2,sz:1.1},16);
+        batch(metal).cylinder(0.027,0.04,0.24,white,12,{x:side*axle.halfTrack*0.78,y:bottom-0.04,z:axle.z,rz:side*0.22});
+        for(let turn=0;turn<5;turn++) batch(chassis).add(new TorusGeometry(0.065,0.01,6,16),white,{x:side*axle.halfTrack*0.78,y:bottom-0.12+turn*0.035,z:axle.z,rx:Math.PI/2});
+      }
+    }
+    batch(chassis).cylinder(0.036,0.036,Math.abs(d.axles[0].z-d.axles[d.axles.length-1].z),white,12,{y:bottom-0.05,z:(d.axles[0].z+d.axles[d.axles.length-1].z)/2,rx:Math.PI/2});
+    for(let i=0;i<12;i++) batch(chassis).box(w*0.84,0.008,0.018,white,{y:lights.y-0.13,z:-l/2-0.056+i*0.002});
+    for(let row=0;row<rows;row++) for(const side of [-1,1]) {
+      const z=roofFront+0.38+row*(bus?0.84:0.9); if(z>roofBack-0.15) continue;
+      batch(upholstery).sphere(0.21,white,{x:side*w*0.46,y:belt-0.005,z,sy:0.27,sz:0.9},16);
+      batch(upholstery).sphere(0.21,white,{x:side*w*0.46,y:belt+0.2,z:z+0.14,sy:0.96,sz:0.21},16);
+      for(let stitch=0;stitch<4;stitch++) batch(trim).box(0.28,0.003,0.006,white,{x:side*w*0.46,y:belt+0.09+stitch*0.065,z:z+0.09});
+      batch(rubber).box(0.024,0.32,0.024,white,{x:side*(w*0.46+0.18),y:belt+0.2,z:z+0.08,rz:side*0.37});
+    }
+    // Analog instruments and a gear lever are visible through the clearer glazing.
+    for(const x of [w*0.46-0.07,w*0.46+0.07]) batch(disc).cylinder(0.047,0.047,0.009,white,20,{x,y:belt+0.18,z:front+0.39,rx:Math.PI/2});
+    batch(chassis).cylinder(0.018,0.018,0.19,white,12,{y:belt+0.04,z:roofFront+0.47,rx:-0.17});
+    batch(rubber).sphere(0.035,white,{y:belt+0.14,z:roofFront+0.45},16);
     const occupant = mat('occupant', 0xffffff, 0.95);
     const driver = new GeoBuilder();
     const scale = Math.min(0.84, (roof - belt - 0.12) / 0.98);
@@ -214,6 +248,24 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   }
   add(lampFrame.build(), rubber, lamps); add(lenses.build(), head, lamps);
   for (const option of [stripe,summit,carrier,lamps]) { option.visible = false; body.add(option); }
+  const basket = new Group(); basket.name = 'cosmetic_basket';
+  const rails = new GeoBuilder();
+  const rackLength = Math.min(l*0.48,2.3), rackZ = (roofFront+roofBack)/2;
+  for(const side of [-1,1]) {
+    rails.box(0.04,0.04,rackLength,white,{x:side*w*0.68,y:roof+0.3,z:rackZ});
+    for(const z of [-rackLength/2,rackLength/2]) rails.box(0.04,0.19,0.04,white,{x:side*w*0.68,y:roof+0.2,z:rackZ+z});
+  }
+  for(let i=0;i<8;i++) rails.box(w*1.36,0.026,0.026,white,{y:roof+0.11,z:rackZ-rackLength/2+i*rackLength/7});
+  for(const z of [-rackLength/2,rackLength/2]) rails.box(w*1.36,0.04,0.04,white,{y:roof+0.3,z:rackZ+z});
+  add(rails.build(),metal,basket); basket.visible=false; body.add(basket);
+  const trail = new Group(); trail.name = 'cosmetic_trail'; const protection = new GeoBuilder();
+  for(const side of [-1,1]) {
+    protection.cylinder(0.035,0.035,0.42,white,low?6:16,{x:side*w*0.56,y:bottom+0.39,z:-l/2-0.15});
+    protection.box(0.07,0.035,l*0.6,white,{x:side*(w+0.08),y:bottom+0.05});
+  }
+  protection.cylinder(0.035,0.035,w*1.28,white,low?6:16,{y:bottom+0.6,z:-l/2-0.15,rz:Math.PI/2});
+  protection.box(w*1.25,0.045,0.24,white,{y:bottom+0.1,z:-l/2-0.1,rx:-0.2});
+  add(protection.build(),metal,trail); trail.visible=false; body.add(trail);
   // Panel details: towing eyes, rear hatch inset, badge, fuel flap and exhaust tip.
   batch(rubber).box(w*1.3,0.075,0.03,white,{y:bottom+0.31,z:l/2+0.038});
   batch(metal).sphere(0.055,white,{y:lights.y+0.02,z:-l/2-0.072,sy:0.65,sz:0.25},12);
@@ -224,6 +276,7 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
   batch(metal).cylinder(0.038,0.038,0.24,white,10,{x:-w*0.57,y:bottom+0.02,z:l/2-0.08,rx:Math.PI/2});
   for (const [m, b] of batches) add(b.build(), m);
   const r = d.wheelRadius, ww = d.wheelWidth;
+  const wheelMetal = mat('wheel_alloy',0xb6bdc5,0.31,0.85);
   const tire = new GeoBuilder(), rim = new GeoBuilder();
   tire.add(new TorusGeometry(r - ww * 0.34, ww * 0.34, low ? 6 : 8, low ? 20 : 40), white, { ry: Math.PI / 2 });
   tire.cylinder(r * 0.88, r * 0.88, ww * 0.78, white, low ? 16 : 24, { rz: Math.PI / 2 });
@@ -243,8 +296,26 @@ export function createCoachwork(d: VehicleDef, low = false): Coachwork {
     }
     rim.cylinder(r * 0.2, r * 0.2, 0.028, 0x69727a, 12, { x: side * ww * 0.51, rz: Math.PI / 2 });
   }
-  add(tire.build(), tyre, wheel); add(rim.build(), metal, wheel);
+  add(tire.build(), tyre, wheel);
+  const touring = new Group(); touring.name='rim_touring'; add(rim.build(),wheelMetal,touring); wheel.add(touring);
+  for(const variant of ['steel','sport']) {
+    const group = new Group(); group.name=`rim_${variant}`; group.visible=false;
+    const variantRim = new GeoBuilder();
+    for(const side of [-1,1]) {
+      variantRim.add(new TorusGeometry(r*0.61,r*0.035,6,low?16:36),white,{x:side*ww*0.48,ry:Math.PI/2});
+      if(variant==='steel') {
+        variantRim.cylinder(r*0.52,r*0.52,0.018,0x59636c,low?16:32,{x:side*ww*0.44,rz:Math.PI/2});
+        for(let i=0;i<8;i++){const a=i*Math.PI/4;variantRim.cylinder(r*0.075,r*0.075,0.025,0x20262b,10,{x:side*ww*0.46,y:Math.cos(a)*r*0.38,z:Math.sin(a)*r*0.38,rz:Math.PI/2});}
+      } else for(let i=0;i<10;i++) {
+        const a=i*Math.PI/5+(i%2)*0.065;
+        variantRim.box(0.024,r*0.48,r*0.055,white,{x:side*ww*0.48,y:Math.cos(a)*r*0.34,z:Math.sin(a)*r*0.34,rx:a});
+      }
+      variantRim.cylinder(r*0.18,r*0.18,0.03,white,16,{x:side*ww*0.5,rz:Math.PI/2});
+    }
+    add(variantRim.build(),wheelMetal,group); wheel.add(group);
+  }
   const dirt = new Group(), scars = new Group();
+  dirt.name='road_dirt_group';scars.name='damage_group';
   const mud = new GeoBuilder(), scratch = new GeoBuilder();
   for (const side of [-1, 1]) {
     // Small separated splats behind each arch; hidden on clean garage vehicles.

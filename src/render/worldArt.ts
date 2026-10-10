@@ -1,5 +1,6 @@
 import { branch, foliage } from './organic';
-import type { BufferGeometry } from 'three';
+import { BufferGeometry, Float32BufferAttribute } from 'three';
+import { premiumPineGeometry } from './premiumPine';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
 
@@ -24,7 +25,7 @@ export function pitchedRoof(g: GeoBuilder, w: number, d: number, y: number, rise
   for (const side of [-1, 1]) {
     g.box(w, 0.17, len, color, { x, y: y + rise / 2, z: z + side * d / 4, rx: side * a });
     g.box(w, 0.15, 0.17, PAL.maroon, { x, y: y - 0.08, z: z + side * d / 2 });
-    const seams = Math.ceil(w / 1.2);
+    const seams = Math.ceil(w / 0.52);
     for (let i = 0; i <= seams; i++) {
       const xx = x - w / 2 + i * w / seams;
       g.box(0.035, 0.03, len, color === PAL.gold ? 0xc19b46 : 0x687174,
@@ -42,6 +43,16 @@ export function villageHouse(variant = 0): BufferGeometry {
   // Slightly battered masonry and an overhanging timber upper storey.
   g.frustum(w, w - 0.3, 2.8, PAL.whitewash, { y: 1.55, sz: d / w });
   g.box(w + 0.16, 2.7, d + 0.16, variant === 2 ? 0xe1d5bb : PAL.whitewash, { y: 4.3 });
+  // Laid stone plinth with staggered joints and projecting cap, rather than one flat foundation face.
+  for(const side of [-1,1]) for(let row=0;row<2;row++) {
+    for(let stone=0;stone<17;stone++) {
+      const x=-4.25+stone*0.52+(row?0.2:0),shade=[0x9a9585,0x777e76,0x85877c][(stone+row+variant)%3];
+      if(x>4.4 || (side>0&&Math.abs(x+3.1)<0.8))continue;
+      g.box(0.49,0.23,0.08,shade,{x,y:0.14+row*0.25,z:side*(d/2+0.03)});
+    }
+    for(let stone=0;stone<12;stone++)g.box(0.08,0.23,0.49,0x8c8d80,{x:side*(w/2+0.03),y:0.14+row*0.25,z:-2.9+stone*0.52+(row?0.18:0)});
+  }
+  g.box(w+0.16,0.07,d+0.16,0xb6ad99,{y:0.56});
   for (const y of [2.92, 5.72]) g.box(w + 0.3, 0.28, d + 0.3, timber, { y });
   for (const side of [-1, 1]) {
     for (const x of [-2.8, 0, 2.8]) timberWindow(g, x, 4.35, side * (d / 2 + 0.12), 1.5, 1.65, side < 0 ? Math.PI : 0);
@@ -56,6 +67,9 @@ export function villageHouse(variant = 0): BufferGeometry {
   g.box(0.05, 1.85, 0.02, PAL.wood, { x: -3.1, y: 1.22, z: d / 2 + 0.16 });
   for (let i = 0; i < 3; i++) g.box(1.6 + i * 0.18, 0.16, 0.5, PAL.rock, { x: -3.1, y: 0.28 - i * 0.12, z: d / 2 + 0.25 + i * 0.35 });
   pitchedRoof(g, w + 2.6, d + 2.2, 5.92, 2.25, variant === 1 ? PAL.roofRed : PAL.roofSlate);
+  // Rainwater gutters and a downpipe remain part of the static, instanced house mesh.
+  for(const side of [-1,1])g.cylinder(0.055,0.055,w+2.5,0x737d7b,10,{y:5.77,z:side*(d/2+1.07),rz:Math.PI/2});
+  g.cylinder(0.05,0.05,5.5,0x747d79,10,{x:4.42,y:2.8,z:d/2+0.25});
   if (variant === 2) {
     g.box(5, 0.18, 1.1, timber, { x: 1, y: 3.2, z: d / 2 + 0.65 });
     for (let i = 0; i < 10; i++) g.box(0.06, 0.85, 0.06, timber, { x: -1.2 + i * 0.48, y: 3.65, z: d / 2 + 1.13 });
@@ -65,6 +79,7 @@ export function villageHouse(variant = 0): BufferGeometry {
 }
 
 export function mountainPine(variant = 0, low = false): BufferGeometry {
+  if(!low)return premiumPineGeometry(variant);
   const g = new GeoBuilder();
   branch(g,[0,0,0],[0.08,5.7,0.03],0.19,PAL.bark);
   for(let tier=0;tier<(low?4:7);tier++) {
@@ -74,11 +89,14 @@ export function mountainPine(variant = 0, low = false): BufferGeometry {
       const a=j*Math.PI*2/count+tier*0.83+variant*0.7;
       const x=Math.cos(a)*r*0.66,z=Math.sin(a)*r*0.66;
       if(!low)branch(g,[0,y+0.15,0],[x,y-0.19,z],0.035,PAL.bark);
-      g.add(foliage(r*0.48,tier%2?PAL.pineDark:PAL.pineMid,tier+j+variant,low),0xffffff,{x,y:y+0.05,z,sx:1.32,sy:0.54,sz:1.32},true);
+      g.add(foliage(r*0.48,tier%2?PAL.pineDark:PAL.pineMid,tier+j+variant,true),0xffffff,{x,y:y+0.05,z,ry:a,sx:1.32,sy:0.54,sz:1.32},true);
     }
   }
   g.add(foliage(0.34,PAL.pineMid,variant,low),0xffffff,{y:5.78,sy:1.85},true);
-  return g.build();
+  const geometry=g.build(),count=geometry.getAttribute('position').count;
+  geometry.setAttribute('uv',new Float32BufferAttribute(new Float32Array(count*2),2));
+  geometry.setAttribute('foliageMask',new Float32BufferAttribute(new Float32Array(count),1));
+  return geometry;
 }
 
 export function slenderCypress():BufferGeometry {

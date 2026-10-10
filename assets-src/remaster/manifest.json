@@ -1,0 +1,102 @@
+[
+  {
+    "asset": "asphalt_02",
+    "channel": "Diffuse",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_diff_1k.jpg",
+    "source": "assets-src/remaster/asphalt_02-Diffuse.jpg",
+    "md5": "fa19772d4817754c3efab708c651f5a8",
+    "bytes": 731707,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "asphalt_02",
+    "channel": "nor_gl",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_nor_gl_1k.jpg",
+    "source": "assets-src/remaster/asphalt_02-nor_gl.jpg",
+    "md5": "338da8de636ea36133170578cac82e8e",
+    "bytes": 1240122,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "asphalt_02",
+    "channel": "arm",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_arm_1k.jpg",
+    "source": "assets-src/remaster/asphalt_02-arm.jpg",
+    "md5": "33820445f43af5e5ee484674b6939271",
+    "bytes": 296770,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "rocky_terrain_02",
+    "channel": "Diffuse",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocky_terrain_02/rocky_terrain_02_diff_1k.jpg",
+    "source": "assets-src/remaster/rocky_terrain_02-Diffuse.jpg",
+    "md5": "cf604d3868398a6a996cb5ba330dd3ab",
+    "bytes": 843188,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "rocky_terrain_02",
+    "channel": "nor_gl",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocky_terrain_02/rocky_terrain_02_nor_gl_1k.jpg",
+    "source": "assets-src/remaster/rocky_terrain_02-nor_gl.jpg",
+    "md5": "c1636176f0fa8eb9b924ebdecd47ddfd",
+    "bytes": 993692,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "rocky_terrain_02",
+    "channel": "arm",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocky_terrain_02/rocky_terrain_02_arm_1k.jpg",
+    "source": "assets-src/remaster/rocky_terrain_02-arm.jpg",
+    "md5": "04ce14025d95d31da8367f265dcf66b4",
+    "bytes": 524868,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "forest_floor",
+    "channel": "Diffuse",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_floor/forest_floor_diff_1k.jpg",
+    "source": "assets-src/remaster/forest_floor-Diffuse.jpg",
+    "md5": "d67f308e4b8be6a65989e8dc76ec40fe",
+    "bytes": 1329853,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "forest_floor",
+    "channel": "nor_gl",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_floor/forest_floor_nor_gl_1k.jpg",
+    "source": "assets-src/remaster/forest_floor-nor_gl.jpg",
+    "md5": "7cb480d082527766acdf3b6c8cba50f4",
+    "bytes": 1380104,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "forest_floor",
+    "channel": "arm",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/forest_floor/forest_floor_arm_1k.jpg",
+    "source": "assets-src/remaster/forest_floor-arm.jpg",
+    "md5": "85b0c5f36a11f981dc7e6256bc23161a",
+    "bytes": 931479,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  },
+  {
+    "asset": "rooitou_park",
+    "channel": "hdri",
+    "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/rooitou_park_1k.hdr",
+    "source": "assets-src/remaster/rooitou_park-hdri.hdr",
+    "md5": "1e78936ef17cc1dabaebd4e0bc776e47",
+    "bytes": 1588504,
+    "license": "CC0-1.0",
+    "acquired": "2026-10-10"
+  }
+]

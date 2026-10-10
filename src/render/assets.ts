@@ -15,6 +15,7 @@ export class AssetLibrary {
   /** URLs that failed (kept so a missing file is not requested again and again). */
   readonly failed = new Set<string>();
   loads = 0;
+  private generation = 0;
 
   constructor(private readonly base: string = import.meta.env.BASE_URL) {}
 
@@ -28,9 +29,11 @@ export class AssetLibrary {
     let p = this.cache.get(url);
     if (!p) {
       this.loads++;
+      const generation = this.generation;
       p = this.loader
         .loadAsync(url)
         .then((g) => {
+          if(generation !== this.generation) { disposeObject(g.scene); return null; }
           this.loaded.set(url, g.scene);
           return g.scene;
         })
@@ -55,6 +58,7 @@ export class AssetLibrary {
 
   /** Frees GPU memory held by every cached model. */
   dispose(): void {
+    this.generation++;
     for (const scene of this.loaded.values()) disposeObject(scene);
     this.loaded.clear();
     this.cache.clear();
@@ -84,24 +88,26 @@ export const assets = new AssetLibrary();
 
 // ------------------------------------------------------------------------------------------------ vehicles
 
-export const vehicleModelPath = (id: string): string => `models/vehicles/${id}.glb`;
+export const vehicleModelPath = (id: string): string => `remaster/vehicles/${id}.glb`;
 
 export interface VehicleAsset {
   body: Object3D;
   wheel: Object3D;
+  lowBody: Object3D;
+  lowWheel: Object3D;
 }
 
-/** Vehicle remake is authored at runtime; retain these entry points for garage/game callers.
- * Legacy GLBs stay available on disk for authoring, but are no longer downloaded invisibly.
- */
-export function loadVehicleAsset(id: string): Promise<VehicleAsset | null> {
-  void id;
-  return Promise.resolve(null);
+/** Meshopt-compressed hero coachwork. Legacy models remain separate; Low can use the authored fallback. */
+export async function loadVehicleAsset(id: string): Promise<VehicleAsset | null> {
+  await assets.load(vehicleModelPath(id));
+  return peekVehicleAsset(id);
 }
 
 export function peekVehicleAsset(id: string): VehicleAsset | null {
-  void id;
-  return null;
+  const scene=assets.peek(vehicleModelPath(id));
+  const body=scene?.getObjectByName('body_high'),wheel=scene?.getObjectByName('wheel_high');
+  const lowBody=scene?.getObjectByName('body_low'),lowWheel=scene?.getObjectByName('wheel_low');
+  return body&&wheel&&lowBody&&lowWheel ? {body,wheel,lowBody,lowWheel} : null;
 }
 
 let vehicleEnv: Texture | null = null;

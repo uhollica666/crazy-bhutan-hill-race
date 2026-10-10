@@ -1,4 +1,5 @@
 import { Group, Mesh, MeshStandardMaterial } from 'three';
+import { RemasterSurfaces } from './remasterSurfaces';
 import type { Material, Scene, Vector3, Texture } from 'three';
 import type { Course } from '../world/Course';
 import type { TimeOfDay, WeatherKind } from '../data/types';
@@ -20,6 +21,7 @@ export class World3D {
   private rivers: RiverMesh | null = null;
   private settlement:CitySettlement|null=null;
   private lastTime = -1;
+  private readonly surfaces: RemasterSurfaces;
   private readonly relief = new WeakMap<MeshStandardMaterial, {bump:Texture|null; rough:Texture|null}>();
 
   constructor(
@@ -48,6 +50,7 @@ export class World3D {
     this.gates = new Gates(course);
     this.root.add(this.gates.group);
     this.env = new Environment(scene, course);
+    this.surfaces = new RemasterSurfaces(this.root);
     scene.add(this.root);
     this.applyQuality(quality);
   }
@@ -74,6 +77,7 @@ export class World3D {
           x.needsUpdate=true;
         });
     });
+    this.surfaces.applyQuality(q);
   }
 
   setConditions(weather: WeatherKind, time: TimeOfDay, smooth = false, routeWeather=false): void {
@@ -81,6 +85,7 @@ export class World3D {
     this.env.setConditions(weather, time, undefined, smooth);
     this.scenery.setLamps(this.env.lightsOn && time !== 'day');
   }
+  setWetness(value:number):void { this.surfaces.setWetness(value); }
 
   update(time: number, camera: Vector3, focus: Vector3, progress: number): void {
     this.rivers?.update(time);
@@ -94,6 +99,7 @@ export class World3D {
   }
 
   dispose(): void {
+    this.surfaces.dispose();
     this.scene.remove(this.root);
     this.root.traverse((o) => {
       const mesh = o as Mesh;

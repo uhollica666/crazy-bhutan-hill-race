@@ -4,10 +4,14 @@ export const COSMETIC_OPTIONS = {
   trim: [['factory','Factory trim'],['dark','Black pack'],['bronze','Bronze pack']],
   equipment: [['standard','Standard roof'],['carrier','Touring carrier'],['lamps','Rally lamps']],
   wheels: [['silver','Silver alloy'],['black','Graphite alloy'],['bronze','Bronze alloy']],
+  finish: [['metallic','Metallic clearcoat'],['matte','Matte paint']],
+  rim: [['touring','Touring spokes'],['steel','Trail steel'],['sport','Split sport spokes']],
+  bumper: [['standard','Factory bumper'],['trail','Trail protection']],
+  rack: [['standard','Factory rails'],['basket','Expedition basket']],
 } as const;
 export type CosmeticKey = keyof typeof COSMETIC_OPTIONS;
 export type Cosmetics = Record<CosmeticKey, string>;
-const defaults: Cosmetics = {paint:'factory',skin:'plain',trim:'factory',equipment:'standard',wheels:'silver'};
+const defaults: Cosmetics = {paint:'factory',skin:'plain',trim:'factory',equipment:'standard',wheels:'silver',finish:'metallic',rim:'touring',bumper:'standard',rack:'standard'};
 const key = 'cbhr-cosmetics-v1';
 export function readCosmetics(id: string): Cosmetics {
   try { const saved = JSON.parse(localStorage.getItem(key) || '{}')[id] || {}; const out = {...defaults};

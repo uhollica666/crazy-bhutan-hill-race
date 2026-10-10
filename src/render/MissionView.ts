@@ -1,4 +1,5 @@
 import { actorGround } from './grounding';
+import { createHumanoidRig } from './humanoidRig';
 import { createCreatureArt } from './creatureArt';
 import type { CreatureArt } from './creatureArt';
 import {
@@ -15,6 +16,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  MeshStandardMaterial,
   PlaneGeometry,
   Quaternion,
   Scene,
@@ -139,6 +141,9 @@ export class MissionView {
   readonly group = new Group();
   private readonly disposables: { dispose(): void }[] = [];
   private readonly stopVisuals: StopVisual[] = [];
+  private readonly peopleRigs = new Map<InstancedMesh, ReturnType<typeof createHumanoidRig>[]>();
+  private detailedActors = true;
+  setActorDetail(enabled:boolean):void { this.detailedActors=enabled; }
   private readonly zoneMat = new MeshBasicMaterial({ color: 0xf6c452, transparent: true, opacity: 0.28, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
   private readonly zoneMatBlue = new MeshBasicMaterial({ color: 0x59b8e8, transparent: true, opacity: 0.26, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
   private readonly beamMat = new MeshBasicMaterial({ color: 0xf6c452, transparent: true, opacity: 0.18, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false });
@@ -236,6 +241,14 @@ export class MissionView {
         }
         people.instanceMatrix.needsUpdate = true;
         people.frustumCulled = false;
+        if (this.density > 0.5) {
+          const material = new MeshStandardMaterial({ vertexColors:true, roughness:0.86 });
+          const rigs = Array.from({length:Math.min(party,12)},(_,i)=>createHumanoidRig(geo,material,i*0.71));
+          // Only replace the batch when every member has a rig; retain the existing population contract.
+          if(rigs.length === party) { this.peopleRigs.set(people,rigs); for(const rig of rigs){rig.mesh.visible=false;this.group.add(rig.mesh);this.disposables.push(rig);} }
+          else rigs.forEach(rig=>rig.dispose());
+          this.disposables.push(material);
+        }
         const lugGeo = luggageGeometry();
         const luggage = new Mesh(lugGeo, new MeshLambertMaterial({ vertexColors: true }));
         luggage.position.set(cx - side * rx * 1.4, this.ground(cx, cz), cz - side * rz * 1.4);
@@ -345,7 +358,7 @@ export class MissionView {
         const bubble = labelSprite(text, spirit ? '#3b4a7a' : v === 'zombie' ? '#4a6a3a' : '#2e7d9a');
         bubble.visible = false;
         this.group.add(mesh, bubble);
-        this.creatures.push({ h, mesh, art, bubble, ghost: v === 'ghost', scale: v === 'zombie' ? 1.75 : v === 'bear' ? 0.9 : v === 'figure' ? 0.7 : 0.62 });
+        this.creatures.push({ h, mesh, art, bubble, ghost: v === 'ghost', scale: v === 'zombie' ? 1 : v === 'bear' ? 0.9 : v === 'figure' ? 0.7 : spirit ? 0.62 : 0.82 });
       }
     }
     const herdHazards = hz.hazards.filter((h) => h.def.kind === 'herd');
@@ -456,7 +469,10 @@ export class MissionView {
       if (v.people) {
         // Pickup groups wait until boarded; a dropped-off group appears on the verge once it has got out.
         const shown = st.def.kind === 'dropoff' ? done : !done;
-        v.people.visible = shown;
+        const rigs = this.peopleRigs.get(v.people);
+        const close = this.detailedActors && !!rigs && Math.hypot(v.px-rt.body.position.x,v.pz-rt.body.position.z)<42;
+        v.people.visible = shown && !close;
+        rigs?.forEach(rig=>rig.mesh.visible=shown&&close);
         if (shown) {
           const n = v.people.count;
           for (let i = 0; i < n; i++) {
@@ -468,6 +484,11 @@ export class MissionView {
             this.q.setFromAxisAngle(UP, v.heading);
             this.m4.compose(this.pos, this.q, this.scl);
             v.people.setMatrixAt(i, this.m4);
+            if(close && rigs) {
+              this.m4.decompose(rigs[i].mesh.position,rigs[i].mesh.quaternion,rigs[i].mesh.scale);
+              const nearby = Math.hypot(x-rt.body.position.x,z-rt.body.position.z)<14;
+              rigs[i].update(this.lastDt,nearby?'react':'idle');
+            }
           }
           v.people.instanceMatrix.needsUpdate = true;
         }
@@ -520,9 +541,9 @@ export class MissionView {
         cr.mesh.visible = !!c;
         cr.bubble.visible = !!c && ((cr.h.phase === 'crossing' && Math.abs(c.lateral) < 3) || c.shrug > 0);
         if (c) {
-          cr.art.update(time, c.shrug);
           const bob = cr.ghost ? 0.5 + Math.sin(time * 2.2) * 0.25 : Math.abs(Math.sin(time * 5)) * 0.06;
           cr.mesh.position.set(c.x, actorGround(this.rt.course,c.x,c.z,c.heading,0.32,0.27) + bob, c.z);
+          cr.art.update(time, c.shrug);
           cr.mesh.rotation.y = c.heading + Math.PI;
           cr.mesh.scale.setScalar(cr.scale);
           cr.bubble.position.set(c.x, cr.mesh.position.y + 3.6, c.z);

@@ -1,4 +1,5 @@
-import { Group, Mesh, MeshStandardMaterial } from 'three';
+import { Group, MeshStandardMaterial } from 'three';
+import { createQuadrupedRig } from './quadrupedRig';
 import type { BufferGeometry } from 'three';
 import type { CreatureArt } from './creatureArt';
 import { GeoBuilder } from './geo';
@@ -12,14 +13,20 @@ import { GeoBuilder } from './geo';
 export function bearGeometry(): BufferGeometry {
   const fur = 0x5b3b26;
   const g = new GeoBuilder();
-  g.sphere(0.85, fur, { y: 1.05, sx: 1.0, sy: 0.85, sz: 1.5 }, 9);
-  g.sphere(0.55, fur, { y: 1.35, z: -1.35 }, 8);
-  g.sphere(0.28, 0xc9a77c, { y: 1.22, z: -1.8, sx: 1.2, sy: 0.8 }, 6);
+  g.sphere(0.85, fur, { y: 1.05, sx: 1.0, sy: 0.85, sz: 1.5 }, 24);
+  g.sphere(0.55, fur, { y: 1.35, z: -1.35 }, 20);
+  g.sphere(0.28, 0xc9a77c, { y: 1.22, z: -1.8, sx: 1.2, sy: 0.8 }, 16);
   g.sphere(0.09, 0x1a1210, { y: 1.3, z: -2.05 }, 5);
   for (const sx of [-1, 1]) {
     g.sphere(0.16, fur, { x: sx * 0.36, y: 1.82, z: -1.3 }, 6);
     g.sphere(0.06, 0x1a1210, { x: sx * 0.2, y: 1.5, z: -1.78 }, 5);
-    for (const z of [-0.8, 0.85]) g.cylinder(0.24, 0.28, 0.9, fur, 7, { x: sx * 0.5, y: 0.45, z });
+    g.sphere(0.08,0xc5a88a,{x:sx*0.36,y:1.82,z:-1.35,sy:0.7,sz:0.4},12);
+    g.sphere(0.024,0xd5c4a2,{x:sx*0.216,y:1.518,z:-1.808,sz:0.3},10);
+    for (const z of [-0.8, 0.85]) {
+      g.sphere(0.26,fur,{x:sx*0.5,y:0.51,z,sy:1.7},16);
+      g.sphere(0.27,0x3c2d25,{x:sx*0.5,y:0.14,z:z-0.12,sy:0.45,sz:1.2},16);
+      for(let claw=0;claw<4;claw++)g.cone(0.025,0.09,0xa69b8c,8,{x:sx*0.5+(claw-1.5)*0.09,y:0.1,z:z-0.36,rx:-Math.PI/2});
+    }
   }
   g.sphere(0.2, fur, { y: 1.15, z: 1.45 }, 6);
   return g.build();
@@ -59,16 +66,19 @@ export function createBearArt(): CreatureArt {
   const geo = bearGeometry();
   const mat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
   const group = new Group();
-  const mesh = new Mesh(geo, mat);
-  mesh.castShadow = true;
-  group.add(mesh);
+  const rig = createQuadrupedRig(geo,mat);
+  group.add(rig.mesh);
+  let previous=0,x=0,z=0,initialized=false;
   return {
     group,
-    update() {
-      /* a bear needs no rig */
+    update(time,react) {
+      const dt=Math.max(0,Math.min(0.1,time-previous));previous=time;
+      const speed=initialized&&dt>0?Math.min(4,Math.hypot(group.position.x-x,group.position.z-z)/dt):0;
+      rig.update(time,dt,speed,react);x=group.position.x;z=group.position.z;initialized=true;
     },
     dispose() {
       geo.dispose();
+      rig.dispose();
       mat.dispose();
     },
   };

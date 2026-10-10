@@ -1,4 +1,4 @@
-import { BufferGeometry, Color, Float32BufferAttribute, MeshLambertMaterial } from 'three';
+import { BufferGeometry, Color, Float32BufferAttribute, MeshStandardMaterial } from 'three';
 import raw from './peopleBase.json?raw';
 const base = JSON.parse(raw) as {position:number[];normal:number[];region:number[]};
 /** CC0 Quaternius base, posed and simplified offline. Semantic garment colours preserve skin in crowds. */
@@ -25,8 +25,8 @@ export function seatedDriver(): BufferGeometry {
 }
 
 /** Tint only the white garment region of instanced walkers, keeping faces/hands/hair legible. */
-export function crowdMaterial(): MeshLambertMaterial {
-  const mat=new MeshLambertMaterial({vertexColors:true});
+export function crowdMaterial(): MeshStandardMaterial {
+  const mat=new MeshStandardMaterial({vertexColors:true,roughness:0.88});
   mat.onBeforeCompile=shader=> {
     shader.vertexShader=shader.vertexShader.replace('#include <color_vertex>',`#include <color_vertex>
       #ifdef USE_INSTANCING_COLOR

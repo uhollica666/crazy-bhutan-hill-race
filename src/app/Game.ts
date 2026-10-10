@@ -495,9 +495,8 @@ export class Game {
     ui.showLoading(`Loading ${sel.level.name}...`, 0.3);
     await this.loadLevel(sel.level);
     ui.showLoading('Fuelling the tour car...', 0.85);
-    // Fetch the selected vehicle's model (with a time limit) and warm the others in the background.
-    const first = loadVehicleAsset(sel.vehicle.id);
-    for (const v of this.vehicles) void loadVehicleAsset(v.id);
+    // Load only the selected hero. Low uses the same authored procedural fallback without a GLB download.
+    const first = this.renderer.profile.terrainCoarse ? Promise.resolve(null) : loadVehicleAsset(sel.vehicle.id);
     await Promise.race([first, new Promise((r) => window.setTimeout(r, 4000))]);
     await nextFrame();
     this.pickVehicle(sel.vehicle);
@@ -654,6 +653,7 @@ export class Game {
       trafficScale: this.quality().trafficScale,
     });
     this.view = new MissionView(this.renderer.scene, this.rt, clamp(this.quality().trafficScale, 0.3, 1));
+    this.view.setActorDetail(!this.renderer.profile.terrainCoarse);
     this.view.setNight(this.world?.env.lightsOn ?? false);
     this.wireRuntime(this.rt);
     this.acc = 0;
@@ -672,7 +672,7 @@ export class Game {
       this.model.dispose();
     }
     this.model = new VehicleModel(this.vehicleDef, peekVehicleAsset(base.id));
-    if (!this.model.detailed) {
+    if (!this.model.detailed && !this.renderer.profile.terrainCoarse) {
       // The glTF model is still on its way (or missing): show the procedural one now and swap when it arrives,
       // but only while the player is in a menu so a run is never disturbed.
       void loadVehicleAsset(base.id).then((a) => {
@@ -1015,6 +1015,7 @@ export class Game {
       this.world?.applyQuality(q);
       this.model?.setBlobVisible(!q.shadows);
       this.model?.setLowDetail(q.terrainCoarse);
+      this.view?.setActorDetail(!q.terrainCoarse);
       this.rig.setFar(q.cameraFar);
       this.effects.particles.density = q.particleDensity;
       this.effects.skids.mesh.visible = q.skidMarks;
@@ -1967,6 +1968,8 @@ export class Game {
   /** Rain, snow, thunder flash and headlights follow the mission's weather. */
   private updateWeatherFx(dt: number, state: string): void {
     const w = this.rt.weather;
+    this.model?.setWetness(w.wetness);
+    this.world?.setWetness(w.wetness);
     const q = this.quality();
     const snowing = this.level.weather === 'snow' || w.preset.snow;
     if (snowing) this.snow.update(this.time, this.camPos);

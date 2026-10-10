@@ -1,7 +1,8 @@
 import { Group, Mesh, MeshStandardMaterial, LatheGeometry, Vector2, DoubleSide } from 'three';
 import type { BufferGeometry } from 'three';
 import { GeoBuilder } from './geo';
-import { humanBase } from './people';
+import { personGeometry } from './trafficArt';
+import { createHumanoidRig } from './humanoidRig';
 export type CreatureKind = 'yeti' | 'ghost' | 'zombie';
 export interface CreatureArt { group:Group; update(time:number, shrug:number):void; dispose():void; }
 /** Art-only rig: callers retain movement, collision, encounter state and audio scheduling. */
@@ -11,6 +12,12 @@ export function createCreatureArt(kind:CreatureKind):CreatureArt {
  const fur=0xe3e6e0,skin=0xadbcc0;
  const material=new MeshStandardMaterial({vertexColors:true,roughness:kind==='ghost'?0.3:0.9,transparent:kind==='ghost',opacity:kind==='ghost'?0.76:1,depthWrite:kind!=='ghost',side:kind==='ghost'?DoubleSide:0,emissive:kind==='ghost'?0x75b9e7:0,emissiveIntensity:0.5});mats.push(material);
  const add=(b:GeoBuilder,parent:Group=group,mat=material):Mesh=> {const geo=b.build();geos.push(geo);const mesh=new Mesh(geo,mat);mesh.castShadow=kind!=='ghost';parent.add(mesh);return mesh;};
+ let rig:ReturnType<typeof createHumanoidRig>|null=null,lastTime=0,lastX=0,lastZ=0,initialized=false;
+ if(kind==='zombie') {
+  const geometry=personGeometry(0x536d56,0x9da982,0x343e36,null,null);geos.push(geometry);
+  rig=createHumanoidRig(geometry,material);group.add(rig.mesh);group.scale.setScalar(1.75);
+  return {group,update(time,react){const dt=Math.max(0,Math.min(0.1,time-lastTime));const speed=initialized&&dt>0?Math.hypot(group.position.x-lastX,group.position.z-lastZ)/dt:0;rig!.update(dt,react>0.6?'react':speed>1.2?'chase':speed>0.05?'walk':'idle');lastTime=time;lastX=group.position.x;lastZ=group.position.z;initialized=true;},dispose(){rig!.dispose();geos.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());}};
+ }
  if(kind==='yeti') {
   const b=new GeoBuilder();
   b.sphere(0.68,fur,{y:1.77,sx:1.13,sy:1.18,sz:0.75},20);
@@ -36,7 +43,7 @@ export function createCreatureArt(kind:CreatureKind):CreatureArt {
   b.box(0.25,0.035,0.025,0x677c86,{y:2.73,z:-0.49,rx:-0.08});
   for(let i=0;i<50;i++){const a=i*2.399,r=0.48+0.21*(i%4)/3;b.cone(0.075,0.21+(i%3)*0.06,fur,7,{x:Math.cos(a)*r,y:1.3+(i%9)*0.105,z:Math.sin(a)*r*0.77,rx:Math.PI,rz:Math.cos(a)*0.2});}
   for(let i=-3;i<=3;i++)b.cone(0.095,0.22,fur,8,{x:i*0.1,y:3.26,z:-0.1+Math.abs(i)*0.045,rz:-i*0.1});
-  add(b);
+  const geometry=b.build();geos.push(geometry);rig=createHumanoidRig(geometry,material,0,1.8,false);group.add(rig.mesh);
  } else if(kind==='ghost') {
   const robe=new GeoBuilder();
   // Continuous draped fabric with twelve folds, a narrow neck and an asymmetric scalloped hem.
@@ -57,14 +64,6 @@ export function createCreatureArt(kind:CreatureKind):CreatureArt {
   const glow=new MeshStandardMaterial({color:0xb4efff,emissive:0x73d5ff,emissiveIntensity:2,roughness:0.4});mats.push(glow);
   const eyes=new GeoBuilder();for(const x of [-0.105,0.105])eyes.sphere(0.058,0xffffff,{x,y:2.91,z:-0.374,sx:0.65,sy:1.3,sz:0.4},10);add(eyes,group,glow);
   for(const side of [-1,1]) {const arm=new Group();arm.position.set(side*0.48,2.2,0);group.add(arm);arms.push(arm);const sleeve=new GeoBuilder();const sleeveGeo=new LatheGeometry([new Vector2(0.29,-0.72),new Vector2(0.2,-0.36),new Vector2(0.13,0)],20);sleeve.add(sleeveGeo,0xbedce6,{x:side*0.2,rz:side*0.75});cloth.push(add(sleeve,arm));}
- } else {
-  const b=new GeoBuilder();b.add(humanBase(0x536d56,0x9da982,0x343e36,'both'),0xffffff,{},true);
-  for(const side of [-1,1]) {b.box(0.075,0.025,0.018,0xdbc882,{x:side*0.05,y:1.64,z:-0.12,rz:-side*0.2});b.box(0.12,0.17,0.02,0x8a785a,{x:side*0.1,y:1.1,z:-0.14,rz:side*0.1});}
-  for(const side of [-1,1]) {
-   const arm=new Group();arm.position.set(side*0.23,1.4,0);group.add(arm);arms.push(arm);
-   const reach=new GeoBuilder();reach.cylinder(0.065,0.055,0.32,0x536d56,10,{y:-0.15});reach.cylinder(0.054,0.042,0.27,0x536d56,10,{y:-0.42});reach.sphere(0.052,0x9da982,{y:-0.59,sy:1.4},10);add(reach,arm);arm.rotation.x=1.2;
-  }
-  b.box(0.12,0.025,0.018,0x424f3c,{y:1.55,z:-0.118});add(b);group.scale.setScalar(1.75);
  }
- return {group,update(time,shrug){arms.forEach((arm,i)=>{const side=i===0?-1:1;arm.rotation.z=side*(0.1+Math.sin(time*(kind==='ghost'?1.5:3)+i)*0.13+shrug*0.65);arm.rotation.x=(kind==='zombie'?1.2:0)+Math.sin(time*2+i)*0.08;});cloth.forEach((mesh,i)=>mesh.rotation.y=Math.sin(time*1.8+i)*0.15);if(kind==='zombie'){group.rotation.z=Math.sin(time*2.7)*0.035;}},dispose(){geos.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());}};
+ return {group,update(time,shrug){const dt=Math.max(0,Math.min(0.1,time-lastTime));const speed=initialized&&dt>0?Math.hypot(group.position.x-lastX,group.position.z-lastZ)/dt:0;rig?.update(dt,shrug>0.6?'react':speed>0.05?'walk':'idle');lastTime=time;lastX=group.position.x;lastZ=group.position.z;initialized=true;arms.forEach((arm,i)=>{const side=i===0?-1:1;arm.rotation.z=side*(0.1+Math.sin(time*(kind==='ghost'?1.5:3)+i)*0.13+shrug*0.65);arm.rotation.x=Math.sin(time*2+i)*0.08;});cloth.forEach((mesh,i)=>mesh.rotation.y=Math.sin(time*1.8+i)*0.15);if(kind==='ghost')material.opacity=0.5+Math.sin(time*1.4)*0.08;},dispose(){rig?.dispose();geos.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());}};
 }
