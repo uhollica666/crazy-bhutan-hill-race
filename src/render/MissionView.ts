@@ -41,6 +41,7 @@ import { RoadsideView } from './RoadsideView';
 import { busGeometry, bicycleGeometry, deliveryGeometry, kioskGeometry, minibusGeometry, motoGeometry, scooterGeometry, suvGeometry, truckGeometry, workshopGeometry } from './trafficBodies';
 import type { TrafficKind } from '../data/types';
 import { tractorGeometry } from './valleyBodies';
+import { ploughGeometry } from './snowBodies';
 import type { HazardState } from '../gameplay/Hazards';
 import { GeoBuilder } from './geo';
 import { PAL } from './palette';
@@ -144,6 +145,7 @@ export class MissionView {
 
   // Hazards.
   private rocks: InstancedMesh | null = null;
+  private drifts: InstancedMesh | null = null;
   private readonly creatures: { h: HazardState; mesh: Mesh; bubble: Sprite; ghost: boolean }[] = [];
   private readonly herds: { h: HazardState; mesh: InstancedMesh }[] = [];
   private lorries: { mesh: Mesh; tri: Mesh }[] = [];
@@ -270,7 +272,9 @@ export class MissionView {
     for (const h of hz.hazards) {
       const label =
         h.def.kind === 'landslide'
-          ? 'ROCKFALL AREA'
+          ? h.def.drift
+            ? 'SNOWDRIFT AHEAD'
+            : 'ROCKFALL AREA'
           : h.def.kind === 'creature'
             ? h.def.variant === 'ghost'
               ? 'SPIRIT CROSSING'
@@ -293,6 +297,14 @@ export class MissionView {
       this.rocks.frustumCulled = false;
       this.group.add(this.rocks);
       this.disposables.push(geo, this.rocks.material as MeshLambertMaterial);
+      if (hz.hazards.some((h) => h.def.kind === 'landslide' && h.def.drift)) {
+        const dgeo = new GeoBuilder().rock(0xf3f7fa, { sy: 0.6 }).rock(0xe1e9ef, { x: 0.55, y: 0.15, z: 0.2, sx: 0.65, sy: 0.45, sz: 0.65 }).build();
+        this.drifts = new InstancedMesh(dgeo, new MeshLambertMaterial({ vertexColors: true }), 32);
+        this.drifts.count = 0;
+        this.drifts.frustumCulled = false;
+        this.group.add(this.drifts);
+        this.disposables.push(dgeo, this.drifts.material as MeshLambertMaterial);
+      }
     }
     const creatureHazards = hz.hazards.filter((h) => h.def.kind === 'creature');
     if (creatureHazards.length) {
@@ -351,7 +363,7 @@ export class MissionView {
       for (const s of def?.scripted ?? []) if (!kinds.includes(s.kind)) kinds.push(s.kind);
       // Cross traffic released by a police signal and turning cars use these bodies.
       if (def?.controls?.some((c) => c.kind === 'police') || (def?.turnChance ?? 0) > 0) for (const k of ['car', 'taxi', 'suv', 'scooter'] as TrafficKind[]) if (!kinds.includes(k)) kinds.push(k);
-      const make: Record<TrafficKind, () => import('three').BufferGeometry> = { car: trafficCarGeometry, suv: suvGeometry, bus: busGeometry, truck: truckGeometry, moto: motoGeometry, bike: bicycleGeometry, taxi: trafficCarGeometry, minibus: minibusGeometry, scooter: scooterGeometry, delivery: deliveryGeometry, tractor: tractorGeometry };
+      const make: Record<TrafficKind, () => import('three').BufferGeometry> = { car: trafficCarGeometry, suv: suvGeometry, bus: busGeometry, truck: truckGeometry, moto: motoGeometry, bike: bicycleGeometry, taxi: trafficCarGeometry, minibus: minibusGeometry, scooter: scooterGeometry, delivery: deliveryGeometry, tractor: tractorGeometry, plough: ploughGeometry };
       const palette = [0xd6322b, 0x2f6fd0, 0xe8b53a, 0x2e9c4f, 0xf1f1ec, 0x4a4f5a];
       const c = new Color();
       for (const kind of kinds) {
@@ -435,20 +447,28 @@ export class MissionView {
     if (hz) {
       if (this.rocks) {
         let n = 0;
+        let nd = 0;
         for (const h of hz.hazards) {
+          const drift = !!h.def.drift && !!this.drifts;
           for (const b of h.boulders) {
-            if (n >= 32) break;
+            if ((drift ? nd : n) >= 32) break;
             const gy = this.ground(b.x, b.z);
-            this.v3(b.x, gy + b.r * 0.55 + b.y, b.z);
+            this.v3(b.x, gy + b.r * (drift ? 0.38 : 0.55) + b.y, b.z);
             this.q.setFromAxisAngle(UP, (b.x + b.z) * 0.37);
-            this.scl.setScalar(b.r);
+            if (drift) this.scl.set(b.r * 1.2, b.r * 0.75, b.r * 1.2);
+            else this.scl.setScalar(b.r);
             this.m4.compose(this.pos, this.q, this.scl);
-            this.rocks.setMatrixAt(n++, this.m4);
+            if (drift) this.drifts!.setMatrixAt(nd++, this.m4);
+            else this.rocks.setMatrixAt(n++, this.m4);
           }
         }
         this.scl.setScalar(1);
         this.rocks.count = n;
         this.rocks.instanceMatrix.needsUpdate = true;
+        if (this.drifts) {
+          this.drifts.count = nd;
+          this.drifts.instanceMatrix.needsUpdate = true;
+        }
       }
       for (const cr of this.creatures) {
         const c = cr.h.creature;
@@ -527,11 +547,12 @@ export class MissionView {
 }
 
 const COLORS = [0xd6322b, 0x2f6fd0, 0xe8b53a, 0x2e9c4f, 0xf1f1ec, 0x4a4f5a].map((h) => new Color(h));
-const paletteFor = (kind: TrafficKind): Color[] => (kind === 'taxi' ? TAXI_COLORS : kind === 'bus' || kind === 'minibus' ? BUS_COLORS : kind === 'delivery' ? DELIVERY_COLORS : kind === 'tractor' ? TRACTOR_COLORS : COLORS);
+const paletteFor = (kind: TrafficKind): Color[] => (kind === 'taxi' ? TAXI_COLORS : kind === 'bus' || kind === 'minibus' ? BUS_COLORS : kind === 'delivery' ? DELIVERY_COLORS : kind === 'tractor' ? TRACTOR_COLORS : kind === 'plough' ? PLOUGH_COLORS : COLORS);
 
 /** Thimphu taxis are pale blue; coaches are white; delivery vans are plain. */
 const TAXI_COLORS = [0x7fb6e0, 0x7fb6e0, 0xf1f1ec, 0x7fb6e0].map((h) => new Color(h));
 const BUS_COLORS = [0xffffff, 0xf4efe2, 0xf3d9c8, 0xdfe9f3].map((h) => new Color(h));
+const PLOUGH_COLORS = [0xf0b429, 0xf0b429, 0xe8761a, 0xf4c542].map((h) => new Color(h));
 const TRACTOR_COLORS = [0xc23a2c, 0x3f8f4a, 0xd6a02a, 0x2f6fd0].map((h) => new Color(h));
 const DELIVERY_COLORS = [0xffffff, 0xf1f1ec, 0xe8b53a, 0xd9e6d2].map((h) => new Color(h));
 

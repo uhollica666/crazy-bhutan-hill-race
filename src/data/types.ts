@@ -159,9 +159,9 @@ export interface RoadPointDef {
   dy?: number;
 }
 
-export type SurfaceId = 'asphalt' | 'worn' | 'wetAsphalt' | 'dirt' | 'gravel' | 'rocky' | 'mud' | 'water' | 'grass' | 'ice';
+export type SurfaceId = 'asphalt' | 'worn' | 'wetAsphalt' | 'dirt' | 'gravel' | 'rocky' | 'mud' | 'water' | 'grass' | 'ice' | 'frost' | 'packed' | 'snow' | 'slush';
 
-export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'heavyRain' | 'fog' | 'denseFog' | 'snow';
+export type WeatherKind = 'clear' | 'cloudy' | 'rain' | 'heavyRain' | 'fog' | 'denseFog' | 'snow' | 'blizzard';
 export type TimeOfDay = 'day' | 'dusk' | 'night';
 
 /** Conditions a mission can be driven in. The first entry of `LevelDef.conditions` is the default. */
@@ -218,6 +218,8 @@ export interface HazardDef {
   count?: number;
   /** Which side of the road it happens on (-1 left, +1 right); by default chosen from the seed. */
   side?: -1 | 1;
+  /** landslide: a snowdrift (white mounds, same collision and gap rules) instead of fallen rocks. */
+  drift?: boolean;
 }
 
 /** A shallow puddle lying on the road: tyres splash and lose some grip, but it never stalls a car. */
@@ -232,7 +234,7 @@ export interface PuddleDef {
   pothole?: boolean;
 }
 
-export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike' | 'taxi' | 'minibus' | 'scooter' | 'delivery' | 'tractor';
+export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike' | 'taxi' | 'minibus' | 'scooter' | 'delivery' | 'tractor' | 'plough';
 
 /** A traffic officer directing a junction, or a zebra crossing that traffic yields at. `at` is a fraction of the stretch. */
 export interface TrafficControlDef {
@@ -345,7 +347,8 @@ export type LandmarkKind =
   | 'picnic'
   | 'chortenRing'
   | 'shelter'
-  | 'lodge';
+  | 'lodge'
+  | 'flagPoles';
 
 export interface LandmarkDef {
   kind: LandmarkKind;

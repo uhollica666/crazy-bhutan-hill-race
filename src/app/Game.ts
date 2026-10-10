@@ -137,6 +137,8 @@ const ZONE_NOTICE: Partial<Record<import('../data/types').WeatherKind, [string, 
   rain: ['Rain on the road', 'Less grip: brake early'],
   heavyRain: ['Storm!', 'Heavy rain: puddles, runoff and long braking distances'],
   fog: ['Fog bank ahead', 'Slow down: less grip and less to see'],
+  snow: ['Snow on the road', 'Frost and ice ahead: gentle throttle, early braking'],
+  blizzard: ['Blizzard!', 'Wind and whiteout: slow right down and follow the posts'],
   denseFog: ['Dense fog', 'Almost nothing to see: crawl and follow the markers'],
 };
 
@@ -758,7 +760,7 @@ export class Game {
     if (tr) {
       tr.events.on('honk', (car) => {
         const d = Math.hypot(car.x - rt.body.position.x, car.z - rt.body.position.z);
-        const heavy = car.kind === 'bus' || car.kind === 'truck' || car.kind === 'minibus' || car.kind === 'delivery' || car.kind === 'tractor';
+        const heavy = car.kind === 'bus' || car.kind === 'truck' || car.kind === 'minibus' || car.kind === 'delivery' || car.kind === 'tractor' || car.kind === 'plough';
         const light = car.kind === 'moto' || car.kind === 'scooter';
         audio.honk(clamp(1 - d / 110, 0, 1), heavy ? 0.72 : light ? 1.45 : 1, Math.random() < 0.3);
       });
@@ -1999,9 +2001,9 @@ export class Game {
         if (wheel) {
           const sf = wheel.surface;
           ds.loose = sf.looseness * (sf.id === 'asphalt' || sf.id === 'wetAsphalt' ? 0 : 1);
-          ds.wet = sf.id === 'wetAsphalt' || sf.id === 'ice';
+          ds.wet = sf.id === 'wetAsphalt' || sf.id === 'ice' || sf.id === 'slush';
           ds.water = clamp(rt.status.waterDepth / 0.6, 0, 1);
-          ds.surface = sf.id === 'rocky' ? 'gravel' : sf.id === 'grass' ? 'dirt' : sf.id === 'wetAsphalt' || sf.id === 'ice' ? 'asphalt' : sf.id;
+          ds.surface = sf.id === 'rocky' ? 'gravel' : sf.id === 'grass' ? 'dirt' : sf.id === 'snow' || sf.id === 'packed' ? 'snow' : sf.id === 'slush' ? 'water' : sf.id === 'wetAsphalt' || sf.id === 'ice' || sf.id === 'frost' ? 'asphalt' : sf.id;
         }
       }
       ds.dt = dt;
@@ -2148,6 +2150,11 @@ export class Game {
         if (idx >= 0 || next !== 'clear') {
           const note = ZONE_NOTICE[next];
           if (note) this.ui.flash(next === 'rain' && level.mission.kind === 'tour' ? 'Sudden rain!' : note[0], note[1]);
+          // The first snow: remind a vehicle with selectable drive that four-wheel drive is worth having on the steep, slippery climbs.
+          if ((next === 'snow' || next === 'blizzard') && !this.urgencyShown.has(100) && this.vehicleDef.drivetrain.modes.length > 1 && rt.body.driveMode === '4x2') {
+            this.urgencyShown.add(100);
+            window.setTimeout(() => this.ui.flash('Tip: four-wheel drive', 'Press F (or the 4x4 chip) for more traction on the steep, snowy climbs'), 3200);
+          }
         }
       }
     }
@@ -2200,12 +2207,13 @@ export class Game {
     const wheel = b.wheels.find((w) => w.inContact);
     const loose = wheel ? wheel.surface.looseness : 0;
     const wetRoad = rt.weather.wetness > 0.55;
+    const snowy = !!wheel && ['ice', 'frost', 'snow', 'packed', 'slush'].includes(wheel.surface.id);
     const speed = Math.abs(b.speed);
     if (
       h.canToggleDrive &&
       h.driveMode === '4x2' &&
       speed > 3 &&
-      ((loose > 0.45 && wheel?.surface.id !== 'asphalt') || (b.slip > 2.5 && wetRoad))
+      ((loose > 0.45 && wheel?.surface.id !== 'asphalt') || (b.slip > 2.5 && wetRoad) || (b.slip > 2.2 && snowy))
     ) {
       out.push({ text: '4x4 recommended', tone: 'info' });
     }

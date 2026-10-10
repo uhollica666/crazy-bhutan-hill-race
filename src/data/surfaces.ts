@@ -18,7 +18,7 @@ export interface SurfaceDef {
   wet: boolean;
   /** Structural damage per second at 20 m/s on a vehicle with no armour (health points). */
   roughness: number;
-  audio: 'asphalt' | 'gravel' | 'dirt' | 'mud' | 'water';
+  audio: 'asphalt' | 'gravel' | 'dirt' | 'mud' | 'water' | 'snow';
   /** What this surface turns into when it rains. */
   wetVariant?: SurfaceId;
 }
@@ -36,6 +36,12 @@ export const SURFACES: Record<SurfaceId, SurfaceDef> = {
   water: { id: 'water', name: 'Shallow water', grip: 0.5, rolling: 0.34, looseness: 0.5, dust: 0xcfe8f2, wet: true, roughness: 0, audio: 'water' },
   // Packed frost near the pass: slippery but never extreme (grip 0.55), a little more forgiving for capable vehicles.
   ice: { id: 'ice', name: 'Icy road', grip: 0.55, rolling: 0.012, looseness: 0.35, dust: 0xe4f1f8, wet: false, roughness: 0, audio: 'asphalt' },
+  // Mountain winter: a thin frost on the tarmac (still good grip, a warning), packed snow, fresh snow and wet slush. They are loose enough
+  // that a vehicle with selectable 4x4 claws back some grip, and with two driven axles instead of one it can use all of it.
+  frost: { id: 'frost', name: 'Frosty road', grip: 0.8, rolling: 0.005, looseness: 0.2, dust: 0xe4eef4, wet: false, roughness: 0, audio: 'asphalt' },
+  packed: { id: 'packed', name: 'Packed snow', grip: 0.55, rolling: 0.03, looseness: 0.45, dust: 0xf1f6fa, wet: false, roughness: 0, audio: 'snow' },
+  snow: { id: 'snow', name: 'Snow', grip: 0.46, rolling: 0.15, looseness: 0.55, dust: 0xf4f8fb, wet: false, roughness: 0, audio: 'snow' },
+  slush: { id: 'slush', name: 'Slush', grip: 0.42, rolling: 0.2, looseness: 0.5, dust: 0xd3dade, wet: true, roughness: 0, audio: 'water' },
   grass: { id: 'grass', name: 'Grass', grip: 0.6, rolling: 0.09, looseness: 0.6, dust: 0x9fbf6a, wet: false, roughness: 0.1, audio: 'dirt' },
 };
 

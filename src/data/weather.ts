@@ -23,6 +23,7 @@ export const WEATHER: Record<WeatherKind, WeatherPreset> = {
   heavyRain: { label: 'Heavy rain', wetness: 1, visibility: 0.42, rain: 1, wind: 2, gloom: 0.75, snow: false, thunder: true },
   fog: { label: 'Fog', wetness: 0.2, visibility: 0.26, rain: 0, wind: 0.2, gloom: 0.35, snow: false, thunder: false },
   denseFog: { label: 'Dense fog', wetness: 0.25, visibility: 0.085, rain: 0, wind: 0.2, gloom: 0.5, snow: false, thunder: false },
+  blizzard: { label: 'Blizzard', wetness: 0.35, visibility: 0.14, rain: 0, wind: 2.2, gloom: 0.65, snow: true, thunder: false },
   snow: { label: 'Snow', wetness: 0.3, visibility: 0.7, rain: 0, wind: 1, gloom: 0.4, snow: true, thunder: false },
 };
 

@@ -23,6 +23,7 @@ import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
 import { bridgeGeometry, cliffGeometry, plazaGeometry, retainWallGeometry, runwayGeometry, signpostGeometry, stallGeometry, trolleyGeometry, viewpointGeometry } from './trafficBodies';
 import { chortenRingGeometry, lodgeGeometry, shelterGeometry } from './stormBodies';
+import { flagPolesGeometry } from './snowBodies';
 import { coveredBridgeGeometry, dzongComplexGeometry, footbridgeGeometry, paddyGeometry, picnicGeometry, trussBridgeGeometry } from './valleyBodies';
 import { buddhaGeometry, busShelterGeometry, gateArchGeometry, hotelGeometry, officeGeometry, planterGeometry, policeBoothGeometry, railingGeometry, restaurantGeometry } from './cityBodies';
 import {
@@ -514,6 +515,7 @@ export class Scenery {
     const chortenRings: Matrix4[] = [];
     const shelterHuts: Matrix4[] = [];
     const lodges: Matrix4[] = [];
+    const flagFields: Matrix4[] = [];
     const runways: Matrix4[] = [];
     const trolleys: Matrix4[] = [];
     const offices: Matrix4[] = [];
@@ -663,6 +665,9 @@ export class Scenery {
         case 'lodge':
           lodges.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
           break;
+        case 'flagPoles':
+          flagFields.push(compose(x, y - 0.3, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
         case 'runway':
           // Long axis parallel to the road.
           runways.push(compose(x, y - 0.4, z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2 + (l.rotation ?? 0), sc));
@@ -792,6 +797,7 @@ export class Scenery {
     this.registerInstanced(chortenRingGeometry(), chortenRings, material, false);
     this.registerInstanced(shelterGeometry(), shelterHuts, material, false);
     this.registerInstanced(lodgeGeometry(), lodges, material, false);
+    this.registerInstanced(flagPolesGeometry(), flagFields, material, false);
     this.registerInstanced(runwayGeometry(), runways, material, false);
     this.registerInstanced(trolleyGeometry(), trolleys, material, false);
     this.registerInstanced(officeGeometry(), offices, material, false);

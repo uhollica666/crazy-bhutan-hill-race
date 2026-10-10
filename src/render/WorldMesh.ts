@@ -256,9 +256,10 @@ export function buildWater(course: Course): Mesh {
   return mesh;
 }
 
-function makeRoadTexture(mode: boolean | 'worn' = false): CanvasTexture {
+function makeRoadTexture(mode: boolean | 'worn' | 'frost' = false): CanvasTexture {
   const wet = mode === true;
   const worn = mode === 'worn';
+  const frost = mode === 'frost';
   const c = document.createElement('canvas');
   c.width = 128;
   c.height = 256;
@@ -305,6 +306,22 @@ function makeRoadTexture(mode: boolean | 'worn' = false): CanvasTexture {
         g.lineTo(x, y);
       }
       g.stroke();
+    }
+  }
+  if (frost) {
+    // Frost on cold tarmac: white crystals in the surface, pale glazed patches, the paint half hidden.
+    g.fillStyle = 'rgba(210,225,235,0.35)';
+    g.fillRect(7, 0, 4, 256);
+    g.fillRect(117, 0, 4, 256);
+    for (let i = 0; i < 22; i++) {
+      g.fillStyle = 'rgba(220,235,245,' + (0.12 + Math.random() * 0.2) + ')';
+      g.beginPath();
+      g.ellipse(14 + Math.random() * 100, Math.random() * 256, 5 + Math.random() * 16, 3 + Math.random() * 10, Math.random() * 3, 0, Math.PI * 2);
+      g.fill();
+    }
+    for (let i = 0; i < 700; i++) {
+      g.fillStyle = 'rgba(245,250,255,' + (0.35 + Math.random() * 0.45) + ')';
+      g.fillRect(Math.random() * 128, Math.random() * 256, 1 + Math.random() * 1.6, 1 + Math.random() * 1.6);
     }
   }
   if (wet) {
@@ -435,8 +452,44 @@ function makeWaterTexture(): CanvasTexture {
   return tex;
 }
 
-const unpavedKind = (id: SurfaceId): 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice' | 'wet' | 'worn' | null =>
-  id === 'worn' ? 'worn' : id === 'dirt' || id === 'grass' ? 'dirt' : id === 'gravel' ? 'gravel' : id === 'rocky' ? 'rocky' : id === 'mud' ? 'mud' : id === 'ice' ? 'ice' : id === 'wetAsphalt' ? 'wet' : null;
+/** Snow, packed snow and slush: white drifts or grey-brown slush with the wheel ruts showing the road or the mud beneath. */
+function makeSnowTexture(kind: 'snow' | 'packed' | 'slush'): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 128;
+  c.height = 256;
+  const g = c.getContext('2d')!;
+  g.fillStyle = { snow: '#eef3f6', packed: '#d2dade', slush: '#979fa2' }[kind];
+  g.fillRect(0, 0, 128, 256);
+  for (let i = 0; i < 60; i++) {
+    const light = Math.random() < 0.5;
+    g.fillStyle = light ? 'rgba(255,255,255,0.45)' : kind === 'slush' ? 'rgba(70,64,56,0.28)' : 'rgba(150,172,192,0.28)';
+    g.beginPath();
+    g.ellipse(Math.random() * 128, Math.random() * 256, 8 + Math.random() * 20, 6 + Math.random() * 16, Math.random() * 3, 0, Math.PI * 2);
+    g.fill();
+  }
+  // Two wheel ruts: dark and clear on packed snow and slush, a faint hollow in fresh snow.
+  g.fillStyle = kind === 'slush' ? 'rgba(52,46,40,0.55)' : kind === 'packed' ? 'rgba(108,116,122,0.55)' : 'rgba(176,192,204,0.5)';
+  g.fillRect(34, 0, 14, 256);
+  g.fillRect(82, 0, 14, 256);
+  if (kind === 'slush') {
+    g.fillStyle = 'rgba(190,205,214,0.4)';
+    for (let i = 0; i < 14; i++) g.fillRect(30 + Math.random() * 70, Math.random() * 256, 8 + Math.random() * 14, 3);
+  }
+  for (let i = 0; i < 520; i++) {
+    const v = kind === 'slush' ? 40 + Math.random() * 60 : 215 + Math.random() * 40;
+    g.fillStyle = 'rgba(' + Math.floor(v) + ',' + Math.floor(v) + ',' + Math.floor(v + 6) + ',' + (kind === 'slush' ? 0.35 : 0.6) + ')';
+    g.fillRect(Math.random() * 128, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 2);
+  }
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  tex.wrapT = RepeatWrapping;
+  tex.minFilter = LinearMipmapLinearFilter;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+const unpavedKind = (id: SurfaceId): 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice' | 'wet' | 'worn' | 'frost' | 'snow' | 'packed' | 'slush' | null =>
+  id === 'frost' || id === 'snow' || id === 'packed' || id === 'slush' ? id : id === 'worn' ? 'worn' : id === 'dirt' || id === 'grass' ? 'dirt' : id === 'gravel' ? 'gravel' : id === 'rocky' ? 'rocky' : id === 'mud' ? 'mud' : id === 'ice' ? 'ice' : id === 'wetAsphalt' ? 'wet' : null;
 
 /** Asphalt ribbon, gravel shoulders and stone parapets, built from the same road samples physics uses. */
 export function buildRoadMeshes(course: Course): Group {
@@ -499,7 +552,7 @@ export function buildRoadMeshes(course: Course): Group {
     const mats = kinds.map(
       (k) =>
         new MeshLambertMaterial({
-          map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : k === 'worn' ? makeRoadTexture('worn') : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
+          map: k === 'asphalt' || k === null ? makeRoadTexture() : k === 'wet' ? makeRoadTexture(true) : k === 'worn' ? makeRoadTexture('worn') : k === 'frost' ? makeRoadTexture('frost') : k === 'snow' || k === 'packed' || k === 'slush' ? makeSnowTexture(k) : makeUnpavedTexture(k as 'dirt' | 'gravel' | 'rocky' | 'mud' | 'ice'),
           polygonOffset: true,
           polygonOffsetFactor: -2,
           polygonOffsetUnits: -2,

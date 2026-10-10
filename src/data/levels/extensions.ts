@@ -23,24 +23,6 @@ function dress(kinds: LandmarkDef['kind'][], count: number, from = 0.04, to = 0.
 }
 
 export const EXTENSIONS: Record<string, Stretch> = {
-  'chelela-climb': {
-    at: 0.35,
-    path: [
-      { turn: 90, radius: 24 }, { straight: 150 }, { turn: -180, radius: 24 }, { straight: 150 }, { turn: 90, radius: 24 },
-      { turn: 90, radius: 24 }, { straight: 150 }, { turn: -180, radius: 24 }, { straight: 150 }, { turn: 90, radius: 24 },
-      { turn: 90, radius: 24 }, { straight: 150 }, { turn: -180, radius: 24 }, { straight: 150 }, { turn: 90, radius: 24 },
-    ],
-    note: 'More hairpins and a second snowfield push the climb well above the first tea hut.',
-    timeLimit: 350,
-    medals: { gold: 185, silver: 220, bronze: 270 },
-    stops: [{ id: 'chai-2', kind: 'service', t: 0.5, label: 'Upper chai shack', side: -1, services: ['refuel', 'repair'], optional: true }],
-    checkpoints: [
-      { t: 0.3, label: 'Snowline' },
-      { t: 0.7, label: 'Frozen tarn' },
-    ],
-    hazards: [{ id: 'rockfall-2', kind: 'landslide', t: 0.5, seed: 8821, label: 'Loose scree above the snowline' }],
-    landmarks: [...dress(['lungta', 'chorten', 'flagSpan', 'yak'], 9, 0.04, 0.96, 16)],
-  },
   'bumthang-night': {
     at: 0.72,
     path: [

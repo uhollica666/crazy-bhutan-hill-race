@@ -567,7 +567,7 @@ export class AudioEngine {
     const roll = s.grounded ? clamp(speed / 30, 0, 1) : 0;
     this.tyre.gain.gain.setTargetAtTime(roll * (0.09 + loose * 0.05), t, 0.08);
     this.tyre.bp.frequency.setTargetAtTime((loose > 0.3 ? 260 : s.wet ? 900 : 380) + speed * 22, t, 0.1);
-    const gravel = s.grounded && (surf === 'gravel' || surf === 'dirt') ? roll : 0;
+    const gravel = s.grounded && (surf === 'gravel' || surf === 'dirt' || surf === 'snow') ? roll : 0;
     this.crunch?.gain.gain.setTargetAtTime(gravel * 0.06, t, 0.08);
     this.crunch?.depth.gain.setTargetAtTime(gravel * 0.05, t, 0.08);
     this.crunch?.lfo.frequency.setTargetAtTime(14 + speed * 1.6, t, 0.1);

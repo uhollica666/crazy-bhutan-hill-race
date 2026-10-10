@@ -30,6 +30,7 @@ import { yakGeometry } from './Scenery';
 import { makeFlowTexture } from './RiverMesh';
 import { GeoBuilder } from './geo';
 import { tractorGeometry } from './valleyBodies';
+import { ploughGeometry } from './snowBodies';
 import { trafficCarGeometry } from './vehicleBodies';
 
 const UP = new Vector3(0, 1, 0);
@@ -49,6 +50,7 @@ const GEO: Record<TrafficKind, () => BufferGeometry> = {
   scooter: scooterGeometry,
   delivery: deliveryGeometry,
   tractor: tractorGeometry,
+  plough: ploughGeometry,
 };
 
 interface Walker {
@@ -101,7 +103,7 @@ interface Flock {
 const MAX_WALKERS = 72;
 const MAX_PEDS = 12;
 const MAX_BIRDS = 24;
-const MAX_MARKERS = 260;
+const MAX_MARKERS = 520;
 const MAX_DRAIN_ROWS = 360;
 
 /**
