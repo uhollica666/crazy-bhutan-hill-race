@@ -23,24 +23,6 @@ function dress(kinds: LandmarkDef['kind'][], count: number, from = 0.04, to = 0.
 }
 
 export const EXTENSIONS: Record<string, Stretch> = {
-  'airport-dash': {
-    at: 0.2,
-    path: [
-      { turn: 40, radius: 90 }, { straight: 120 }, { turn: -80, radius: 90 }, { straight: 120 }, { turn: 40, radius: 90 },
-      { turn: 40, radius: 90 }, { straight: 120 }, { turn: -80, radius: 90 }, { straight: 120 }, { turn: 40, radius: 90 },
-      { turn: 40, radius: 90 }, { straight: 120 }, { turn: -80, radius: 90 }, { straight: 120 }, { turn: 40, radius: 90 },
-    ],
-    note: 'A longer detour through the Paro valley fields makes the dash to the terminal a proper race.',
-    rivalFinishTime: 195,
-    timeLimit: 260,
-    medals: { gold: 175, silver: 200, bronze: 235 },
-    stops: [{ id: 'valley-fuel', kind: 'service', t: 0.55, label: 'Paro valley fuel stop', side: 1, services: ['refuel', 'repair'], optional: true }],
-    checkpoints: [
-      { t: 0.35, label: 'Valley bridge' },
-      { t: 0.75, label: 'Airport road junction' },
-    ],
-    landmarks: [...dress(['house', 'chorten', 'lungta', 'yak', 'flagSpan'], 10, 0.04, 0.96, 22)],
-  },
   'punakha-valley': {
     at: 0.65,
     path: [

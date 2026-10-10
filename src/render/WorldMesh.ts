@@ -704,12 +704,14 @@ export function buildPuddles(course: Course): Group | null {
   const mat = new MeshLambertMaterial({ map: tex, color: 0xc4e2ee, emissive: 0x1a3440, transparent: true, opacity: 0.78, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const geo = new CircleGeometry(1, 28);
   geo.rotateX(-Math.PI / 2);
+  // Potholes: dark broken ground, no sheen.
+  const holeMat = new MeshLambertMaterial({ color: 0x2b2a28, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const p = { x: 0, y: 0, z: 0, tx: 0, tz: -1 };
   for (const pd of course.puddles) {
     course.road.at(pd.s, p);
     const x = p.x - p.tz * pd.lateral;
     const z = p.z + p.tx * pd.lateral;
-    const mesh = new Mesh(geo, mat);
+    const mesh = new Mesh(geo, pd.pothole ? holeMat : mat);
     mesh.position.set(x, course.terrain.heightAt(x, z) + 0.1, z);
     mesh.rotation.y = Math.atan2(p.tx, p.tz);
     mesh.scale.set(pd.r, 1, pd.r * 1.35);

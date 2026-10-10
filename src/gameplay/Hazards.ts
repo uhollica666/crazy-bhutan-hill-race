@@ -115,7 +115,7 @@ export class HazardSystem {
 
   private placeTruck(h: HazardState): void {
     const road = this.course.road;
-    const lane = h.side * road.halfWidth * 0.5;
+    const lane = h.side * road.halfWidthAtS(h.s) * 0.5;
     const ob = this.course.obstacles;
     const ids: number[] = [];
     for (const off of [-2.2, 0, 2.2]) {
@@ -177,8 +177,8 @@ export class HazardSystem {
   private layoutLandslide(h: HazardState, instant: boolean): void {
     const road = this.course.road;
     const rng = mulberry32(h.def.seed + 5);
-    const edge = road.wallOffset - 0.4;
-    const maxCover = Math.max(1.6, road.halfWidth * 2 - MIN_FREE_WIDTH);
+    const edge = road.wallAtS(h.s) - 0.4;
+    const maxCover = Math.max(1.6, road.halfWidthAtS(h.s) * 2 - MIN_FREE_WIDTH);
     let covered = 0;
     let along = -4;
     let i = 0;
@@ -212,7 +212,7 @@ export class HazardSystem {
     const road = this.course.road;
     const ob = this.course.obstacles;
     const side = h.side;
-    const far = road.wallOffset + 2.6;
+    const far = road.wallAtS(h.s) + 2.6;
     if (h.phase === 'dormant' && playerS >= h.s - 120 && playerS <= h.s + 2) {
       const f = this.frame(h.s, -side * far);
       h.creature = {
@@ -278,7 +278,7 @@ export class HazardSystem {
     const road = this.course.road;
     const ob = this.course.obstacles;
     const side = h.side;
-    const far = road.wallOffset + 2.4;
+    const far = road.wallAtS(h.s) + 2.4;
     if (h.phase === 'dormant' && playerS >= h.s - 150 && playerS <= h.s + 2) {
       const n = Math.max(2, Math.min(HERD_MAX, h.def.count ?? 4));
       const rng = mulberry32(h.def.seed + 11);

@@ -272,3 +272,64 @@ export function birdGeometry(): BufferGeometry {
   g.box(0.1, 0.03, 0.2, 0x6b6b70, { z: 0.3 });
   return g.build();
 }
+
+/** A traffic cone with a pale base. */
+export function coneGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(0.5, 0.05, 0.5, 0xf1efe8, { y: 0.03 });
+  g.cone(0.22, 0.7, 0xff6a1a, 8, { y: 0.4 });
+  g.cylinder(0.12, 0.15, 0.1, 0xf1efe8, 8, { y: 0.42 });
+  return g.build();
+}
+
+/** A row of luggage trolleys with a few bags on them. */
+export function trolleyGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  for (let i = 0; i < 5; i++) {
+    const x = (i - 2) * 0.9;
+    g.box(0.6, 0.06, 1.0, 0x9a9aa2, { x, y: 0.4 });
+    g.box(0.6, 0.6, 0.05, 0x9a9aa2, { x, y: 0.75, z: 0.5 });
+    for (const sx of [-0.25, 0.25]) for (const sz of [-0.4, 0.4]) g.cylinder(0.07, 0.07, 0.05, 0x1c1c1f, 6, { x: x + sx, y: 0.08, z: sz, rz: Math.PI / 2 });
+    if (i % 2 === 0) g.box(0.45, 0.4, 0.3, [0x8c2a20, 0x2f6fd0, 0x2e9c4f][i % 3], { x, y: 0.66, z: -0.1 });
+  }
+  return g.build();
+}
+
+/** A cut rock face beside the road: layered, leaning and jagged (about 36 m long, up to 24 m high). Faces +Z toward the road. */
+export function cliffGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  const tones = [0x8b7a68, 0x9a8467, 0x7d6b57, 0xb07a4a, 0x6f6458];
+  for (let i = 0; i < 9; i++) {
+    const x = -16 + i * 4;
+    const h = 11 + ((i * 7) % 5) * 3;
+    g.box(4.6, h, 6 + (i % 3), tones[i % tones.length], { x, y: h / 2, z: -3 - (i % 2), ry: ((i % 3) - 1) * 0.12 });
+  }
+  for (let i = 0; i < 12; i++) g.rock(tones[(i * 2) % tones.length], { x: -17 + i * 3.1, y: 3 + ((i * 5) % 7) * 2.5, z: 0.4 - (i % 3) * 0.8, sx: 2.4, sy: 2.2, sz: 1.6 });
+  g.box(36, 1.2, 4, 0x6e8a4a, { y: 0.6, z: 1.5 });
+  return g.build();
+}
+
+/** A road bridge: white rails with red end-pylons and stone piers (36 m long, the road runs along local X). */
+export function bridgeGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  for (const z of [-5.6, 5.6]) {
+    g.box(36, 0.22, 0.28, 0xf1efe8, { y: 1.15, z });
+    g.box(36, 0.18, 0.2, 0xf1efe8, { y: 0.6, z });
+    for (let i = -17; i <= 17; i += 2) g.box(0.2, 1.1, 0.2, i % 4 === 0 ? 0xd6322b : 0xf1efe8, { x: i, y: 0.6, z });
+    g.box(36, 0.5, 0.5, 0x8f897e, { y: -0.1, z });
+  }
+  for (const x of [-18, 18]) for (const z of [-5.6, 5.6]) g.box(0.9, 2.2, 0.9, 0xb9b2a4, { x, y: 1.1, z });
+  for (const x of [-8, 8]) g.box(3, 10, 11.4, 0x8f897e, { x, y: -4.4 });
+  return g.build();
+}
+
+/** A stretch of runway or taxiway (long axis X, 240 m): dark asphalt with edge lines and a dashed centre line. Inaccessible scenery. */
+export function runwayGeometry(): BufferGeometry {
+  const g = new GeoBuilder();
+  g.box(240, 2.2, 32, 0x3d3f43, { y: -0.2 });
+  for (const z of [-14.5, 14.5]) g.box(240, 0.05, 0.4, 0xf1efe8, { y: 0.92, z });
+  for (let i = -11; i <= 11; i++) g.box(8, 0.05, 0.6, 0xf1efe8, { x: i * 10.5, y: 0.92 });
+  for (let i = 0; i < 6; i++) g.box(0.8, 0.05, 9, 0xf1efe8, { x: -112 + i * 1.8, y: 0.92, z: 0 });
+  g.box(240, 0.5, 6, 0x6a6f4a, { y: 0.2, z: 20 });
+  return g.build();
+}

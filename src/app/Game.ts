@@ -161,6 +161,9 @@ export class Game {
   /** Traffic vehicles that have already been heard passing the player. */
   private readonly heardPass = new Set<number>();
   private nextPassSound = 0;
+  /** Index of the weather zone the run is in (-1 = the mission's own conditions) and the deadline warnings already shown. */
+  private weatherZone = -1;
+  private readonly urgencyShown = new Set<number>();
   private pendingFinish: { show: () => void; timer: number } | null = null;
   private stuckFor = 0;
   private stuckCooldown = 0;
@@ -670,7 +673,7 @@ export class Game {
   /** Weather and time of day for the selected conditions, on the world, the particles and the sound. */
   private applyConditions(): void {
     if (!this.world) return;
-    const c = this.academy ? this.rt.conditions : this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
+    const c = this.academy || (this.inRun && this.level.weatherZones && this.weatherZone >= 0) ? this.rt.conditions : this.level.conditions[Math.min(this.conditionIndex, this.level.conditions.length - 1)];
     this.world.setConditions(c.weather, c.time);
     this.model?.setHeadlights(this.world.env.lightsOn);
     this.model?.setReflection(this.world.env.brightness);
@@ -1535,6 +1538,8 @@ export class Game {
   private beginRun(): void {
     this.cancelPendingFinish();
     this.heardPass.clear();
+    this.weatherZone = -1;
+    this.urgencyShown.clear();
     if (this.flow.state === 'menu') this.flow.dispatch('start');
     else this.flow.dispatch('restart');
     this.inRun = true;
@@ -1695,6 +1700,7 @@ export class Game {
       const intensity = this.reducedMotion || q === 'low' ? 0 : q === 'medium' ? 0.6 : 1;
       this.view.celebrate(true, intensity);
       this.audio.cheer();
+      if (level.mission.kind === 'airport') window.setTimeout(() => this.audio.airportChime(), 600);
       window.setTimeout(() => this.audio.brandSting(), 1800);
       this.ui.flash('You made it!', level.finishLabel);
       this.cancelPendingFinish();
@@ -2067,6 +2073,7 @@ export class Game {
       }
       if (this.academy && s.phase === 'running') this.academy.update(dt, this.cmd);
       this.trafficSounds();
+      this.routeEvents(rt, s);
       this.ui.updateHud(h);
       this.serviceSound(dt);
       this.minimapTimer += dt;
@@ -2098,6 +2105,35 @@ export class Game {
           `${this.level.id} / ${this.vehicleDef.id}  ${this.flow.state}${this.flow.state === 'menu' ? '' : '/' + rt.session.phase}${mem ? `  heap ${(mem.usedJSHeapSize / 1048576).toFixed(0)}MB` : ''}`,
         ].join('\n'),
       );
+    }
+  }
+
+  /** Weather that drifts through the route, and the rising urgency of a flight deadline. */
+  private routeEvents(rt: MissionRuntime, s: RaceSession): void {
+    const level = this.level;
+    if (s.phase !== 'running') return;
+    const zones = level.weatherZones;
+    if (zones && this.conditionIndex === 0) {
+      const f = (rt.s - this.course.startS) / (this.course.finishS - this.course.startS);
+      const idx = zones.findIndex((z) => f >= z.from && f < z.to);
+      if (idx !== this.weatherZone) {
+        this.weatherZone = idx;
+        const base = level.conditions[0];
+        rt.setConditions({ weather: idx >= 0 ? zones[idx].weather : base.weather, time: base.time });
+        this.applyConditions();
+        if (idx >= 0) this.ui.flash(zones[idx].weather === 'fog' ? 'Fog bank ahead' : 'Rain on the road', 'Slow down: less grip and less to see');
+      }
+    }
+    if (level.mission.timerStyle === 'deadline') {
+      for (const [i, secs] of [180, 120, 60, 30].entries()) {
+        if (s.timeLeft <= secs && !this.urgencyShown.has(i)) {
+          this.urgencyShown.add(i);
+          const cast = getCast(rt.stops.stops.find((x) => x.def.kind === 'pickup')?.def.who ?? '');
+          const jokes = ['Is that a mountain? We are taking photos.', 'My passport is in the suitcase. Which suitcase?', 'Faster! Or slower! Faster!', 'We can see the plane. It can see us.'];
+          this.ui.flash(`Check-in closes in ${secs >= 60 ? `${secs / 60} min` : `${secs} s`}`, cast && rt.stops.onboard > 0 ? `${cast.name}: "${jokes[i]}"` : 'Keep moving');
+          this.audio.warning();
+        }
+      }
     }
   }
 

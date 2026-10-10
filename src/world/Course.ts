@@ -47,7 +47,7 @@ export class Course implements PhysicsWorld {
   wetness = 0;
 
   /** Shallow puddles in road coordinates (distance along the road, lateral offset, radius). */
-  readonly puddles: { s: number; lateral: number; r: number }[] = [];
+  readonly puddles: { s: number; lateral: number; r: number; pothole: boolean }[] = [];
   private readonly surfaceIds: SurfaceId[] = ['asphalt'];
   private readonly sampleSurface: Uint8Array;
   private readonly shoulderSurface: SurfaceId;
@@ -74,7 +74,7 @@ export class Course implements PhysicsWorld {
       if (j.zebra) this.zebras.push(js - 11);
     }
     for (const c of level.traffic?.controls ?? []) if (c.kind === 'crossing') this.zebras.push(this.startS + c.at * span);
-    for (const p of level.puddles ?? []) this.puddles.push({ s: this.startS + p.at * span, lateral: p.lateral, r: p.radius });
+    for (const p of level.puddles ?? []) this.puddles.push({ s: this.startS + p.at * span, lateral: p.lateral, r: p.radius, pothole: p.pothole === true });
     this.shoulderSurface = level.shoulder ?? 'gravel';
     this.sampleSurface = new Uint8Array(this.road.count);
     for (const seg of level.surfaces ?? []) {
@@ -126,7 +126,7 @@ export class Course implements PhysicsWorld {
       for (const p of this.puddles) {
         const ds = (h.s - p.s) / (p.r * 1.35);
         const dl = (h.lateral - p.lateral) / p.r;
-        if (ds * ds + dl * dl < 1) return 'water';
+        if (ds * ds + dl * dl < 1) return p.pothole ? 'rocky' : 'water';
       }
     }
     return this.wetness > 0 ? wetSurface(id, this.wetness) : id;

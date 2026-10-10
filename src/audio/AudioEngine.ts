@@ -787,6 +787,17 @@ export class AudioEngine {
     }
   }
 
+  /** The airport's three-note announcement chime (a soft descending ding-dong-ding). */
+  airportChime(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [783.99, 659.25, 523.25].forEach((f, i) => {
+      this.tone(f, t + i * 0.42, 1.1, 0.06, 'sine', this.bus.ui);
+      this.tone(f * 2.01, t + i * 0.42, 0.7, 0.012, 'sine', this.bus.ui);
+    });
+  }
+
   /** A crowd cheering and clapping: a swell of band-passed noise with a scatter of claps. Short, and ducks the music. */
   cheer(): void {
     const ctx = this.ready();

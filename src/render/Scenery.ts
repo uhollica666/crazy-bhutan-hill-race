@@ -21,7 +21,7 @@ import { GeoBuilder } from './geo';
 import { peekEnvKit } from './envKit';
 import { FLAG_COLORS, PAL } from './palette';
 import { clockTowerGeometry, shopRowGeometry, stationGeometry } from './vehicleBodies';
-import { plazaGeometry, retainWallGeometry, signpostGeometry, stallGeometry, viewpointGeometry } from './trafficBodies';
+import { bridgeGeometry, cliffGeometry, plazaGeometry, retainWallGeometry, runwayGeometry, signpostGeometry, stallGeometry, trolleyGeometry, viewpointGeometry } from './trafficBodies';
 import { buddhaGeometry, busShelterGeometry, gateArchGeometry, hotelGeometry, officeGeometry, planterGeometry, policeBoothGeometry, railingGeometry, restaurantGeometry } from './cityBodies';
 import {
   broadleafGeometry,
@@ -498,6 +498,10 @@ export class Scenery {
     const stalls: Matrix4[] = [];
     const plazas: Matrix4[] = [];
     const hotels: Matrix4[] = [];
+    const cliffs: Matrix4[] = [];
+    const bridges: Matrix4[] = [];
+    const runways: Matrix4[] = [];
+    const trolleys: Matrix4[] = [];
     const offices: Matrix4[] = [];
     const restaurants: Matrix4[] = [];
     const shelters: Matrix4[] = [];
@@ -605,6 +609,19 @@ export class Scenery {
           break;
         case 'plaza':
           plazas.push(compose(x, y - 0.05, z, faceRoad, sc));
+          break;
+        case 'cliff':
+          cliffs.push(compose(x, y - 0.3, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
+        case 'bridge':
+          bridges.push(compose(pose.x, pose.y, pose.z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2, sc));
+          break;
+        case 'runway':
+          // Long axis parallel to the road.
+          runways.push(compose(x, y - 0.4, z, Math.atan2(pose.tx, pose.tz) + Math.PI / 2 + (l.rotation ?? 0), sc));
+          break;
+        case 'trolley':
+          trolleys.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
           break;
         case 'hotel':
           hotels.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
@@ -717,6 +734,10 @@ export class Scenery {
     this.registerInstanced(stallGeometry(), stalls, material, false);
     this.registerInstanced(plazaGeometry(), plazas, material, false);
     this.registerInstanced(hotelGeometry(), hotels, material, false);
+    this.registerInstanced(cliffGeometry(), cliffs, material, false);
+    this.registerInstanced(bridgeGeometry(), bridges, material, false);
+    this.registerInstanced(runwayGeometry(), runways, material, false);
+    this.registerInstanced(trolleyGeometry(), trolleys, material, false);
     this.registerInstanced(officeGeometry(), offices, material, false);
     this.registerInstanced(restaurantGeometry(), restaurants, material, false);
     this.registerInstanced(busShelterGeometry(), shelters, material, false);

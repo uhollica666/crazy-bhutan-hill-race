@@ -222,6 +222,8 @@ export interface PuddleDef {
   lateral: number;
   /** Radius (m). */
   radius: number;
+  /** A pothole instead of a puddle: dark, rough ground that rattles the car (and its passengers). */
+  pothole?: boolean;
 }
 
 export type TrafficKind = 'car' | 'suv' | 'bus' | 'truck' | 'moto' | 'bike' | 'taxi' | 'minibus' | 'scooter' | 'delivery';
@@ -320,7 +322,11 @@ export type LandmarkKind =
   | 'gateArch'
   | 'buddha'
   | 'planter'
-  | 'restaurant';
+  | 'restaurant'
+  | 'cliff'
+  | 'bridge'
+  | 'runway'
+  | 'trolley';
 
 export interface LandmarkDef {
   kind: LandmarkKind;
@@ -397,6 +403,8 @@ export interface RoadsideDef {
   parked?: { at: number; side: -1 | 1; kind: TrafficKind; offset?: number; rotation?: number; edge?: boolean }[];
   /** The crowd waiting at the destination: `width` metres along the road, `offset` metres onto the verge. */
   crowd?: { at: number; side: -1 | 1; count: number; offset: number; width: number };
+  /** Roadworks: rows of traffic cones squeezing one side of the road (soft: never damaging). */
+  cones?: { at: number; side: -1 | 1; length: number }[];
   /** Grazing yaks (decoration only). */
   yaks?: { at: number; side: -1 | 1; offset: number }[];
   /** People standing about: bus stops, taxi queues, shopkeepers, small groups chatting. */
@@ -442,6 +450,8 @@ export interface LevelDef {
   celebrate?: boolean;
   /** Black-and-white checkered flags are raised at the drop-off during the celebration. */
   celebrateFlags?: boolean;
+  /** Weather that drifts through during the run (only with the default conditions): fractions of the stretch. */
+  weatherZones?: { from: number; to: number; weather: WeatherKind }[];
   /** Side streets and zebra crossings on the main road. */
   junctions?: JunctionDef[];
   /** Shallow puddles on the road (training route and wet stretches). */

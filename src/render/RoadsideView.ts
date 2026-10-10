@@ -24,7 +24,7 @@ import { mulberry32 } from '../core/math';
 import type { Course } from '../world/Course';
 import { TRAFFIC_KINDS } from '../gameplay/Traffic';
 import type { TrafficControl } from '../gameplay/Traffic';
-import { bicycleGeometry, birdGeometry, busGeometry, deliveryGeometry, minibusGeometry, motoGeometry, scooterGeometry, suvGeometry, truckGeometry, walkerGeometry } from './trafficBodies';
+import { bicycleGeometry, birdGeometry, coneGeometry, busGeometry, deliveryGeometry, minibusGeometry, motoGeometry, scooterGeometry, suvGeometry, truckGeometry, walkerGeometry } from './trafficBodies';
 import { yakGeometry } from './Scenery';
 import { trafficCarGeometry } from './vehicleBodies';
 
@@ -101,6 +101,7 @@ export class RoadsideView {
   private readonly officers: Officer[] = [];
   private readonly flocks: Flock[] = [];
   private readonly birdMesh: InstancedMesh | null = null;
+  private readonly coneMesh: InstancedMesh | null = null;
   private traffic: { controls: TrafficControl[] } | null = null;
   private confetti: { points: Points; pos: Float32Array; vel: Float32Array; life: number; n: number } | null = null;
   private flags: { group: Group; items: { mesh: Mesh; phase: number; baseY: number }[]; t: number } | null = null;
@@ -264,6 +265,37 @@ export class RoadsideView {
         this.flocks.push({ x, y: course.terrain.heightAt(x, z) + 6 + rng() * 3, z, count, state: 'perched', timer: 0, dirx: -this.pose.tz * b.side, dirz: this.pose.tx * b.side, first });
         first += count;
       }
+    }
+
+    // Roadworks: traffic cones squeezing one side of the road. They are soft obstacles (no damage) set outside the
+    // traffic lane, so the squeeze is the player's to manage and traffic never jams on it.
+    const coneSpots: { x: number; z: number }[] = [];
+    for (const c of rs.cones ?? []) {
+      const s0 = course.startS + c.at * span;
+      for (let d = 0; d <= c.length; d += 6) {
+        const s = s0 + d;
+        road.at(s, this.pose);
+        const lat = c.side * road.halfWidthAtS(s) * 0.88;
+        const x = this.pose.x - this.pose.tz * lat;
+        const z = this.pose.z + this.pose.tx * lat;
+        coneSpots.push({ x, z });
+        if (coneSpots.length >= 24) break;
+      }
+    }
+    if (coneSpots.length) {
+      const geo = coneGeometry();
+      const mat = new MeshLambertMaterial({ vertexColors: true });
+      this.coneMesh = new InstancedMesh(geo, mat, coneSpots.length);
+      this.coneMesh.frustumCulled = false;
+      coneSpots.forEach((c, i) => {
+        this.m4.compose(this.pos.set(c.x, course.terrain.heightAt(c.x, c.z), c.z), this.q.setFromAxisAngle(UP, i * 1.7), this.scl);
+        this.coneMesh!.setMatrixAt(i, this.m4);
+        const id = course.obstacles.add(c.x, c.z, 0.4, { push: 0.6, restitution: 0.1, tag: 'gate' });
+        if (id >= 0) this.obstacleIds.push(id);
+      });
+      this.coneMesh.instanceMatrix.needsUpdate = true;
+      scene.add(this.coneMesh);
+      this.disposables.push(geo, mat, this.coneMesh);
     }
 
     // Parked vehicles: one instanced mesh per kind used; a single obstacle circle each if they stand inside the parapet.
@@ -589,7 +621,7 @@ export class RoadsideView {
     this.removeConfetti();
     this.removeFlags();
     for (const id of this.obstacleIds) this.course.obstacles.remove(id);
-    for (const m of [this.walkerMesh, this.pedMesh, this.yakMesh, this.birdMesh, ...this.parkedMeshes]) if (m) this.scene.remove(m);
+    for (const m of [this.walkerMesh, this.pedMesh, this.yakMesh, this.birdMesh, this.coneMesh, ...this.parkedMeshes]) if (m) this.scene.remove(m);
     for (const o of this.officers) this.scene.remove(o.group);
     this.disposables.forEach((d) => d.dispose());
   }

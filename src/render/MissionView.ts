@@ -279,7 +279,7 @@ export class MissionView {
               : 'BROKEN DOWN VEHICLE';
       const sign = buildSign(label, '#f0c23a', '#2a2220');
       road.at(h.s - (h.def.kind === 'brokenTruck' ? 50 : 80), pose);
-      const lat = -h.side * (road.wallOffset + 1.2);
+      const lat = -h.side * (road.wallAtS(h.s) + 1.2);
       sign.group.position.set(pose.x - pose.tz * lat, this.ground(pose.x - pose.tz * lat, pose.z + pose.tx * lat), pose.z + pose.tx * lat);
       sign.group.rotation.y = Math.atan2(-pose.tx, -pose.tz);
       this.group.add(sign.group);
@@ -333,7 +333,7 @@ export class MissionView {
       const triGeo = new CylinderGeometry(0, 0.5, 0.8, 3);
       const tri = new Mesh(triGeo, new MeshBasicMaterial({ color: 0xd6322b }));
       const back = road.at(h.s - 9, pose);
-      tri.position.set(back.x - back.tz * (h.side * road.halfWidth * 0.5), this.ground(back.x, back.z) + 0.4, back.z + back.tx * (h.side * road.halfWidth * 0.5));
+      tri.position.set(back.x - back.tz * (h.side * road.halfWidthAtS(h.s) * 0.5), this.ground(back.x, back.z) + 0.4, back.z + back.tx * (h.side * road.halfWidthAtS(h.s) * 0.5));
       this.group.add(mesh, tri);
       this.lorries.push({ mesh, tri });
       this.disposables.push(geo, mat, triGeo, tri.material as MeshBasicMaterial);
