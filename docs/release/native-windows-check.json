@@ -1,0 +1,7 @@
+{
+  "nativeWebView": true,
+  "origin": "http://tauri.localhost",
+  "detailedVehicle": true,
+  "errors": [],
+  "note": "Actual Windows WebView2 startup and bundled-asset check. No performance benchmark or installer-installation test."
+}

@@ -11,6 +11,8 @@ type InputEvents = {
   debug: undefined;
   /** Toggle 4x2 / 4x4 (F, pad X). */
   driveMode: undefined;
+  /** Switch between the chase camera and the driver's-eye view (C, pad Back/Select). */
+  camera: undefined;
   /** Ask for the pit-stop service on offer: refuel or repair (E, pad LB/RB). */
   service: undefined;
   /** Any real key press / pointer down - used to unlock audio. */
@@ -69,6 +71,7 @@ export class InputManager {
     if ((KEYS.pause as readonly string[]).includes(e.code)) this.events.emit('pause', undefined);
     else if (e.code === 'KeyR') this.events.emit(e.shiftKey ? 'restart' : 'recover', undefined);
     else if (e.code === 'KeyF') this.events.emit('driveMode', undefined);
+    else if (e.code === 'KeyC') this.events.emit('camera', undefined);
     else if (e.code === 'KeyE') this.events.emit('service', undefined);
     else if (e.code === 'Backquote') this.events.emit('debug', undefined);
   };
@@ -87,6 +90,7 @@ export class InputManager {
     if (edge(9)) this.events.emit('pause', undefined);
     if (edge(3)) this.events.emit('recover', undefined);
     if (edge(2)) this.events.emit('driveMode', undefined);
+    if (edge(8)) this.events.emit('camera', undefined);
     if (edge(4) || edge(5)) this.events.emit('service', undefined);
     this.padButtons = pressedNow;
     return {

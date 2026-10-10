@@ -1,0 +1,14 @@
+{
+  "project": "crazy-bhutan-hill-race",
+  "checkedAt": "2026-10-10T12:21:24.596Z",
+  "checks": [
+    "live anonymous authentication",
+    "owner can write and read cloud save",
+    "other player cannot read private save",
+    "other player cannot modify private save",
+    "signed-out client cannot read private save",
+    "live feedback submission confirmed",
+    "other player cannot read private feedback"
+  ],
+  "temporaryDataRemoved": true
+}

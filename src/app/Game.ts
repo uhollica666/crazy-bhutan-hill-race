@@ -1,5 +1,5 @@
 import { saveCosmetic } from '../render/cosmetics';
-import { Vector3 } from 'three';
+import { PerspectiveCamera, Vector3 } from 'three';
 import { AudioEngine } from '../audio/AudioEngine';
 import { MusicManager } from '../audio/MusicManager';
 import { RaceRotation, fixedTrack, sceneFor } from '../audio/musicPlan';
@@ -397,6 +397,7 @@ export class Game {
         },
         readBriefing: () => this.readBriefing(),
         toggleDrive: () => this.toggleDrive(),
+        toggleCamera: () => this.toggleCamera(),
         requestService: (k) => this.requestService(k),
         openAbout: () => this.openAbout(),
         openFeedback: (o) => this.openFeedback(o),
@@ -949,6 +950,9 @@ export class Game {
         this.restart();
     });
     this.input.events.on('driveMode', () => this.toggleDrive());
+    this.input.events.on('camera', () => {
+      if (this.flow.state === 'playing' || this.flow.state === 'paused') this.toggleCamera();
+    });
     this.input.events.on('service', () => this.requestService(null));
     this.input.events.on('debug', () => this.ui.setDebug(this.ui.debugVisible ? null : ''));
     this.input.events.on('gesture', () => {
@@ -1087,6 +1091,8 @@ export class Game {
     this.tutorialUI.setTouch(wanted);
     if (wanted) this.ui.showRotateHint();
     this.rig.shakeScale = this.reducedMotion ? 0.12 : wanted ? 0.6 : 1;
+    this.rig.roadShake = this.store.settings.cameraShake;
+    this.rig.view = this.store.settings.cameraView;
     this.touch.setVisible(wanted && this.flow.state === 'playing');
   }
 
@@ -1867,6 +1873,39 @@ export class Game {
     this.acc = 0;
   }
 
+  /** Third-person chase <-> driver's-eye view (kept as a setting, so it is remembered). */
+  private toggleCamera(): void {
+    const next = this.store.settings.cameraView === 'chase' ? 'close' : 'chase';
+    this.applySettings({ cameraView: next });
+    this.ui.flash(next === 'close' ? "Driver's eye view" : 'Chase view', 'Press C to switch');
+    this.audio.click();
+  }
+
+  private readonly rearCam = new PerspectiveCamera(78, 16 / 9, 0.1, 400);
+  private rearHold = 0;
+
+  /** While reversing, a small window at the top centre shows the road behind the car. */
+  private updateRearView(dt: number, state: string): void {
+    const el = document.getElementById('rearview');
+    if (!el) return;
+    const reversing = state === 'playing' && this.rt.session.phase === 'running' && this.rt.body.speed < -0.4;
+    this.rearHold = reversing ? 0.8 : Math.max(0, this.rearHold - dt);
+    const show = this.rearHold > 0;
+    if (el.hidden === show) el.hidden = !show;
+    if (!show) return;
+    const r = el.getBoundingClientRect();
+    const canvas = this.renderer.renderer.domElement.getBoundingClientRect();
+    const w = r.width - 6;
+    const h = r.height - 6;
+    if (w < 16 || h < 16) return;
+    if (Math.abs(this.rearCam.aspect - w / h) > 0.01) {
+      this.rearCam.aspect = w / h;
+      this.rearCam.updateProjectionMatrix();
+    }
+    this.rig.placeRearCamera(this.rearCam);
+    this.renderer.renderInset(this.rearCam, r.left - canvas.left + 3, r.top - canvas.top + 3, w, h);
+  }
+
   private toggleDrive(): void {
     if (this.flow.state !== 'playing') return;
     if (this.vehicleDef.drivetrain.modes.length < 2) {
@@ -1996,6 +2035,7 @@ export class Game {
     });
 
     this.renderer.render(this.rig.camera);
+    this.updateRearView(dt, state);
     this.afterFrame(dt, state);
     this.cpuMs += (performance.now() - t0 - this.cpuMs) * 0.08;
 

@@ -25,6 +25,10 @@ export interface Settings {
   reducedMotion: boolean;
   /** Driving HUD detail: everything, only the essentials, or extra telemetry. */
   hudMode: 'standard' | 'minimal' | 'telemetry';
+  /** Third-person chase camera, or the close driver's-eye view. */
+  cameraView: 'chase' | 'close';
+  /** Road-surface camera shake, 0 (off) .. 1 (full). Reduced motion and touch devices scale it down further. */
+  cameraShake: number;
   /** Touch steering: a slide bar or a steering wheel. */
   touchSteer: 'bar' | 'wheel';
   /** Mission select: the illustrated map or a plain list. */
@@ -125,6 +129,8 @@ export const defaultSettings = (quality: QualityLevel = 'medium'): Settings => (
   touchSensitivity: 1,
   reducedMotion: false,
   hudMode: 'standard',
+  cameraView: 'chase',
+  cameraShake: 1,
   touchSteer: 'bar',
   levelsView: 'map',
   touchMirror: false,
@@ -165,6 +171,8 @@ export function parseSettings(raw: unknown, fallback: Settings): Settings {
     touchControls: isTouch(o.touchControls) ? o.touchControls : fallback.touchControls,
     touchSensitivity: num(o.touchSensitivity, fallback.touchSensitivity, 0.6, 1.6),
     reducedMotion: typeof o.reducedMotion === 'boolean' ? o.reducedMotion : fallback.reducedMotion,
+    cameraView: o.cameraView === 'close' || o.cameraView === 'chase' ? o.cameraView : fallback.cameraView,
+    cameraShake: num(o.cameraShake, fallback.cameraShake, 0, 1),
     hudMode: o.hudMode === 'minimal' || o.hudMode === 'telemetry' || o.hudMode === 'standard' ? o.hudMode : fallback.hudMode,
     touchSteer: o.touchSteer === 'wheel' || o.touchSteer === 'bar' ? o.touchSteer : fallback.touchSteer,
     levelsView: o.levelsView === 'list' || o.levelsView === 'map' ? o.levelsView : fallback.levelsView,

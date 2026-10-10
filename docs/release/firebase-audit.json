@@ -1,0 +1,20 @@
+{
+  "project": "crazy-bhutan-hill-race",
+  "checkedAt": "2026-10-10T12:22:24.674Z",
+  "release": "projects/crazy-bhutan-hill-race/releases/cloud.firestore",
+  "ruleset": "projects/crazy-bhutan-hill-race/rulesets/ca85f07e-3717-4828-b89a-c0afc5cb96ce",
+  "matchesRepository": true,
+  "hasUnconditionalWrite": false,
+  "hasTestModeRule": false,
+  "auth": {
+    "anonymous": true,
+    "email": true,
+    "authorizedDomains": [
+      "localhost",
+      "crazy-bhutan-hill-race.firebaseapp.com",
+      "crazy-bhutan-hill-race.web.app",
+      "crazy-bhutan-hill-race.vercel.app",
+      "tauri.localhost"
+    ]
+  }
+}

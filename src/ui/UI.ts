@@ -44,6 +44,8 @@ export interface UIActions {
   garageView(cmd: { orbit?: [number, number]; zoom?: number; turn?: number; reset?: boolean; view?: 'front' | 'rear' | 'side' }): void;
   readBriefing(): void;
   toggleDrive(): void;
+  /** Chase camera <-> driver's-eye view. */
+  toggleCamera(): void;
   /** Pit-stop service of the given kind (null = whichever is on offer); with a guest at the kerb it checks their ID instead. */
   requestService(kind: ServiceKind | null): void;
   openAbout(): void;
@@ -403,7 +405,7 @@ export class UI {
             <div class="controls-grid" data-help-pane="touch" hidden>
               <span>Steer</span><span>Slide the bar or turn the wheel with one thumb; release to centre</span>
               <span>GAS / BRAKE</span><span>Hold with the other thumb. BRAKE also reverses once stopped</span>
-              <span>HUD buttons</span><span>4x4, pit-stop service, Check ID and recover appear on screen when they apply</span>
+              <span>HUD buttons</span><span>4x4, pit-stop service, Check ID, camera view and recover appear on screen when they apply</span>
               <span>Layout</span><span>Choose the steering style, a left-handed layout and larger controls here and under Accessibility</span>
             </div>
             <div class="controls-grid" data-help-pane="pad" hidden>
@@ -417,6 +419,10 @@ export class UI {
             </div>
           </div>
           <div class="tab-panel" id="pane-gameplay" role="tabpanel" aria-labelledby="tab-gameplay" hidden>
+            <div class="field"><label for="set-camera">Camera view (C)</label>
+              <select id="set-camera"><option value="chase">Third person (chase)</option><option value="close">Driver's eye (close up)</option></select></div>
+            <div class="field"><label for="set-shake">Road shake</label>
+              <select id="set-shake"><option value="0">Off</option><option value="0.5">Gentle</option><option value="1">Full</option></select></div>
             <div class="field"><label for="set-hud">Driving HUD</label>
               <select id="set-hud"><option value="standard">Standard</option><option value="minimal">Minimal</option><option value="telemetry">With telemetry</option></select></div>
             <p class="hint-text">Standard shows the instrument cluster, mission and vitals. Minimal keeps only speed, the timer and alerts. Telemetry adds gear, revs, load and traction.</p>
@@ -486,6 +492,7 @@ export class UI {
     on('#btn-pause', () => this.actions.pause());
     on('#btn-recover', () => this.actions.recover());
     on('#btn-drive', () => this.actions.toggleDrive());
+    on('#btn-camera', () => this.actions.toggleCamera());
     on('#btn-refuel', () => this.actions.requestService('refuel'));
     on('#btn-repair', () => this.actions.requestService('repair'));
     on('#btn-check-id', () => this.actions.requestService(null));
@@ -657,6 +664,12 @@ export class UI {
     q<HTMLSelectElement>(this.root, '#set-quality').addEventListener('change', (e) =>
       this.actions.settingsChanged({ quality: (e.target as HTMLSelectElement).value as QualityLevel }),
     );
+    q<HTMLSelectElement>(this.root, '#set-camera').addEventListener('change', (e) =>
+      this.actions.settingsChanged({ cameraView: (e.target as HTMLSelectElement).value === 'close' ? 'close' : 'chase' }),
+    );
+    q<HTMLSelectElement>(this.root, '#set-shake').addEventListener('change', (e) =>
+      this.actions.settingsChanged({ cameraShake: Number((e.target as HTMLSelectElement).value) }),
+    );
     q<HTMLSelectElement>(this.root, '#set-hud').addEventListener('change', (e) =>
       this.actions.settingsChanged({ hudMode: (e.target as HTMLSelectElement).value as HudMode }),
     );
@@ -739,6 +752,8 @@ export class UI {
     q<HTMLInputElement>(this.root, '#set-motion').checked = s.reducedMotion;
     q<HTMLSelectElement>(this.root, '#set-quality').value = s.quality;
     q<HTMLSelectElement>(this.root, '#set-hud').value = s.hudMode;
+    q<HTMLSelectElement>(this.root, '#set-camera').value = s.cameraView;
+    q<HTMLSelectElement>(this.root, '#set-shake').value = s.cameraShake >= 0.75 ? '1' : s.cameraShake > 0.2 ? '0.5' : '0';
     q<HTMLSelectElement>(this.root, '#set-touch').value = s.touchControls;
     q<HTMLSelectElement>(this.root, '#set-steer').value = s.touchSteer;
     q<HTMLInputElement>(this.root, '#set-mirror').checked = s.touchMirror;

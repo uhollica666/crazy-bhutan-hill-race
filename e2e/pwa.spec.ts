@@ -38,6 +38,7 @@ test.describe('offline PWA (production build)', () => {
       makeSave({
         finished: ['pass-run', 'airport-dash', 'chelela-climb'],
         owned: ['dzo-hatch', 'tourist-coaster', 'druk-ranger', 'dragon-cruiser'],
+        settings: { quality: 'low' },
       }),
     );
     await page.goto('/?debug=1');

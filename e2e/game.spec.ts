@@ -226,7 +226,7 @@ test.describe('startup, settings and navigation', () => {
 test.describe('driving and flow', () => {
   test('keyboard driving: countdown, accelerate, steer, brake, reverse, pause/resume, recover', async ({ page }) => {
     await seedSave(page, makeSave({ finished: ['pass-run'], owned: ['dzo-hatch', 'druk-ranger'], storySeen: [] }));
-    const errors = await openGame(page, '&quality=medium');
+    const errors = await openGame(page, '&quality=low');
     await openGarage(page, 'pass-run', 'druk-ranger');
     await page.locator('#btn-launch').click();
     await page.locator('#brief-skip').click();

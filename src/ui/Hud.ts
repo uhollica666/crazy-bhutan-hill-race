@@ -68,6 +68,8 @@ const GUEST_ICON =
 const ENGINE_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true" class="gi"><path d="M3 10h2V8h3V6h6v2h2l2 2h2v6h-2l-2 2H8l-2-2H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
 const PAUSE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>';
+const CAMERA_ICON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.6-2.4h6.8L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.6"/></svg>';
 const RECOVER_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg>';
 
 /** Speedometer geometry: a 270 degree sweep starting at the lower left. */
@@ -109,8 +111,11 @@ export function hudMarkup(): string {
       </div>
     </div>
 
+    <div class="rearview" id="rearview" role="img" aria-label="Rear view, shown while reversing" hidden><span>REAR VIEW</span></div>
+
     <div class="hud-tr" id="hud-tr">
       <div class="btns">
+        <button class="icon-btn" id="btn-camera" type="button" title="Camera: chase / driver view (C)" aria-label="Switch camera view">${CAMERA_ICON}</button>
         <button class="icon-btn" id="btn-recover" type="button" title="Recover to last checkpoint (R)" aria-label="Recover to last checkpoint">${RECOVER_ICON}</button>
         <button class="icon-btn" id="btn-pause" type="button" title="Pause (Esc)" aria-label="Pause">${PAUSE_ICON}</button>
       </div>
@@ -154,7 +159,7 @@ export function hudMarkup(): string {
       <div class="svc-bar" id="svc-bar" hidden><i id="svc-fill"></i></div>
     </div>
     <div class="hud-telemetry" id="hud-telemetry" hidden></div>
-    <div class="hud-hint" id="hud-hint"><kbd>W</kbd><kbd>S</kbd> drive <kbd>A</kbd><kbd>D</kbd> steer <kbd>F</kbd> 4x4 <kbd>E</kbd> service <kbd>R</kbd> recover <kbd>Esc</kbd> pause</div>
+    <div class="hud-hint" id="hud-hint"><kbd>W</kbd><kbd>S</kbd> drive <kbd>A</kbd><kbd>D</kbd> steer <kbd>F</kbd> 4x4 <kbd>C</kbd> camera <kbd>E</kbd> service <kbd>R</kbd> recover <kbd>Esc</kbd> pause</div>
   </section>`;
 }
 

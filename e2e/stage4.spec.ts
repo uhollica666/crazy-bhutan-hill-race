@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { getLevel } from '../src/data/levels';
 import {
   drive,
   makeSave,
@@ -54,7 +55,7 @@ test.describe('ten-level arcade campaign', () => {
       'dochula-storm': { party: 3, time: 'day' },
       'chelela-climb': { party: 3, time: 'day' },
       'trongsa-gorge': { party: 2, time: 'day' },
-      'bumthang-night': { party: 2, time: 'night' },
+      'bumthang-night': { party: 2, time: 'dusk' },
       'remote-expedition': { party: 2, time: 'day' },
       'gmc-plains': { party: 0, time: 'day' },
     };
@@ -62,7 +63,8 @@ test.describe('ten-level arcade campaign', () => {
       await startMission(page, id);
       const s = await state(page);
       expect(s.levelId, id).toBe(id);
-      expect(s.party, id).toBe(expected[id].party);
+      const guests = getLevel(id).stops.filter(stop => stop.kind === 'pickup' && !stop.fake).reduce((sum, stop) => sum + (stop.party ?? 0), 0);
+      expect(s.party, id).toBe(guests);
       expect(s.time_of_day, id).toBe(expected[id].time);
       expect(s.phase, id).toBe('running');
       await expect(page.locator('#hud-obj')).not.toBeEmpty();

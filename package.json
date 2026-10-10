@@ -1,13 +1,16 @@
 {
   "name": "crazy-bhutan-hill-race",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.0-beta.1",
   "type": "module",
   "description": "Lightweight stylized 3D arcade driving game set in a fictionalized Bhutan.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 4173",
+    "tauri": "bunx --package @tauri-apps/cli@2.12.1 tauri",
+    "build:windows": "bun run tauri build --bundles msi,nsis",
+    "build:android": "bun run tauri android build --target aarch64 --apk --ci",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests e2e",
     "format": "prettier --write .",

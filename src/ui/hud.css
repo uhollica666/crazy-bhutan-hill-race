@@ -644,3 +644,31 @@
 #veh-cosmetics label { display: grid; gap: 4px; text-transform: capitalize; font-size: 11px; color: #ced5dc; }
 #veh-cosmetics select { min-width: 0; width: 100%; padding: 7px; background: #26313d; color: #fff; border: 1px solid #677380; border-radius: 5px; }
 .cosmetic-panel small { color: #a9b4bf; }
+
+/* ---- reversing view: a window at the top centre, drawn by a second camera behind the car (see Game.updateRearView) */
+.rearview {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--sat, 0px) + 116px);
+  transform: translateX(-50%);
+  width: clamp(170px, 27vw, 340px);
+  aspect-ratio: 16 / 9;
+  box-sizing: border-box;
+  border: 3px solid rgba(255, 138, 42, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 3;
+}
+.rearview[hidden] {
+  display: none;
+}
+.rearview span {
+  position: absolute;
+  top: 3px;
+  left: 8px;
+  font: 700 clamp(9px, 1.5vmin, 12px) var(--sans, system-ui, sans-serif);
+  letter-spacing: 0.22em;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}

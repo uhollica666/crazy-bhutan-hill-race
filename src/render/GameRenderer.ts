@@ -1,4 +1,4 @@
-import { ACESFilmicToneMapping, PCFShadowMap, PMREMGenerator, SRGBColorSpace, Scene, WebGLRenderer } from 'three';
+import { ACESFilmicToneMapping, PCFShadowMap, PMREMGenerator, SRGBColorSpace, Scene, Vector2, WebGLRenderer } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -178,6 +178,27 @@ export class GameRenderer {
     this.composer.render();
     this.renderer.info.autoReset=true;
   }
+
+  /**
+   * Draws the scene again from another camera into a small window of the canvas (the reversing view). Shadows are not re-rendered
+   * for it, so the extra cost is one cheap pass over a small area. x/y are CSS pixels from the top-left of the canvas.
+   */
+  renderInset(camera: PerspectiveCamera, x: number, y: number, w: number, h: number): void {
+    const r = this.renderer;
+    r.getSize(this.insetSize);
+    const gy = this.insetSize.y - y - h;
+    const shadowAuto = r.shadowMap.autoUpdate;
+    r.shadowMap.autoUpdate = false;
+    r.setScissorTest(true);
+    r.setViewport(x, gy, w, h);
+    r.setScissor(x, gy, w, h);
+    r.render(this.scene, camera);
+    r.setScissorTest(false);
+    r.setViewport(0, 0, this.insetSize.x, this.insetSize.y);
+    r.shadowMap.autoUpdate = shadowAuto;
+  }
+
+  private readonly insetSize = new Vector2();
 
   /** Draws another scene (the garage) with its own camera. */
   renderScene(scene: Scene, camera: PerspectiveCamera): void {

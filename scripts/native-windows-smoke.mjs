@@ -1,0 +1,21 @@
+// Connect only to the explicitly started local WebView2 test process.
+import { chromium } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
+const browser = await chromium.connectOverCDP('http://127.0.0.1:9228');
+const context = browser.contexts()[0];
+const page = context.pages()[0];
+const errors = [];
+page.on('pageerror', e => errors.push(e.message));
+page.on('response', r => { if(r.status() >= 400 && r.url().includes('tauri.localhost')) errors.push(`${r.status()} ${r.url()}`); });
+page.setDefaultTimeout(90000);
+const origin = new URL(page.url()).origin;
+await page.goto(`${origin}/?debug=1&nosplash=1&cloud=off&quality=medium`);
+await page.waitForFunction(() => !!window.__cbhr);
+await page.locator('#btn-menu-garage').click();
+await page.waitForFunction(() => window.__cbhr.state().detailedModel);
+await page.screenshot({path:'docs/release/native-windows-garage.png'});
+const report = { nativeWebView: true, origin, detailedVehicle: true, errors, note:'Actual Windows WebView2 startup and bundled-asset check. No performance benchmark or installer-installation test.' };
+await writeFile('docs/release/native-windows-check.json', JSON.stringify(report,null,2)+'\n');
+await browser.close();
+console.log(JSON.stringify(report));
+if(errors.length)process.exitCode=1;

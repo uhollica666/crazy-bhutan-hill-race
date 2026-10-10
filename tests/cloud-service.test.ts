@@ -237,6 +237,28 @@ describe('cloud saves', () => {
     expect(backend.calls.writeSave).toBe(1);
   });
 
+  it('flush waits for an in-flight sync and its follow-up instead of resolving while pending', async () => {
+    const d = device(backend);
+    d.service.start();
+    await settle();
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const load = backend.loadSave.bind(backend);
+    backend.loadSave = async uid => { await gate; return load(uid); };
+    const first = d.service.syncNow('test');
+    d.store.addCredits(250);
+    let flushed = false;
+    const flush = d.service.flush().then(() => { flushed = true; });
+    await settle();
+    expect(flushed).toBe(false);
+    release();
+    await Promise.all([first, flush]);
+    expect(d.service.status.sync).toBe('synced');
+    const saved = backend.saves.get(d.service.uid!);
+    expect(saved && saved !== 'unreadable' ? saved.payload.wallet.credits : null).toBe(250);
+    d.service.dispose();
+  });
+
   it('a second device with an empty profile receives the account progress, with a backup and a notice', async () => {
     const a = device(backend);
     a.service.start();

@@ -69,6 +69,7 @@ export class CloudService {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private retries = 0;
   private running = false;
+  private readonly syncWaiters: (() => void)[] = [];
   private rerun = false;
   private anonAttempted = false;
   private conflictData: { cloud: CloudSnapshot | null; local: SyncPayload; unreadable: boolean } | null = null;
@@ -383,7 +384,8 @@ export class CloudService {
     if (this.state.sync === 'conflict') return; // waiting for the player
     if (this.running) {
       this.rerun = true;
-      return;
+      // flush() must wait for the in-flight write and its follow-up, rather than reporting completion early.
+      return new Promise<void>(resolve => this.syncWaiters.push(resolve));
     }
     if (!this.isOnline()) {
       this.set({ online: false, sync: this.meta.data.pendingSince !== null ? 'pending' : this.state.sync === 'synced' ? 'synced' : 'idle' });
@@ -403,8 +405,9 @@ export class CloudService {
       this.running = false;
       if (this.rerun) {
         this.rerun = false;
-        void this.syncNow('rerun');
+        await this.syncNow('rerun');
       }
+      for (const resolve of this.syncWaiters.splice(0)) resolve();
     }
   }
 

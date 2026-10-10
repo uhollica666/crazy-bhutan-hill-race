@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import {
   drive,
+  declineAcademy,
   makeSave,
   openGame,
   showMissionList,
@@ -40,6 +41,7 @@ test.describe('mobile (Pixel 7 landscape EMULATION: not a real device)', () => {
     const errors = await openGame(page);
     await page.screenshot({ path: 'screenshots/mobile-menu.png' });
     await page.locator('#btn-start').tap();
+    await declineAcademy(page);
     await showMissionList(page);
     await page.locator('button[data-level="pass-run"]').tap();
     await expect(page.locator('#screen-garage')).toBeVisible({ timeout: 30_000 });

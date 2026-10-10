@@ -23,3 +23,9 @@ scratch-roads.json
 dist-emulated
 dist-p55
 /.remaster-cache/
+dist-release-e2e
+release-artifacts
+.vercel
+*.jks
+*.keystore
+key.properties
