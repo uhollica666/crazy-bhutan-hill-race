@@ -196,6 +196,10 @@ export interface StopDef {
   variant?: 'fuel' | 'workshop' | 'kiosk';
   /** pickup: what the people say as they board (overrides their usual line). */
   line?: string;
+  /** pickup: not on the manifest (an impostor). They board if you stop, and are found out a little later; checking their ID first (E) turns them away. */
+  fake?: boolean;
+  /** pickup: the guest can be checked against the manifest with E (real and fake alike). */
+  clue?: string;
   /** dropoff: what they say as they get out. */
   farewell?: string;
 }
@@ -281,6 +285,8 @@ export interface TrafficDef {
   turnChance?: number;
   /** Traffic slows down in fog and heavy rain (up to about 40% in dense fog). */
   slowInFog?: boolean;
+  /** Stretches (fractions of the stretch) with their own traffic: a local cap on the vehicles there and a multiplier on their speed. */
+  zones?: { from: number; to: number; count?: number; scale?: number }[];
   /** Cars alive at once (hard cap). */
   count: number;
   /** Cruise speed range (m/s). */
@@ -359,7 +365,8 @@ export type LandmarkKind =
   | 'ruin'
   | 'brokenBridge'
   | 'tent'
-  | 'campsite';
+  | 'campsite'
+  | 'gmcHall';
 
 export interface LandmarkDef {
   kind: LandmarkKind;
@@ -470,6 +477,8 @@ export interface RiverDef {
 
 export interface LevelDef {
   id: string;
+  /** A bigger arrival celebration (more confetti), for the finale. */
+  bigCelebration?: boolean;
   name: string;
   subtitle: string;
   description: string;

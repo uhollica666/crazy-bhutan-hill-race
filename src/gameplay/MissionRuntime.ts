@@ -43,6 +43,9 @@ type RuntimeEvents = {
   boarded: { stop: StopRuntime; party: number; onboard: number };
   alighted: { stop: StopRuntime; party: number; onboard: number };
   missed: StopRuntime;
+  rejected: { stop: StopRuntime };
+  verified: { stop: StopRuntime };
+  impostor: { stop: StopRuntime; party: number; onboard: number };
   serviceStart: { stop: StopRuntime; kind: ServiceKind };
   serviceDone: { stop: StopRuntime; kind: ServiceKind };
   issue: StatusIssue;
@@ -132,6 +135,9 @@ export class MissionRuntime {
     st.on('boarded', (b) => e.emit('boarded', b));
     st.on('alighted', (b) => e.emit('alighted', b));
     st.on('missed', (m) => e.emit('missed', m));
+    st.on('rejected', (m) => e.emit('rejected', m));
+    st.on('verified', (m) => e.emit('verified', m));
+    st.on('impostor', (m) => e.emit('impostor', m));
     st.on('service', (m) => e.emit('serviceStart', m));
     st.on('serviceDone', (m) => e.emit('serviceDone', m));
     this.weather.events.on('thunder', (t) => e.emit('thunder', t));

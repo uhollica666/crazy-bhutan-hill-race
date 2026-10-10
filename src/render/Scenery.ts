@@ -26,6 +26,7 @@ import { chortenRingGeometry, lodgeGeometry, shelterGeometry } from './stormBodi
 import { flagPolesGeometry } from './snowBodies';
 import { ruinGeometry } from './nightBodies';
 import { brokenBridgeGeometry, campsiteGeometry, tentGeometry } from './expeditionBodies';
+import { gmcHallGeometry } from './gmcBodies';
 import { coveredBridgeGeometry, dzongComplexGeometry, footbridgeGeometry, paddyGeometry, picnicGeometry, trussBridgeGeometry } from './valleyBodies';
 import { buddhaGeometry, busShelterGeometry, gateArchGeometry, hotelGeometry, officeGeometry, planterGeometry, policeBoothGeometry, railingGeometry, restaurantGeometry } from './cityBodies';
 import {
@@ -522,6 +523,7 @@ export class Scenery {
     const brokenBridges: Matrix4[] = [];
     const tents: Matrix4[] = [];
     const camps: Matrix4[] = [];
+    const gmcHalls: Matrix4[] = [];
     const runways: Matrix4[] = [];
     const trolleys: Matrix4[] = [];
     const offices: Matrix4[] = [];
@@ -678,6 +680,9 @@ export class Scenery {
         case 'tent':
           tents.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
           break;
+        case 'gmcHall':
+          gmcHalls.push(compose(x, y - 0.2, z, faceRoad + (l.rotation ?? 0), sc));
+          break;
         case 'campsite':
           camps.push(compose(x, y, z, faceRoad + (l.rotation ?? 0), sc));
           break;
@@ -821,6 +826,7 @@ export class Scenery {
     this.registerInstanced(brokenBridgeGeometry(), brokenBridges, material, false);
     this.registerInstanced(tentGeometry(), tents, material, false);
     this.registerInstanced(campsiteGeometry(), camps, material, false);
+    this.registerInstanced(gmcHallGeometry(), gmcHalls, material, false);
     this.registerInstanced(runwayGeometry(), runways, material, false);
     this.registerInstanced(trolleyGeometry(), trolleys, material, false);
     this.registerInstanced(officeGeometry(), offices, material, false);

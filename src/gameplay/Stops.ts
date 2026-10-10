@@ -11,12 +11,20 @@ export interface StopRuntime {
   state: StopState;
   /** 0..1 progress of the current boarding / service. */
   progress: number;
+  /** The guest's ID has been checked against the manifest. */
+  verified?: boolean;
 }
 
 type StopEvents = {
   boarded: { stop: StopRuntime; party: number; onboard: number };
   service: { stop: StopRuntime; kind: ServiceKind };
   serviceDone: { stop: StopRuntime; kind: ServiceKind };
+  /** An ID check turned an impostor away. */
+  rejected: { stop: StopRuntime };
+  /** An ID check confirmed a real guest. */
+  verified: { stop: StopRuntime };
+  /** An impostor that boarded was found out and got out again. */
+  impostor: { stop: StopRuntime; party: number; onboard: number };
   /** A drop-off completed: tourists got out. */
   alighted: { stop: StopRuntime; party: number; onboard: number };
   /** The player drove past a required stop without doing it. */
@@ -50,6 +58,8 @@ export class StopManager {
   /** The service being performed right now (null when none). */
   active: { stop: StopRuntime; kind: ServiceKind } | null = null;
   private warned = new Set<string>();
+  private clock = 0;
+  private readonly unmask: { stop: StopRuntime; party: number; at: number }[] = [];
 
   constructor(level: Pick<LevelDef, 'stops'>, stretchToS: (f: number) => number) {
     this.stops = level.stops
@@ -59,7 +69,7 @@ export class StopManager {
 
   /** Total tourists that must be collected. */
   get party(): number {
-    return this.stops.filter((s) => s.def.kind === 'pickup').reduce((n, s) => n + (s.def.party ?? 0), 0);
+    return this.stops.filter((s) => s.def.kind === 'pickup' && !s.def.fake).reduce((n, s) => n + (s.def.party ?? 0), 0);
   }
 
   /** Everyone carried over the whole route: those already dropped off plus those still on board. */
@@ -112,6 +122,16 @@ export class StopManager {
     halfWidth: number,
     request: ServiceKind | null,
   ): void {
+    this.clock += dt;
+    // Impostors that boarded are found out after a while and get out again.
+    for (let i = this.unmask.length - 1; i >= 0; i--) {
+      const u = this.unmask[i];
+      if (this.clock < u.at) continue;
+      this.unmask.splice(i, 1);
+      const n = Math.min(this.onboard, u.party);
+      this.onboard -= n;
+      this.events.emit('impostor', { stop: u.stop, party: n, onboard: this.onboard });
+    }
     const stopped = speed <= STOP_SPEED;
     let boardingHere: StopRuntime | null = null;
 
@@ -128,6 +148,7 @@ export class StopManager {
             st.state = 'done';
             if (st.def.kind === 'pickup') {
               this.onboard += st.def.party ?? 0;
+              if (st.def.fake) this.unmask.push({ stop: st, party: st.def.party ?? 0, at: this.clock + 16 });
               this.events.emit('boarded', { stop: st, party: st.def.party ?? 0, onboard: this.onboard });
             } else {
               const n = Math.min(this.onboard, st.def.party ?? 0);
@@ -203,6 +224,34 @@ export class StopManager {
     };
   }
 
+  /** A guest at the kerb whose ID can be checked (a pickup with a clue that is not done yet), if the car is in its zone. */
+  checkHere(s: number, lateral: number, halfWidth: number): StopRuntime | null {
+    for (const st of this.stops) {
+      if (st.def.kind !== 'pickup' || !st.def.clue || st.state === 'done' || st.verified) continue;
+      if (Math.abs(st.s - s) <= STOP_RADIUS && Math.abs(lateral) <= halfWidth + 3) return st;
+    }
+    return null;
+  }
+
+  /**
+   * Checks the guest's ID against the manifest (E): a real guest is confirmed, an impostor is turned away. Needs the car to be stopped.
+   * Returns what happened, 'moving' if the car must stop first, or null if there is nobody to check here.
+   */
+  verify(s: number, lateral: number, speed: number, halfWidth: number): 'verified' | 'rejected' | 'moving' | null {
+    const st = this.checkHere(s, lateral, halfWidth);
+    if (!st) return null;
+    if (speed > STOP_SPEED * 1.5) return 'moving';
+    st.verified = true;
+    if (st.def.fake) {
+      st.state = 'done';
+      st.progress = 0;
+      this.events.emit('rejected', { stop: st });
+      return 'rejected';
+    }
+    this.events.emit('verified', { stop: st });
+    return 'verified';
+  }
+
   /** Nearest optional pit stop ahead (for the "fuel stop ahead" hint). */
   nextService(s: number): StopRuntime | null {
     return this.stops.find((st) => st.def.kind === 'service' && st.s > s - STOP_RADIUS) ?? null;
@@ -213,9 +262,12 @@ export class StopManager {
     this.alighted = 0;
     this.active = null;
     this.warned.clear();
+    this.clock = 0;
+    this.unmask.length = 0;
     for (const st of this.stops) {
       st.state = 'pending';
       st.progress = 0;
+      st.verified = false;
     }
   }
 }

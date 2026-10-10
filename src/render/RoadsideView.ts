@@ -525,7 +525,7 @@ export class RoadsideView {
     }
     if (this.course.level.celebrateFlags) this.raiseFlags();
     if (intensity <= 0 || !this.confettiCount) return;
-    const n = Math.round(150 * intensity);
+    const n = Math.round((this.course.level.bigCelebration ? 420 : 150) * intensity);
     const pos = new Float32Array(n * 3);
     const vel = new Float32Array(n * 3);
     const colors = new Float32Array(n * 3);

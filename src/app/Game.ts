@@ -752,6 +752,22 @@ export class Game {
       audio.pickup();
       this.analytics.track({ name: 'pickup', levelId: level.id, stopId: stop.def.id });
     });
+    // The finale's manifest: real guests are confirmed, impostors are turned away (or found out after they board).
+    e.on('verified', ({ stop }) => {
+      const cast = getCast(stop.def.who ?? '');
+      ui.flash('ID confirmed', cast ? `${cast.name} is on the manifest` : 'On the manifest');
+    });
+    e.on('rejected', ({ stop }) => {
+      const cast = getCast(stop.def.who ?? '');
+      ui.flash('Not on the manifest!', cast ? `${cast.name} is somebody else's guest. Moving on` : 'Not your guest. Moving on');
+      audio.warning();
+    });
+    e.on('impostor', () => {
+      ui.flash('That was not your guest!', 'They hop out at the next lay-by: time and comfort lost');
+      audio.warning();
+      if (rt.session.comfort) rt.session.comfort.value = Math.max(0, rt.session.comfort.value - 8);
+      rt.session.time += 12;
+    });
     e.on('alighted', ({ stop, party }) => {
       const cast = getCast(stop.def.who ?? '');
       ui.flash(`${party} guest${party === 1 ? '' : 's'} dropped off`, stop.def.farewell ? `${cast ? `${cast.name}: ` : ''}"${stop.def.farewell}"` : cast ? `${cast.name}: "Thank you!"` : 'Have a lovely visit');
@@ -1729,7 +1745,7 @@ export class Game {
       this.audio.cheer();
       if (level.mission.kind === 'airport') window.setTimeout(() => this.audio.airportChime(), 600);
       window.setTimeout(() => this.audio.brandSting(), 1800);
-      this.ui.flash('You made it!', level.finishLabel);
+      this.ui.flash(this.pendingCampaign ? 'CAMPAIGN COMPLETE!' : 'You made it!', this.pendingCampaign ? 'Ten missions. One kingdom. Thank you for driving.' : level.finishLabel);
       this.cancelPendingFinish();
       const run = (): void => {
         this.cancelPendingFinish();
@@ -1827,6 +1843,12 @@ export class Game {
     if (this.flow.state !== 'playing' || this.rt.session.phase !== 'running') return;
     const rt = this.rt;
     const speed = Math.abs(rt.body.speed);
+    const checked = rt.stops.verify(rt.s, rt.lateral, speed, rt.course.road.halfWidth);
+    if (checked === 'moving') {
+      this.ui.toast('Come to a complete stop first to check the ID.', undefined, undefined, 2200);
+      return;
+    }
+    if (checked) return;
     const here = rt.stops.servicesHere(rt.s, rt.lateral, speed, rt.course.road.halfWidth);
     if (!here) {
       const next = rt.stops.nextService(rt.s);
@@ -2269,6 +2291,11 @@ export class Game {
         return;
       }
       h.prompt = 'Pit stop: nothing needed right now';
+      return;
+    }
+    const chk = rt.stops.checkHere(rt.s, rt.lateral, halfWidth);
+    if (chk && chk.state !== 'active') {
+      h.prompt = speed > 1.6 ? 'Someone is waiting here: stop to check their ID (E)' : 'Guest at the kerb: press E to check their ID against the manifest';
       return;
     }
     const gate = rt.stops.gate;

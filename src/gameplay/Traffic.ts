@@ -268,6 +268,24 @@ export class TrafficSystem {
     }
   }
 
+  /** The level's traffic zone (a local cap and speed scale) around road distance `s`, if any. */
+  private zoneAt(s: number): { from: number; to: number; count?: number; scale?: number } | null {
+    const zs = this.def.zones;
+    if (!zs) return null;
+    const f = (s - this.course.startS) / (this.course.finishS - this.course.startS);
+    return zs.find((z) => f >= z.from && f < z.to) ?? null;
+  }
+
+  private countIn(zone: { from: number; to: number }): number {
+    const span = this.course.finishS - this.course.startS;
+    let n = 0;
+    for (const c of this.cars) {
+      const f = (c.s - this.course.startS) / span;
+      if (f >= zone.from && f < zone.to) n++;
+    }
+    return n;
+  }
+
   private pickKind(): TrafficKind {
     const mix = this.def.mix;
     if (!mix || !mix.length) return 'car';
@@ -316,7 +334,8 @@ export class TrafficSystem {
   }
 
   private spawn(s: number, forceKind?: TrafficKind, forceSpeed?: number, scripted = false, hold?: number, trigger?: number): TrafficCar | null {
-    if (!scripted && this.cars.length >= this.def.count) return null;
+    const zone = this.zoneAt(s);
+    if (!scripted && (zone ? this.countIn(zone) : this.cars.length) >= (zone?.count ?? this.def.count)) return null;
     if (this.cars.length >= HARD_CAP) return null; // hard cap: obstacle slots and draw cost stay bounded
     for (const k of this.keepClear) if (Math.abs(k - s) < (scripted ? 8 : 28)) return null;
     const oncoming = scripted ? false : this.rng() < this.def.oncoming;
@@ -325,7 +344,7 @@ export class TrafficSystem {
     const spec = TRAFFIC_KINDS[kind];
     for (const o of this.cars) if (!o.cross && !o.turn && o.dir === dir && Math.abs(o.s - s) < (scripted ? 6 : 38) + (spec.len + TRAFFIC_KINDS[o.kind].len) / 2) return null;
     const range = spec.speed ?? this.def.speed;
-    const cruise = forceSpeed ?? range[0] + this.rng() * (range[1] - range[0]);
+    const cruise = forceSpeed ?? (range[0] + this.rng() * (range[1] - range[0])) * (zone?.scale ?? 1);
     const car = this.makeCar(kind, dir, s, hold !== undefined ? 0 : cruise, scripted);
     car.cruise = cruise;
     if (hold !== undefined) {

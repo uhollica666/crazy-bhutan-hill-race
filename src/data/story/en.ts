@@ -217,5 +217,29 @@ export const EN: StoryBook = {
         'Every blockage leaves a gap, but rocks hurt. Go easy over the rough stuff.',
       ],
     },
+    'gmc-plains': {
+      headline: 'The Last Manifest',
+      stamp: 'The finale',
+      quick: { problem: 'A long list of guests, a very long road, and strangers who would love a lift.', goal: 'Collect the manifest guests, check the strangers\' IDs, make every drop-off, and reach the Gelephu arrival hall on time.', challenge: 'Everything: brake fade, landslides, mud, rivers, creatures, a monsoon, a fast highway and a busy town.' },
+      ending: { done: 'The hall glowed at dusk, the flags snapped, the crowd cheered, and the manifest was complete. Ten missions, one kingdom: well driven.', failed: 'The road got the better of the plan. Check the manifest, mind the fuel, and try again.' },
+      text: [
+        'Gelephu Mindfulness City is hosting the arrival of its first great tourist group, and you have the manifest: the Dorji family, a late guest called Sonam, a film crew somewhere under a landslide, a medic, a pair of elderly Tsherings, Pema with the orange cap and a guide with a lanyard.',
+        'The road there is the whole of Bhutan in one go: a mountain descent that cooks your brakes, a corridor of landslides, a mud detour, four rivers in flood, a wildlife corridor in which not everything is wildlife, a monsoon storm, a fast highway and a very busy town.',
+        'Along the way, people will wave you down who are not on the list. Stop, press E, and check their ID against the manifest. An impostor who gets in the car will be found out later, and will cost you time and the guests\' good opinion.',
+      ],
+      passengers: ['photo-nomads', 'film-crew', 'doctor'],
+      objectives: [
+        'Pick up the Dorji family and Sonam at the lodge, and drop Sonam at the forest viewpoint.',
+        'Rescue the film crew after the landslides, drop them at the camp truck, and collect Dr Lhamo at the river.',
+        'Drop Dr Lhamo at the ranger station, then collect the Tsherings in the storm, Pema on the highway, and the guide in town.',
+        'Drop the Dorji family at the hotel, and stop at the Gelephu arrival hall with the rest.',
+      ],
+      watchOut: [
+        'Never carry more than five: every stranger who boards takes a seat until they are found out.',
+        'Press E at a roadside guest to check their ID before they board. Clues are on the label.',
+        'Brake early and in bursts on the long descent: the brakes fade. Wait for green at the bridges.',
+        'Use 4x4 (F) on the mud and the fords (0.45 m at most). Fuel runs out quickly: use every pump.',
+      ],
+    },
   },
 };
