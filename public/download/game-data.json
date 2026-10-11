@@ -4,7 +4,7 @@
   {
    "id": "dzo-hatch",
    "name": "Dzo Hatch",
-   "blurb": "Your first wheels: a small, willing hatchback. Underpowered on hills, thrifty with fuel, hopeless in mud.",
+   "blurb": "The starting vehicle: a small hatchback that is light on fuel but struggles on steep hills and in mud.",
    "seats": 3,
    "topSpeedKmh": 112,
    "rangeKm": 4.9,
@@ -15,7 +15,7 @@
   {
    "id": "tourist-coaster",
    "name": "Tourist Coaster",
-   "blurb": "Tourist minibus. Heavy and wide, with a lazy lean: brake early and flow through the bends.",
+   "blurb": "A ten-seat minibus. It is heavy and leans in corners, so brake early and take bends smoothly.",
    "seats": 10,
    "topSpeedKmh": 108,
    "rangeKm": 4.6,
@@ -26,7 +26,7 @@
   {
    "id": "druk-ranger",
    "name": "Druk Ranger",
-   "blurb": "Capable SUV with selectable 4x2 / 4x4. Quick, grippy, and happy on a hairpin or a muddy hill.",
+   "blurb": "A five-seat SUV with selectable 4x2 and 4x4. Quick, with good grip on hairpins and muddy hills.",
    "seats": 5,
    "topSpeedKmh": 137,
    "rangeKm": 5.7,
@@ -37,7 +37,7 @@
   {
    "id": "dragon-cruiser",
    "name": "Dragon Cruiser",
-   "blurb": "Flagship expedition 4x4. Torquey, tall, locked-in grip: it fords rivers and climbs almost anything.",
+   "blurb": "The most capable vehicle: a six-seat 4x4 with strong torque and the best off-road and river-crossing ability.",
    "seats": 6,
    "topSpeedKmh": 148,
    "rangeKm": 6.8,
@@ -65,7 +65,7 @@
     "clear/day",
     "fog/day"
    ],
-   "summary": "Your first real tourism run: collect a family from the village, pick up a hiker on the trail, swap guests at the viewpoint and deliver everyone to the summit plaza. A long, scenic climb with a fuel stop, a workshop..."
+   "summary": "Your first tourism run. Pick up a family and a hiker, swap guests at the viewpoint and climb to the summit plaza, with a fuel stop and a workshop on the way."
   },
   {
    "n": 2,
@@ -86,7 +86,7 @@
     "rain/dusk",
     "clear/night"
    ],
-   "summary": "A guest-filled morning: collect a couple at Babesa, a late guest at the hotel, drop one at the Memorial Chorten, fetch the tour guide from the busy commercial streets, and bring everyone through the congestion and up..."
+   "summary": "A morning of pickups around Thimphu: busy streets, then the climb to the Buddha Dordenma viewpoint."
   },
   {
    "n": 3,
@@ -106,7 +106,7 @@
     "rain/day",
     "clear/dusk"
    ],
-   "summary": "A tour group is dangerously late for their flight. Load them up at the hotel, pick up the last straggler, and drive the Thimphu to Paro highway: river, gorge, roadworks and all. A smooth ride keeps the passengers..."
+   "summary": "A tour group is late for their flight. Collect them at the hotel and drive the Thimphu to Paro highway. A smooth ride keeps passengers happy."
   },
   {
    "n": 4,
@@ -127,7 +127,7 @@
     "clear/dusk",
     "rain/day"
    ],
-   "summary": "The valley is at its greenest, and the guests want all of it: the rice terraces, the villages, the river road, a lunch they are sure is still cooking, and the dzong where two rivers meet. Rain, mud, a narrow bridge,..."
+   "summary": "Rice terraces, villages, the river road and the dzong where two rivers meet. Expect rain, mud, a narrow bridge, a ford and farm traffic."
   },
   {
    "n": 5,
@@ -147,7 +147,7 @@
     "heavyRain/day",
     "fog/dusk"
    ],
-   "summary": "The tourists lingered too long at the 108 chortens, and a mountain storm is now rolling over the pass. Cloud will swallow the road, fog will hide the trucks, rain will turn the hairpins to glass and a landslide waits..."
+   "summary": "Get your guests down from Dochula before a storm closes in. Fog, heavy rain, slippery hairpins and a landslide below."
   },
   {
    "n": 6,
@@ -167,7 +167,7 @@
     "fog/day",
     "clear/dusk"
    ],
-   "summary": "A group of tourists needs to reach Trongsa through the roughest mountains in central Bhutan, on a road that is narrow, patched, and increasingly unpredictable. A cliff ledge, a gorge that cooks the brakes, a one-lane..."
+   "summary": "A narrow, patched mountain road to Trongsa: a cliff ledge, a one-lane bridge, falling rocks and a muddy climb. Watch your brakes."
   },
   {
    "n": 7,
@@ -186,7 +186,7 @@
     "snow/day",
     "fog/dusk"
    ],
-   "summary": "The tourists insist on seeing Chele La, the highest road pass in Bhutan, and the weather has other plans. Climb from the Paro foothills through forest and fourteen hairpins to the snowy viewpoint: frost, packed snow,..."
+   "summary": "Fourteen hairpins from the Paro foothills to the snowy Chele La viewpoint. Frost, packed snow and ice, with deeper snow for four-wheel drive."
   },
   {
    "n": 8,
@@ -206,7 +206,7 @@
     "fog/night",
     "rain/night"
    ],
-   "summary": "A group of tourists left it too late to leave Bumthang. Now the sun is going down on a long, lonely forest road: unlit bridges, fog in the settlements, animals in the headlights, and some things in the headlights..."
+   "summary": "A long forest road after dark, with fog, unlit bridges and animals in your headlights. Your lamps only reach about forty metres."
   },
   {
    "n": 9,
@@ -225,7 +225,7 @@
     "heavyRain/day",
     "clear/day"
    ],
-   "summary": "A documentary team, forty cases of gear and a tent that does not fit in the car have to reach a remote expedition camp. The tracks are mud, the highway is broken, the bridge is in the river, the mountain keeps..."
+   "summary": "Take a documentary team and their gear to a remote camp over mud tracks, a broken highway and rockfalls, with the rains arriving early."
   },
   {
    "n": 10,
@@ -244,7 +244,7 @@
     "heavyRain/day",
     "cloudy/dusk"
    ],
-   "summary": "The final assignment: bring a manifest of guests from a southern mountain lodge to the Gelephu Mindfulness City arrival hall, over everything the kingdom can throw at a car: a brake-cooking descent, landslides, mud,..."
+   "summary": "The final assignment: guests from a southern mountain lodge to Gelephu Mindfulness City, over a long descent, landslides, mud, river crossings, a monsoon storm and a busy town. Check passengers’ ID."
   }
  ]
 }

@@ -46,7 +46,7 @@ const io = new IntersectionObserver(
   { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
 );
 function watch(root = document) {
-  $$('.eyebrow, .section h2, .section-lede, .plat, .card, .panel, .team, .tile, .support-box, .tracks, .veh-stage, details', root).forEach((el, i) => {
+  $$('.eyebrow, .section h2, .section-lede, .prose, .answers, .plat, .card, .panel, .team, .tile, .support-box, .tracks, .veh-stage, details', root).forEach((el, i) => {
     if (el.classList.contains('reveal')) return;
     el.classList.add('reveal');
     el.style.setProperty('--d', `${(i % 4) * 0.07}s`);
@@ -195,7 +195,7 @@ json('game-data.json')
     watch(rail);
   })
   .catch(() => {
-    $('#rail').innerHTML = '<li class="route"><div class="route-body"><h3>Ten routes</h3><p>Open the game to see them all.</p></div></li>';
+    $('#rail').innerHTML = '<li class="route"><div class="route-body"><h3>Ten routes</h3><p>The route list could not be loaded. Open the game to see every level.</p></div></li>';
   });
 
 $$('.rail-btn').forEach((b) =>
@@ -207,12 +207,12 @@ $$('.rail-btn').forEach((b) =>
 
 /* ------------------------------------------------------------------ weather & wildlife bento (real screenshots) */
 const BENTO = [
-  { src: 'wild-snow', cls: 'big', cap: 'Snowline', small: 'Chele La. Packed snow, ice and 4x4.' },
-  { src: 'wild-night', cls: 'tall', cap: 'Night run', small: 'Bumthang. Your lamps show forty metres.' },
-  { src: 'wild-storm', cls: '', cap: 'Monsoon storm', small: 'Dochula. Heavy rain, long braking.' },
-  { src: 'wild-fog', cls: '', cap: 'Mountain fog', small: 'Markers glow, trucks hide.' },
-  { src: 'wild-creatures', cls: 'big', cap: 'Local residents', small: 'Yaks, bears, yetis, and things that are not bears.' },
-  { src: 'wild-ford', cls: '', cap: 'River fords', small: 'Wading depth decides who crosses.' },
+  { src: 'wild-snow', cls: 'big', cap: 'Snow and ice', small: 'Chele La. Four-wheel drive helps.' },
+  { src: 'wild-night', cls: 'tall', cap: 'Night driving', small: 'Thimphu after dark.' },
+  { src: 'wild-storm', cls: '', cap: 'Heavy rain', small: 'Dochula. Roads get slippery.' },
+  { src: 'wild-fog', cls: '', cap: 'Fog', small: 'Visibility drops on the mountain roads.' },
+  { src: 'wild-creatures', cls: 'big', cap: 'Animals on the road', small: 'Yaks and other wildlife, plus a few fictional creatures.' },
+  { src: 'wild-ford', cls: '', cap: 'River crossings', small: 'Some vehicles wade deeper than others.' },
 ];
 {
   const b = $('#bento');
@@ -261,7 +261,7 @@ function artifactBlock(a) {
 
 json('release.json')
   .then((rel) => {
-    $('#release-line').innerHTML = `Version <b>${esc(rel.version)}</b>${rel.date ? ` · ${esc(rel.date)}` : ''} · ${esc(rel.channel || 'public beta')}. Downloads below are the published release files, straight from GitHub.`;
+    $('#release-line').innerHTML = `Version <b>${esc(rel.version)}</b>${rel.date ? ` · ${esc(rel.date)}` : ''} · ${esc(rel.channel || 'public beta')}. The downloads below link to the published release files on GitHub. This is a beta, so some things may not work as they should.`;
     for (const platform of ['windows', 'android']) {
       const card = $(`#plat-${platform}`);
       const arts = (rel.artifacts || []).filter((a) => a.platform === platform && isGithub(a.url));
@@ -272,7 +272,7 @@ json('release.json')
         box.innerHTML = '<div class="unavailable">No download available</div>';
         continue;
       }
-      note.textContent = platform === 'android' ? 'Signed ARM64 APK for direct installation.' : 'Windows x64 installers: pick EXE or MSI.';
+      note.textContent = platform === 'android' ? 'A signed APK for direct installation.' : 'Choose the EXE installer or the MSI package.';
       arts.forEach((a) => box.append(artifactBlock(a)));
     }
     $('#cl-version').textContent = rel.version;
@@ -366,9 +366,36 @@ json('../support.json')
       return `<div class="opt">${where}<b>${esc(c.title)}</b><small>${esc(c.description || 'You will leave this site and pay on the provider’s own page.')}${how ? ` Available as ${how}.` : ''}</small><a class="btn btn-fire" href="${esc(c.url)}" target="_blank" rel="noopener noreferrer">Support on ${esc(c.title)}</a></div>`;
     };
     box.innerHTML = `<h3>${active.length ? 'Ways to say thank you' : 'Support is being set up'}</h3>
-      ${active.length ? '' : '<p class="fine">We are verifying our payment channels before switching anything on. Nothing on this site asks for payment today, and the game stays free. If you would like to be told when support opens, say so in the in-game feedback form.</p>'}
+      ${active.length ? '' : '<p class="fine">We&rsquo;re still checking our payment options, so there&rsquo;s nothing to pay or scan yet. The game stays free either way.</p>'}
       ${active.map((c) => card(c, true)).join('')}${pending.map((c) => card(c, false)).join('')}`;
   })
   .catch(() => {
     $('#support-box').innerHTML = '<h3>Support is being set up</h3><p class="fine">Nothing on this site asks for payment today.</p>';
   });
+
+/* ------------------------------------------------------------------ share + footer links that open a details block */
+{
+  const btn = $('#share-btn');
+  const msg = $('#share-msg');
+  const data = { title: 'Crazy Bhutan Hill Race', text: 'A free driving game inspired by Bhutan, now in public beta.', url: 'https://crazy-bhutan-hill-race.vercel.app/' };
+  btn.addEventListener('click', async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share(data);
+        return;
+      }
+      await navigator.clipboard.writeText(data.url);
+      msg.textContent = 'Link copied.';
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+      msg.textContent = `Link: ${data.url}`;
+    }
+    setTimeout(() => (msg.textContent = ''), 4000);
+  });
+  const openTarget = () => {
+    const t = location.hash ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+    if (t && t.tagName === 'DETAILS') t.open = true;
+  };
+  addEventListener('hashchange', openTarget);
+  openTarget();
+}

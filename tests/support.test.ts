@@ -138,7 +138,7 @@ describe('the support promises are not contradicted anywhere in the game data', 
     }
     const page = readFileSync('public/download/index.html', 'utf8');
     expect(page).toMatch(/not tax-deductible/i);
-    expect(page).toMatch(/no advantage for anyone who contributes/i);
+    expect(page).toMatch(/no gameplay advantage for anyone who contributes/i);
     expect(page).toMatch(/never collect card or bank details/i);
   });
 });

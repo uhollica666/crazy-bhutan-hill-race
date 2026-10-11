@@ -4,13 +4,12 @@
   "channel": "public beta",
   "releaseUrl": "https://github.com/uhollica666/crazy-bhutan-hill-race/releases/tag/v0.4.0-beta.2",
   "notes": [
-    "The game is now completely silent when it loses focus: tab switch, minimised window, phone lock and the Windows and Android apps' own window focus. Sound returns once, at your saved volumes.",
-    "Music leads the mix: engine and effects sit underneath and the default Environment level is much lower. Deliberate volume choices you made are kept.",
-    "Settings now explain every volume slider; Mute music and Mute all remain independent.",
-    "New launch page with routes, garage, weather, soundtrack, downloads with checksums, controls and community.",
-    "Join-the-team interest form, feedback and bug-report links, and a GitHub star link.",
-    "Voluntary support screen (menu, Settings, About). Support channels are still being verified: nothing to pay yet, nothing unlocked by it, ever.",
-    "Android update installs over beta.1: same signing key, higher version code."
+    "All game sound now stops when the game loses focus: switching tabs, minimising, locking a phone, or switching apps. It comes back at your saved volumes.",
+    "Music is now the main layer in the mix, and the default environment volume is lower. If you have changed your volume settings before, they are kept.",
+    "Settings now explain each volume control. Mute music and Mute all stay separate.",
+    "A redesigned download page with routes, vehicles, controls and feedback links.",
+    "A way to tell us you'd like to help with the project, and a Support screen. Support options are not active yet, and nothing in the game depends on them.",
+    "The Android update installs over beta.1, because it uses the same signing key and a higher version code."
   ],
   "artifacts": [
     {
